@@ -10,6 +10,10 @@ import (
 
 // everyAbilityTheTradingServiceOffers is this connector's promise written down.
 //
+// The trading service's own chat assistant is deliberately absent, and this list is
+// where that decision is enforced: adding it back turns this test red, which is the
+// point. One AI must not be able to spend another AI's budget on its own initiative.
+//
 // It is a literal list rather than something derived from the catalogue, which is the
 // only way it can catch anything: a list read out of the thing it is checking agrees
 // with it by construction. When the trading service gains an endpoint, this list gains
@@ -74,10 +78,6 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_save_telegram_delivery":     true,
 	"trading_remove_telegram_delivery":   true,
 	"trading_send_telegram_test_message": true,
-	// 行情對話助手
-	"trading_ask_assistant":                true,
-	"trading_list_assistant_conversations": true,
-	"trading_get_assistant_conversation":   true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
@@ -130,5 +130,25 @@ func TestOnlyWatchingAnAbilityStaysOnTheLine(t *testing.T) {
 
 		assert.Zero(t, request.LiveUpdateWaitLimit,
 			"只有「看一眼即時更新」該停在線上：%s", apiTool.Name())
+	}
+}
+
+// TestNoAbilityLetsOneAssistantSpendAnothersBudget is a guard on a boundary, not a
+// spelling check.
+//
+// The trading service has its own chat assistant, and relaying it would be trivial —
+// three more entries in the catalogue. It is left out because an assistant that can
+// call an assistant can run up a token bill with nobody in between deciding it was
+// worth it, and each of those calls is minutes long and costs real money.
+//
+// The person can still use that assistant directly. What must not exist is a model's
+// ability to reach for it unprompted, so this checks that no such entry has quietly
+// come back.
+func TestNoAbilityLetsOneAssistantSpendAnothersBudget(t *testing.T) {
+	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+		assert.NotContains(t, apiTool.Name(), "assistant",
+			"外掛不代 AI 去問另一個 AI：%s", apiTool.Name())
+		assert.NotContains(t, apiTool.Name(), "chat",
+			"外掛不代 AI 去問另一個 AI：%s", apiTool.Name())
 	}
 }

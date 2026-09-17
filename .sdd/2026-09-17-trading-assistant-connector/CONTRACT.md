@@ -67,7 +67,7 @@
 | AC-22 | 回溯天數超過上限 | 拒絕，並帶回「上限是幾天」 | `trading_service_response_vo.go`（`ToToolResultDto`） | `api_tool_application_test.go:256`（一字不差斷言） | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-23 | 沒登錄過的交易標的 | 拒絕，並說那個標的不存在 | `trading_service_proxy.go:242`（404→refused、原話） | `trading_service_proxy_test.go:107`（404 列）、`mcp_controller_test.go:259` | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-24 | 讀別人的、沒上架的策略腳本 | 拒絕，並轉述交易服務的說法 | 同上（403 →refused、原話） | `trading_service_proxy_test.go:107`（403 列） | asserts-oracle | produces-oracle | ✅ conforms |
-| AC-25 | 今日助手額度用盡 | 拒絕，並轉述何時重置 | 同上（429 →refused、原話） | `trading_service_proxy_test.go:107`（429 列） | asserts-oracle | produces-oracle | ✅ conforms |
+| ~~AC-25~~ | ~~今日助手額度用盡~~ | — | **已移除**：行情對話助手不再被代理（見下方決策），這條情境隨之從契約移除。429 的原話轉述本身仍有測試守著（`trading_service_proxy_test.go:107`） | — | — | — | ➖ withdrawn |
 | AC-26 | 交易服務整個連不上 | 拒絕並說「連不到交易服務」，明確不是使用者做錯了 | `trading_service_proxy.go:230`、`failure_reason_domain.go:47` | `api_tool_application_test.go:269`、`trading_service_proxy_test.go:155` | asserts-oracle | produces-oracle | ✅ conforms |
 
 ### US-08 — 看一眼即時更新
@@ -82,7 +82,7 @@
 
 | ID | Clause | Oracle | Implementation | Test | Test audit | Code audit | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| AC-30 | 能力清單涵蓋每一件事 | 十類共 51 件轉達能力全在清單上 | `cmd/server/tool_catalog*.go` | `tool_catalog_test.go:83`（對照手寫全集，相等斷言）、`dependencies_test.go:21`（真的掛上去了） | asserts-oracle | produces-oracle | ✅ conforms |
+| AC-30 | 能力清單涵蓋每一件事 | 九類共 48 件轉達能力全在清單上，且**行情對話助手那三件不在** | `cmd/server/tool_catalog*.go` | `tool_catalog_test.go:83`（對照手寫全集，相等斷言）、`dependencies_test.go:21`（真的掛上去了） | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-31 | 每件事說得出要不要身分與要填什麼 | 每件都帶說明、欄位與身分需求 | `api_tool_domain.go:85`、`api_tool_controller.go:71` | `tool_catalog_test.go:103`、`mcp_controller_test.go:117` | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-32 | 交易服務新增了一件事而外掛還沒補上 | 那一件不在清單上 | 清單是宣告式的，未宣告即不存在 | `tool_catalog_test.go:83`（相等斷言，多一件少一件都紅） | asserts-oracle | produces-oracle | ✅ conforms |
 
@@ -122,7 +122,7 @@
 | O-1 | `trading_renew_session`（手動立刻換一份新登入） | BRIEF 的能力清單有「續用登入」，PRD 無專屬 scenario | ⚠️ orphan（良性：功能在需求共識裡，只是沒被寫成驗收情境。建議補一條 AC） |
 | O-2 | 外掛自己的 `GET /health` | 無 | ⚠️ orphan（良性：維運用，不是業務能力，且不在 Out of Scope 之列） |
 
-**Out of Scope 反向檢查**：PRD 列的五項（不存行情、不改規則、不做持續推送、不記密碼、不做自己的資料庫）逐項核對，**沒有任何一項被實作** — 無違規。
+**Out of Scope 反向檢查**：PRD 列的六項（不存行情、不改規則、不做持續推送、不記密碼、不做自己的資料庫、**不代理行情對話助手**）逐項核對，**沒有任何一項被實作** — 無違規。最後一項另有專屬測試守著（`tool_catalog_test.go` 的 `NoAbilityLetsOneAssistantSpendAnothersBudget`），因為它是一條關於「不存在」的規定，而不存在的東西沒有別的方式驗得出來。
 
 ---
 
@@ -130,7 +130,8 @@
 
 | | |
 | :--- | :--- |
-| ✅ conforms | 48 |
+| ✅ conforms | 47 |
+| ➖ withdrawn | 1（AC-25，隨範圍變更移除） |
 | 🟡 partial | 1（NFR-1） |
 | ❌ gap | 0 |
 | 🔴 violation | 0 |
@@ -138,7 +139,7 @@
 | ❔ unclear | 0 |
 | ⚠️ orphan | 2（皆良性） |
 
-**Conformance: 98%（49 條中 48 條完全符合）**
+**Conformance: 98%（48 條中 47 條完全符合）**
 
 ### 第一輪的發現與處置
 
@@ -153,3 +154,17 @@
 
 - **NFR-1（外掛自己不做任何運算）** 🟡 — 這是一條關於「沒有什麼」的規定，只能由結構保證（domain 裡沒有任何行情或指標運算），沒有一條測試寫得出它。維持 partial 是誠實的說法，不是待辦。
 - **O-1（`trading_renew_session`）** ⚠️ — 功能在需求共識（BRIEF）的能力清單裡，但 PRD 沒有寫成驗收情境。行為已有測試覆蓋（`RenewingOnDemandReachesTheAssistantAsOneOfThreeDifferentAnswers`）。建議下次動這塊時補一條 AC，不必現在改程式。
+
+---
+
+## 範圍變更紀錄
+
+**2026-09-18 — 移除行情對話助手的三件能力（提問、列出對話、讀一段對話）。**
+
+理由不是成本，是誰在做決定：代理它等於讓**一個 AI 自己決定去花另一個 AI 的錢**。
+那個助手一次回答來回數十趟、要好幾分鐘、按 token 計費，而中間沒有任何人判斷過
+這一次值不值得。使用者自己去用它沒有問題；不該存在的是「助理可以自己伸手拿」這件事。
+
+處置：從能力清單移除（48 件轉達能力），BRIEF／PRD 的 Out of Scope 各補一條，
+AC-25 隨之撤回，並補一條**專屬的反向測試**——不存在的能力沒有辦法被誤呼叫，
+也沒有哪次重構能不小心把它放回來。

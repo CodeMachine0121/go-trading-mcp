@@ -109,37 +109,3 @@ func telegramDeliveryApiTools() []domains.ApiToolDomain {
 		),
 	}
 }
-
-func assistantConversationApiTools() []domains.ApiToolDomain {
-	return []domains.ApiToolDomain{
-		domains.NewApiToolDomain(
-			"trading_ask_assistant",
-			"問交易服務內建的行情助手一句話。"+
-				"\n\n**它回 202，不回答案。** 它收下問題、回覆對話識別碼與這次回答的識別碼，"+
-				"答案在連線之外寫完——一次回答可能來回四十趟，那可能是好幾分鐘。"+
-				"請隔一會兒用 trading_get_assistant_conversation 讀那段對話，看最後一則的 status："+
-				"running（還在寫）、answered（寫完了）、failed（壞了，並留下一句原因）。"+
-				"\n\n**同一段對話一次只跑一則**，前一則還在寫時再送會回 409。"+
-				"不指名對話即開一段新的。今日額度用盡回 429 並說明何時重置。"+
-				"\n\n注意：這個助手與你（正在讀這段文字的助理）是兩回事。"+
-				"它跑在交易服務裡、看得到交易服務的資料，但不知道這段對話。",
-			vo.RequestVerbSubmit, "/chat", true,
-			bodyParameter("question", vo.ToolParameterKindString, "要問什麼。空白即拒絕", true),
-			bodyParameter("conversationId", vo.ToolParameterKindInteger,
-				"要接著問哪一段對話。省略即開一段新的", false),
-		),
-		domains.NewApiToolDomain(
-			"trading_list_assistant_conversations",
-			"列出與行情助手的每一段對話，最近有動靜的排前面。",
-			vo.RequestVerbRead, "/chat/conversations", true,
-		),
-		domains.NewApiToolDomain(
-			"trading_get_assistant_conversation",
-			"讀一段對話的每一則訊息，依時間由早到晚。"+
-				"\n\n這是拿 trading_ask_assistant 那個問題的答案的方式。"+
-				"看最後一則的 status：running 就等一下再讀一次。",
-			vo.RequestVerbRead, "/chat/conversations/{id}", true,
-			pathParameter("id", "對話識別碼"),
-		),
-	}
-}

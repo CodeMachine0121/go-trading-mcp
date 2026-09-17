@@ -96,6 +96,12 @@ func backtestParameters() []vo.ToolParameterVo {
 
 // apiToolCatalog is everything this connector can do.
 //
+// **One thing the trading service offers is deliberately not here: its own chat
+// assistant.** Relaying it would let one AI spend another AI's budget — an assistant
+// calling an assistant, with a token bill attached and nobody between them deciding
+// it was worth it. The person can still use that assistant directly; what is removed
+// is a model's ability to reach for it unprompted.
+//
 // **This list is the feature.** Every ability shares one path through the connector,
 // so what makes fifty of them fifty different things is only what is written here.
 // Adding the fifty-first is adding an entry — no handler, no branch, nothing in any
@@ -118,7 +124,6 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
 	catalog = append(catalog, backtestApiTools()...)
 	catalog = append(catalog, strategyBotApiTools()...)
 	catalog = append(catalog, telegramDeliveryApiTools()...)
-	catalog = append(catalog, assistantConversationApiTools()...)
 
 	return catalog
 }

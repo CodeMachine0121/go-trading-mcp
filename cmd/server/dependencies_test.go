@@ -56,6 +56,11 @@ func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
 	}
 
 	assert.Len(t, offeredNames, len(everyAbilityTheTradingServiceOffers)+3)
+
+	for offeredName := range offeredNames {
+		assert.NotContains(t, offeredName, "assistant",
+			"掛上去的東西裡也不該有「代 AI 問另一個 AI」這種能力：%s", offeredName)
+	}
 }
 
 func TestTheConnectorSaysItIsAliveWithoutTouchingTheTradingService(t *testing.T) {
