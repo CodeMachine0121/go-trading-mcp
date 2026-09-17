@@ -17,4 +17,14 @@ type ISignedInSessionRepository interface {
 	Find(sessionKey vo.SessionKeyVo) (domains.SignedInSessionDomain, bool)
 	Save(sessionKey vo.SessionKeyVo, signedInSession domains.SignedInSessionDomain)
 	Remove(sessionKey vo.SessionKeyVo)
+
+	// RemoveUnusable forgets every identity for which the given judgement says there
+	// is nothing left to use.
+	//
+	// It exists because a connection can go away without saying so — a laptop shuts,
+	// a client crashes — and nothing then arrives to trigger a signing-out. Without
+	// this, every connection that ever signed in leaves a live pair of proofs in
+	// memory for as long as the process runs: a store that only grows, holding
+	// credentials nobody is coming back for.
+	RemoveUnusable(isUnusable func(signedInSession domains.SignedInSessionDomain) bool)
 }

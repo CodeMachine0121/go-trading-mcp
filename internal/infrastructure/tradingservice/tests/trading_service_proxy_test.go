@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -331,4 +332,42 @@ func TestAnAddressThatCannotBeBuiltIsSaidRatherThanSent(t *testing.T) {
 		vo.TradingServiceRequestVo{Verb: vo.RequestVerbRead, Path: "/health"}, "")
 
 	assert.ErrorIs(t, sendError, domains.ErrTradingServiceUnreachable)
+}
+
+func TestAStreamThatBreaksMidWayIsNotReportedAsAQuietMarket(t *testing.T) {
+	standIn := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "text/event-stream")
+			writer.(http.Flusher).Flush()
+			// 一行長到讀不完——對讀的人來說，這跟「線斷了」是同一件事。
+			_, _ = writer.Write([]byte("data: " + strings.Repeat("x", 128*1024)))
+		}))
+	t.Cleanup(standIn.Close)
+
+	proxy := tradingservice.NewTradingServiceProxy(standIn.URL, 5*time.Second)
+
+	_, sendError := proxy.Send(context.Background(), vo.TradingServiceRequestVo{
+		Verb:                vo.RequestVerbRead,
+		Path:                "/k-candles/live",
+		LiveUpdateWaitLimit: 2 * time.Second,
+	}, "")
+
+	assert.ErrorIs(t, sendError, domains.ErrTradingServiceUnreachable,
+		"說成「這段時間沒有更新」會讓人去看市場，而該看的是線路")
+}
+
+func TestAnAnswerIsReadOnlyUpToACeiling(t *testing.T) {
+	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
+		writer.Header().Set("Content-Type", "application/json")
+		for range 40 {
+			_, _ = writer.Write([]byte(strings.Repeat("x", 1<<20)))
+		}
+	})
+
+	response, sendError := proxy.Send(context.Background(),
+		vo.TradingServiceRequestVo{Verb: vo.RequestVerbRead, Path: "/k-candles"}, "")
+
+	require.NoError(t, sendError)
+	assert.LessOrEqual(t, len(response.Content), 16<<20,
+		"沒有上限的讀取會讓一個意外的大回應變成整個外掛的死亡——連帶帶走每個人的登入")
 }

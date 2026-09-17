@@ -13,15 +13,21 @@ import (
 // that matters is the trading service's address: point it at the wrong place and
 // nothing here works, which is why it is first.
 type ApplicationConfig struct {
+	ServerBindAddress            string
 	ServerPort                   string
 	McpPath                      string
 	TradingServiceBaseUrl        string
 	TradingServiceRequestTimeout time.Duration
 	LiveUpdateWaitLimit          time.Duration
+	IdleConnectionTimeout        time.Duration
 }
 
 func loadApplicationConfig() ApplicationConfig {
 	return ApplicationConfig{
+		// 預設只聽 loopback。這個外掛的 MCP 端點**沒有任何門鎖**——連得到的人就開得了
+		// 一段連線並以自己的帳號登入。聽在每一張網卡上，等於在咖啡廳的 wifi 上開一扇
+		// 沒有鎖的門，而且沒有任何跡象顯示它開著。要對外開放請是個明確的動作。
+		ServerBindAddress:     textWithDefault("SERVER_BIND_ADDRESS", "127.0.0.1"),
 		ServerPort:            textWithDefault("SERVER_PORT", "8090"),
 		McpPath:               textWithDefault("MCP_PATH", "/mcp"),
 		TradingServiceBaseUrl: textWithDefault("TRADING_SERVICE_BASE_URL", "http://localhost:8080"),
@@ -29,6 +35,8 @@ func loadApplicationConfig() ApplicationConfig {
 			wholeNumberWithDefault("TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS", 30)) * time.Second,
 		LiveUpdateWaitLimit: time.Duration(
 			wholeNumberWithDefault("LIVE_UPDATE_WAIT_LIMIT_SECONDS", 10)) * time.Second,
+		IdleConnectionTimeout: time.Duration(
+			wholeNumberWithDefault("IDLE_CONNECTION_TIMEOUT_MINUTES", 60)) * time.Minute,
 	}
 }
 

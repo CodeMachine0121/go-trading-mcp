@@ -59,7 +59,12 @@ func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
 // the other end.
 func buildHttpHandler(applicationConfig ApplicationConfig, server *mcp.Server) http.Handler {
 	mcpHandler := mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return server }, nil)
+		func(*http.Request) *mcp.Server { return server },
+		&mcp.StreamableHTTPOptions{
+			// 沒有這一行，每一段連過的連線都會被留著，直到行程結束為止——
+			// 一個只會長大、永遠不會縮小的表。閒置到期的代價只是重新登入一次。
+			SessionTimeout: applicationConfig.IdleConnectionTimeout,
+		})
 
 	router := http.NewServeMux()
 	router.Handle(applicationConfig.McpPath, mcpHandler)

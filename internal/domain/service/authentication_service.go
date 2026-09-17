@@ -62,6 +62,8 @@ func (authenticationService *AuthenticationService) SignIn(
 		}, nil
 	}
 
+	authenticationService.forgetWhatNobodyCanUse()
+
 	signedInSession := domains.NewSignedInSessionDomain(signInDto.Email, sessionGrant.Tokens)
 	authenticationService.signedInSessionRepository.Save(sessionKey, signedInSession)
 
@@ -189,4 +191,24 @@ func (authenticationService *AuthenticationService) renewOnce(
 	authenticationService.signedInSessionRepository.Save(sessionKey, renewedSession)
 
 	return renewedSession.AccessToken(), nil
+}
+
+// forgetWhatNobodyCanUse drops every identity that can no longer do anything.
+//
+// "Can no longer do anything" is not a new rule invented for tidiness — it is
+// IsRenewable, the same line that already decides whether somebody has to sign in
+// again. Once the renewal half is gone, the pair cannot be refreshed and the short
+// half has long since lapsed: what is left is a credential that would be refused if
+// it were used, and that nobody will ever come back for.
+//
+// It runs on signing in rather than on a timer. Signing in is the only moment the
+// store grows, so it is the only moment the growth needs answering — and doing it
+// here means no goroutine to start, stop, or leak in its own right.
+func (authenticationService *AuthenticationService) forgetWhatNobodyCanUse() {
+	now := authenticationService.clock.Now()
+
+	authenticationService.signedInSessionRepository.RemoveUnusable(
+		func(signedInSession domains.SignedInSessionDomain) bool {
+			return !signedInSession.IsRenewable(now)
+		})
 }

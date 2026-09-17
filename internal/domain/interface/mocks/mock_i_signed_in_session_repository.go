@@ -68,6 +68,18 @@ func (mr *MockISignedInSessionRepositoryMockRecorder) Remove(sessionKey any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockISignedInSessionRepository)(nil).Remove), sessionKey)
 }
 
+// RemoveUnusable mocks base method.
+func (m *MockISignedInSessionRepository) RemoveUnusable(isUnusable func(domains.SignedInSessionDomain) bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveUnusable", isUnusable)
+}
+
+// RemoveUnusable indicates an expected call of RemoveUnusable.
+func (mr *MockISignedInSessionRepositoryMockRecorder) RemoveUnusable(isUnusable any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUnusable", reflect.TypeOf((*MockISignedInSessionRepository)(nil).RemoveUnusable), isUnusable)
+}
+
 // Save mocks base method.
 func (m *MockISignedInSessionRepository) Save(sessionKey vo.SessionKeyVo, signedInSession domains.SignedInSessionDomain) {
 	m.ctrl.T.Helper()

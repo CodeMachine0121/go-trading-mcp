@@ -25,7 +25,7 @@ func main() {
 
 	applicationConfig := loadApplicationConfig()
 	httpServer := &http.Server{
-		Addr:    ":" + applicationConfig.ServerPort,
+		Addr:    applicationConfig.ServerBindAddress + ":" + applicationConfig.ServerPort,
 		Handler: buildHttpHandler(applicationConfig, buildMcpServer(applicationConfig)),
 	}
 
@@ -34,9 +34,16 @@ func main() {
 	defer stopListening()
 
 	go func() {
-		log.Printf("交易助理外掛啟動於 :%s%s，交易服務為 %s",
-			applicationConfig.ServerPort, applicationConfig.McpPath,
-			applicationConfig.TradingServiceBaseUrl)
+		log.Printf("交易助理外掛啟動於 %s:%s%s，交易服務為 %s",
+			applicationConfig.ServerBindAddress, applicationConfig.ServerPort,
+			applicationConfig.McpPath, applicationConfig.TradingServiceBaseUrl)
+
+		if applicationConfig.ServerBindAddress != "127.0.0.1" &&
+			applicationConfig.ServerBindAddress != "localhost" {
+			log.Printf("注意：正在聽 %s——這個端點沒有任何門鎖，"+
+				"連得到的人就開得了一段連線並以自己的帳號登入",
+				applicationConfig.ServerBindAddress)
+		}
 
 		if serveError := httpServer.ListenAndServe(); !errors.Is(serveError, http.ErrServerClosed) {
 			log.Fatalf("外掛停止服務：%v", serveError)

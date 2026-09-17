@@ -148,3 +148,32 @@ func TestRenewingWithoutHavingSignedInAsksYouToSignIn(t *testing.T) {
 
 	assert.ErrorIs(t, renewalError, domainsErrSignInRequired())
 }
+
+// TestSigningInLetsGoOfIdentitiesNobodyCanUseAnyMore guards the one place this
+// connector's memory could grow without bound.
+//
+// A connection can disappear without ever signing out — a laptop shuts, a client
+// crashes. Nothing then arrives to clear its drawer, so without this every
+// connection that ever signed in leaves a live pair of proofs behind for as long as
+// the process runs.
+func TestSigningInLetsGoOfIdentitiesNobodyCanUseAnyMore(t *testing.T) {
+	connector := newConnector(t, listStrategyScripts())
+
+	// 甲登入之後就人間蒸發了，而且它那一份連續用都過期了——再也做不了任何事。
+	connector.signInOn(t, aConnection, aStaleGrant("abandoned"))
+
+	// 乙登入。這是這個外掛唯一會長大的時刻，所以也是該放手的時刻。
+	connector.signInOn(t, anotherConnection, aLiveGrant("current"))
+
+	connector.tradingService.EXPECT().
+		Send(gomock.Any(), gomock.Any(), "current").
+		Return(succeededWith("[]"), nil)
+
+	abandoned := connector.call("trading_list_strategy_scripts", aConnection)
+	current := connector.call("trading_list_strategy_scripts", anotherConnection)
+
+	assert.Equal(t, dto.ToolOutcomeSignInRequired, abandoned.Outcome,
+		"那一份已經被放掉了——不是「失效」，是不在了")
+	assert.Equal(t, dto.ToolOutcomeSucceeded, current.Outcome,
+		"還用得到的那一份一根寒毛都不能動")
+}

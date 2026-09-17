@@ -78,3 +78,30 @@ func TestManyConnectionsComingAndGoingAtOnceDoNotTreadOnEachOther(t *testing.T) 
 	_, isSignedIn := repository.Find(vo.NewSessionKeyVo("connection-0"))
 	assert.False(t, isSignedIn)
 }
+
+func TestIdentitiesNobodyCanUseAnyMoreAreForgotten(t *testing.T) {
+	repository := persistence.NewSignedInSessionRepository()
+	repository.Save(vo.NewSessionKeyVo("gone"), sessionFor("left@example.com", "dead"))
+	repository.Save(vo.NewSessionKeyVo("here"), sessionFor("still@example.com", "live"))
+
+	repository.RemoveUnusable(func(signedInSession domains.SignedInSessionDomain) bool {
+		return signedInSession.AccessToken() == "dead"
+	})
+
+	_, goneIsKept := repository.Find(vo.NewSessionKeyVo("gone"))
+	kept, hereIsKept := repository.Find(vo.NewSessionKeyVo("here"))
+
+	assert.False(t, goneIsKept, "一台關掉的筆電不會回來說它登出了，所以得有人替它放手")
+	assert.True(t, hereIsKept)
+	assert.Equal(t, "still@example.com", kept.Email())
+}
+
+func TestForgettingNothingLeavesEverythingAlone(t *testing.T) {
+	repository := persistence.NewSignedInSessionRepository()
+	repository.Save(vo.NewSessionKeyVo("here"), sessionFor("still@example.com", "live"))
+
+	repository.RemoveUnusable(func(domains.SignedInSessionDomain) bool { return false })
+
+	_, isKept := repository.Find(vo.NewSessionKeyVo("here"))
+	assert.True(t, isKept)
+}

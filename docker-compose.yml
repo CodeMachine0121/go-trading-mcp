@@ -19,10 +19,14 @@ services:
     environment:
       # 交易服務在哪。填錯這一個，其餘全部不會動。
       TRADING_SERVICE_BASE_URL: ${TRADING_SERVICE_BASE_URL:-http://host.docker.internal:8080}
+      # 容器裡**必須**聽 0.0.0.0，否則發佈出來的連接埠接不到任何東西。
+      # 門鎖在上面那一行：發佈時只綁在宿主機的 127.0.0.1。
+      SERVER_BIND_ADDRESS: 0.0.0.0
       SERVER_PORT: "8090"
       MCP_PATH: /mcp
       TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS: "30"
       LIVE_UPDATE_WAIT_LIMIT_SECONDS: "10"
+      IDLE_CONNECTION_TIMEOUT_MINUTES: "60"
 
     extra_hosts:
       # Docker Desktop（macOS／Windows）本來就認得 host.docker.internal；

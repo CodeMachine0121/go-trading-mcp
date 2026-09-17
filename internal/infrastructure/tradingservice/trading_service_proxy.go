@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,18 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
+
+// answerSizeCeiling is the most of one answer this connector will read.
+//
+// The trading service is trusted, but "trusted" is about intent and this is about
+// accident: a query that matches far more than expected, a stuck stream, a reply
+// that is not what it claims. Reading without a ceiling turns any of those into this
+// process running out of memory — and a connector that dies takes every other
+// person's signed-in session with it.
+//
+// Sixteen mebibytes is far above the largest honest answer here (a thousand candles
+// is a few hundred kilobytes; a replay with its trade detail, a few megabytes).
+const answerSizeCeiling = 16 << 20
 
 // methodsPerVerbs is the one place an ask becomes an HTTP method.
 //
@@ -63,7 +76,7 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 	}
 	defer httpResponse.Body.Close()
 
-	content, readError := io.ReadAll(httpResponse.Body)
+	content, readError := io.ReadAll(io.LimitReader(httpResponse.Body, answerSizeCeiling))
 	if readError != nil {
 		return vo.TradingServiceResponseVo{}, fmt.Errorf(
 			"%w：%s", domains.ErrTradingServiceUnreachable, readError.Error())
@@ -169,12 +182,12 @@ func (tradingServiceProxy *TradingServiceProxy) peekLiveUpdates(
 	defer httpResponse.Body.Close()
 
 	if httpResponse.StatusCode != http.StatusOK {
-		content, _ := io.ReadAll(httpResponse.Body)
+		content, _ := io.ReadAll(io.LimitReader(httpResponse.Body, answerSizeCeiling))
 
 		return tradingServiceProxy.responseOf(httpResponse.StatusCode, string(content)), nil
 	}
 
-	lines := bufio.NewScanner(httpResponse.Body)
+	lines := bufio.NewScanner(io.LimitReader(httpResponse.Body, answerSizeCeiling))
 	for lines.Scan() {
 		update, isUpdate := strings.CutPrefix(lines.Text(), "data:")
 		if isUpdate {
@@ -183,6 +196,18 @@ func (tradingServiceProxy *TradingServiceProxy) peekLiveUpdates(
 				Content: strings.TrimSpace(update),
 			}, nil
 		}
+	}
+
+	// Running out of time is the ordinary way to leave this loop, and it is not a
+	// failure: a quiet market at three in the morning has nothing to send.
+	//
+	// Anything *else* that ends the stream is, and has to be told apart. A line too
+	// long to read, or a connection cut mid-event, would otherwise arrive as "nothing
+	// came through in ten seconds" — a sentence that is not true, and that sends
+	// somebody to look at the market when they should be looking at the wire.
+	if readError := lines.Err(); readError != nil && !errors.Is(readError, context.DeadlineExceeded) {
+		return vo.TradingServiceResponseVo{}, fmt.Errorf(
+			"%w：即時更新讀到一半斷了：%s", domains.ErrTradingServiceUnreachable, readError.Error())
 	}
 
 	return vo.TradingServiceResponseVo{

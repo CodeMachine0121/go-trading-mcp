@@ -54,3 +54,21 @@ func TestATimingThatMakesNoSenseFallsBackRatherThanStoppingTheConnector(t *testi
 		})
 	}
 }
+
+func TestTheConnectorOnlyListensOnLoopbackUnlessTheOperatorSaysOtherwise(t *testing.T) {
+	assert.Equal(t, "127.0.0.1", loadApplicationConfig().ServerBindAddress,
+		"這個端點沒有門鎖，所以聽在每一張網卡上必須是個明確的動作，不是預設值")
+}
+
+func TestOpeningItUpIsPossibleButHasToBeSaidOutLoud(t *testing.T) {
+	t.Setenv("SERVER_BIND_ADDRESS", "0.0.0.0")
+
+	assert.Equal(t, "0.0.0.0", loadApplicationConfig().ServerBindAddress)
+}
+
+func TestAnIdleConnectionIsNotHeldForever(t *testing.T) {
+	assert.Equal(t, 60*time.Minute, loadApplicationConfig().IdleConnectionTimeout)
+
+	t.Setenv("IDLE_CONNECTION_TIMEOUT_MINUTES", "15")
+	assert.Equal(t, 15*time.Minute, loadApplicationConfig().IdleConnectionTimeout)
+}

@@ -49,6 +49,19 @@ func (signedInSessionRepository *SignedInSessionRepository) Save(
 	signedInSessionRepository.sessionsPerSessionKeys[sessionKey.Value] = signedInSession
 }
 
+func (signedInSessionRepository *SignedInSessionRepository) RemoveUnusable(
+	isUnusable func(signedInSession domains.SignedInSessionDomain) bool,
+) {
+	signedInSessionRepository.guard.Lock()
+	defer signedInSessionRepository.guard.Unlock()
+
+	for sessionKey, signedInSession := range signedInSessionRepository.sessionsPerSessionKeys {
+		if isUnusable(signedInSession) {
+			delete(signedInSessionRepository.sessionsPerSessionKeys, sessionKey)
+		}
+	}
+}
+
 func (signedInSessionRepository *SignedInSessionRepository) Remove(sessionKey vo.SessionKeyVo) {
 	signedInSessionRepository.guard.Lock()
 	defer signedInSessionRepository.guard.Unlock()
