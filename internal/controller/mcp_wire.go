@@ -16,11 +16,12 @@ const bearerScheme = "bearer "
 //
 // It is the transport's own idea of the connection, so one caller can never be handed
 // another's identity by asking nicely: nothing in the call's contents influences it.
+//
+// There is deliberately no fallback for a call that arrives without one. A blank key
+// is not "anonymous" — it is a drawer that every such caller would share, which is the
+// one failure this whole design exists to make impossible. A call always has a session
+// here, and if that ever stops being true it should stop loudly.
 func sessionKeyOf(request *mcp.CallToolRequest) string {
-	if request.Session == nil {
-		return ""
-	}
-
 	return request.Session.ID()
 }
 

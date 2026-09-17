@@ -14,9 +14,3 @@ type SessionKeyVo struct {
 func NewSessionKeyVo(value string) SessionKeyVo {
 	return SessionKeyVo{Value: value}
 }
-
-// IsBlank reports whether this names no connection at all, which is what a caller
-// that cannot be told apart from any other looks like.
-func (sessionKeyVo SessionKeyVo) IsBlank() bool {
-	return sessionKeyVo.Value == ""
-}

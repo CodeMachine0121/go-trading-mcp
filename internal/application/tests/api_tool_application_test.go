@@ -321,3 +321,59 @@ func TestListingAbilitiesDescribesEveryOneOfThem(t *testing.T) {
 		map[string]bool{"trading_list_strategy_scripts": true, "trading_health": false},
 		requiresSignInPerNames)
 }
+
+func TestLosingTheTradingServiceBetweenTheRenewalAndTheRetryIsSaidAsSuch(t *testing.T) {
+	connector := newConnector(t, listStrategyScripts())
+	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
+	gomock.InOrder(
+		connector.tradingService.EXPECT().
+			Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").Return(notRecognized(), nil),
+		connector.tradingService.EXPECT().
+			RenewSession(gomock.Any(), "revoked-elsewhere-refresh").Return(aLiveGrant("fresh"), nil),
+		connector.tradingService.EXPECT().
+			Send(gomock.Any(), gomock.Any(), "fresh").
+			Return(vo.TradingServiceResponseVo{}, errors.New("connection reset")),
+	)
+
+	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
+
+	assert.Equal(t, dto.ToolOutcomeTradingServiceUnreachable, resultDto.Outcome)
+}
+
+func TestTwoRejectedAsksSpendTheRenewalOnceAndShareWhatItBought(t *testing.T) {
+	connector := newConnector(t, listStrategyScripts())
+	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
+
+	// 兩件事同時帶著同一份憑證出發，兩件都被交易服務退回來。它們會一起撞上續用那道門。
+	connector.tradingService.EXPECT().
+		Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").
+		Return(notRecognized(), nil).
+		Times(2)
+
+	// 先進門的那一件花掉續用；後進門的那一件看到手上已經換過了，就用換來的那一份。
+	// 兩件都去換的話，交易服務會把整條換發鏈作廢，把真正的使用者登出。
+	connector.tradingService.EXPECT().
+		RenewSession(gomock.Any(), "revoked-elsewhere-refresh").
+		Return(aLiveGrant("fresh"), nil).
+		Times(1)
+
+	connector.tradingService.EXPECT().
+		Send(gomock.Any(), gomock.Any(), "fresh").
+		Return(succeededWith("[]"), nil).
+		Times(2)
+
+	resultDtos := make([]dto.ToolResultDto, 2)
+	var bothDone sync.WaitGroup
+
+	bothDone.Add(2)
+	for index := range resultDtos {
+		go func() {
+			defer bothDone.Done()
+			resultDtos[index] = connector.call("trading_list_strategy_scripts", aConnection)
+		}()
+	}
+	bothDone.Wait()
+
+	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[0].Outcome)
+	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[1].Outcome)
+}
