@@ -43,21 +43,21 @@ func (apiToolController *ApiToolController) handle(
 	arguments := map[string]json.RawMessage{}
 	if len(request.Params.Arguments) > 0 {
 		if decodeError := json.Unmarshal(request.Params.Arguments, &arguments); decodeError != nil {
-			return refusal("送來的欄位不是一組可以讀的資料：" + decodeError.Error()), nil
+			return replyTo(dto.ToolResultDto{
+				Outcome: dto.ToolOutcomeInvalidArguments,
+				Content: "送來的欄位不是一組可以讀的資料：" + decodeError.Error(),
+			}), nil
 		}
 	}
 
-	resultDto := apiToolController.apiToolApplication.CallApiTool(ctx, dto.ToolCallDto{
+	caller := callerOn(request)
+
+	return replyTo(apiToolController.apiToolApplication.CallApiTool(ctx, dto.ToolCallDto{
 		ToolName:            request.Params.Name,
 		Arguments:           arguments,
-		SessionKey:          sessionKeyOf(request),
-		SuppliedAccessToken: suppliedAccessTokenOf(request),
-	})
-
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{&mcp.TextContent{Text: resultDto.Content}},
-		IsError: !resultDto.Succeeded(),
-	}, nil
+		SessionKey:          caller.SessionKey(),
+		SuppliedAccessToken: caller.SuppliedAccessToken(),
+	})), nil
 }
 
 // toMcpTool is one ability in the shape the assistant is shown it: its name, what it

@@ -344,10 +344,20 @@ func TestTwoRejectedAsksSpendTheRenewalOnceAndShareWhatItBought(t *testing.T) {
 	connector := newConnector(t, listStrategyScripts())
 	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
 
-	// 兩件事同時帶著同一份憑證出發，兩件都被交易服務退回來。它們會一起撞上續用那道門。
+	// 兩件事都要先帶著同一份憑證出發、都被退回來，才談得上「同時撞上續用那道門」。
+	// 讓先到的那一件等另一件到齊再回答——否則第一件可能整輪跑完，第二件根本沒看過舊的那一份。
+	var bothSetOff sync.WaitGroup
+	bothSetOff.Add(2)
+
 	connector.tradingService.EXPECT().
 		Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").
-		Return(notRecognized(), nil).
+		DoAndReturn(func(context.Context, vo.TradingServiceRequestVo, string) (
+			vo.TradingServiceResponseVo, error) {
+			bothSetOff.Done()
+			bothSetOff.Wait()
+
+			return notRecognized(), nil
+		}).
 		Times(2)
 
 	// 先進門的那一件花掉續用；後進門的那一件看到手上已經換過了，就用換來的那一份。

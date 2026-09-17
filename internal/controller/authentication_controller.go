@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/application"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
@@ -79,23 +79,34 @@ func (authenticationController *AuthenticationController) signIn(
 ) (*mcp.CallToolResult, error) {
 	var signInRequest signInRequest
 	if decodeError := json.Unmarshal(request.Params.Arguments, &signInRequest); decodeError != nil {
-		return refusal("送來的欄位不是一組可以讀的資料：" + decodeError.Error()), nil
+		return replyTo(dto.ToolResultDto{
+			Outcome: dto.ToolOutcomeInvalidArguments,
+			Content: "送來的欄位不是一組可以讀的資料：" + decodeError.Error(),
+		}), nil
 	}
 
 	outcomeDto, signInError := authenticationController.authenticationApplication.SignIn(
-		ctx, sessionKeyOf(request), dto.SignInDto{
+		ctx, callerOn(request).SessionKey(), dto.SignInDto{
 			Email:    signInRequest.Email,
 			Password: signInRequest.Password,
 		})
 	if signInError != nil {
-		return refusal(domains.ErrTradingServiceUnreachable.Error() + "：" + signInError.Error()), nil
+		return replyTo(domains.NewFailureReasonDomain(signInError).ToToolResultDto()), nil
 	}
 
 	if outcomeDto.Outcome != dto.ToolOutcomeSucceeded {
-		return refusal(outcomeDto.Content), nil
+		return replyTo(dto.ToolResultDto{
+			Outcome: outcomeDto.Outcome, Content: outcomeDto.Content}), nil
 	}
 
-	return signedInAnswer(outcomeDto.Session), nil
+	return replyTo(dto.ToolResultDto{
+		Outcome: dto.ToolOutcomeSucceeded,
+		Content: fmt.Sprintf(
+			"已登入：%s。這份登入到 %s 為止；過期時外掛會自己換新，你不必重登。",
+			outcomeDto.Session.Email,
+			outcomeDto.Session.AccessTokenExpiresAt.Format("2006-01-02 15:04:05 MST"),
+		),
+	}), nil
 }
 
 func (authenticationController *AuthenticationController) signOut(
@@ -103,12 +114,15 @@ func (authenticationController *AuthenticationController) signOut(
 	request *mcp.CallToolRequest,
 ) (*mcp.CallToolResult, error) {
 	signOutError := authenticationController.authenticationApplication.SignOut(
-		ctx, sessionKeyOf(request))
+		ctx, callerOn(request).SessionKey())
 	if signOutError != nil {
-		return refusal(domains.ErrTradingServiceUnreachable.Error() + "：" + signOutError.Error()), nil
+		return replyTo(domains.NewFailureReasonDomain(signOutError).ToToolResultDto()), nil
 	}
 
-	return answer("已登出。這個連線之後要身分的能力都會請你先登入。"), nil
+	return replyTo(dto.ToolResultDto{
+		Outcome: dto.ToolOutcomeSucceeded,
+		Content: "已登出。這個連線之後要身分的能力都會請你先登入。",
+	}), nil
 }
 
 func (authenticationController *AuthenticationController) renewSession(
@@ -116,16 +130,13 @@ func (authenticationController *AuthenticationController) renewSession(
 	request *mcp.CallToolRequest,
 ) (*mcp.CallToolResult, error) {
 	renewalError := authenticationController.authenticationApplication.RenewSession(
-		ctx, sessionKeyOf(request))
-
-	switch {
-	case renewalError == nil:
-		return answer("已換到一份新的登入。"), nil
-	case errors.Is(renewalError, domains.ErrSignInRequired):
-		return refusal(domains.ErrSignInRequired.Error()), nil
-	case errors.Is(renewalError, domains.ErrSignInExpired):
-		return refusal(domains.ErrSignInExpired.Error()), nil
-	default:
-		return refusal(domains.ErrTradingServiceUnreachable.Error() + "：" + renewalError.Error()), nil
+		ctx, callerOn(request).SessionKey())
+	if renewalError != nil {
+		return replyTo(domains.NewFailureReasonDomain(renewalError).ToToolResultDto()), nil
 	}
+
+	return replyTo(dto.ToolResultDto{
+		Outcome: dto.ToolOutcomeSucceeded,
+		Content: "已換到一份新的登入。",
+	}), nil
 }

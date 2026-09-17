@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	_interface "github.com/CodeMachine0121/go-trading-mcp/internal/domain/interface"
@@ -90,7 +89,7 @@ func (apiToolService *ApiToolService) CallApiTool(
 
 	response, sendError := apiToolService.tradingServiceProxy.Send(ctx, request, accessToken)
 	if sendError != nil {
-		return apiToolService.unreachableResultOf(sendError)
+		return domains.NewFailureReasonDomain(sendError).ToToolResultDto()
 	}
 
 	if response.Outcome != vo.TradingServiceIdentityNotRecognized {
@@ -123,7 +122,7 @@ func (apiToolService *ApiToolService) identityFor(
 	accessToken, identityError := apiToolService.authenticationService.UsableAccessToken(
 		ctx, vo.NewSessionKeyVo(toolCallDto.SessionKey))
 	if identityError != nil {
-		return "", apiToolService.identityResultOf(identityError), false
+		return "", domains.NewFailureReasonDomain(identityError).ToToolResultDto(), false
 	}
 
 	return accessToken, dto.ToolResultDto{}, true
@@ -156,12 +155,12 @@ func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 	renewedAccessToken, renewalError := apiToolService.authenticationService.RenewedAccessToken(
 		ctx, vo.NewSessionKeyVo(toolCallDto.SessionKey), rejectedAccessToken)
 	if renewalError != nil {
-		return apiToolService.identityResultOf(renewalError)
+		return domains.NewFailureReasonDomain(renewalError).ToToolResultDto()
 	}
 
 	response, sendError := apiToolService.tradingServiceProxy.Send(ctx, request, renewedAccessToken)
 	if sendError != nil {
-		return apiToolService.unreachableResultOf(sendError)
+		return domains.NewFailureReasonDomain(sendError).ToToolResultDto()
 	}
 
 	if response.Outcome == vo.TradingServiceIdentityNotRecognized {
@@ -172,33 +171,4 @@ func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 	}
 
 	return response.ToToolResultDto()
-}
-
-// identityResultOf keeps the three ways of having no usable identity apart, because
-// they ask the reader for three different things: sign in, sign in again, or wait and
-// try the same thing later.
-func (apiToolService *ApiToolService) identityResultOf(identityError error) dto.ToolResultDto {
-	switch {
-	case errors.Is(identityError, domains.ErrSignInRequired):
-		return dto.ToolResultDto{
-			Outcome: dto.ToolOutcomeSignInRequired,
-			Content: domains.ErrSignInRequired.Error(),
-		}
-	case errors.Is(identityError, domains.ErrSignInExpired):
-		return dto.ToolResultDto{
-			Outcome: dto.ToolOutcomeSignInExpired,
-			Content: domains.ErrSignInExpired.Error(),
-		}
-	default:
-		return apiToolService.unreachableResultOf(identityError)
-	}
-}
-
-// unreachableResultOf says the ask never arrived, and says it as something other than
-// the caller's fault.
-func (apiToolService *ApiToolService) unreachableResultOf(sendError error) dto.ToolResultDto {
-	return dto.ToolResultDto{
-		Outcome: dto.ToolOutcomeTradingServiceUnreachable,
-		Content: domains.ErrTradingServiceUnreachable.Error() + "：" + sendError.Error(),
-	}
 }
