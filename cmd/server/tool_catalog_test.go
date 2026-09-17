@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -150,5 +152,113 @@ func TestNoAbilityLetsOneAssistantSpendAnothersBudget(t *testing.T) {
 			"外掛不代 AI 去問另一個 AI：%s", apiTool.Name())
 		assert.NotContains(t, apiTool.Name(), "chat",
 			"外掛不代 AI 去問另一個 AI：%s", apiTool.Name())
+	}
+}
+
+// abilityNamed digs one ability out of the catalogue, so a test about one box does not
+// have to walk the whole list in front of the reader.
+func abilityNamed(t *testing.T, name string) dto.ToolDefinitionDto {
+	t.Helper()
+
+	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+		if apiTool.Name() == name {
+			return apiTool.ToDefinitionDto()
+		}
+	}
+
+	require.FailNowf(t, "清單裡沒有這件能力", "%s", name)
+
+	return dto.ToolDefinitionDto{}
+}
+
+// boxNamed is one declared box, and whether it was declared at all.
+func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParameterDto, bool) {
+	for _, parameter := range definitionDto.Parameters {
+		if parameter.Name == name {
+			return parameter, true
+		}
+	}
+
+	return dto.ToolParameterDto{}, false
+}
+
+// boxNames is every box an ability declares, in the order it declares them.
+func boxNames(definitionDto dto.ToolDefinitionDto) []string {
+	names := make([]string, 0, len(definitionDto.Parameters))
+	for _, parameter := range definitionDto.Parameters {
+		names = append(names, parameter.Name)
+	}
+
+	return names
+}
+
+// An assistant picking a trading mode cannot see the person's broker and cannot see
+// whether the market allows shorting. The sentence they typed is its only clue, so the
+// description has to map that sentence onto one of the two spellings — otherwise it
+// knows there are two and not which one was just described to it.
+func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_create_trading_strategy",
+		"trading_update_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			tradingMode, isDeclared := boxNamed(abilityNamed(t, abilityName), "tradingMode")
+
+			require.True(t, isDeclared, "沒有這個欄位，助理就說不出這份規則是寫給哪一種帳戶的")
+			assert.Contains(t, tradingMode.Description, "spot")
+			assert.Contains(t, tradingMode.Description, "longShort")
+			// What happens when it says nothing, and which one the person just
+			// described. Both are things it can only learn here.
+			assert.Contains(t, tradingMode.Description, "省略即 longShort")
+			assert.Contains(t, tradingMode.Description, "不能放空")
+			// Not required: saying nothing is a legitimate thing to do, and the
+			// default belongs to the trading service rather than to this list.
+			assert.False(t, tradingMode.IsRequired)
+		})
+	}
+}
+
+// Replaying a whole set of rules has no trading mode to give: that set of rules keeps
+// its own. A box here would be one the trading service ignores in silence, and an
+// assistant has no way to tell it was ignored — it would go on believing it replayed a
+// spot account while reading a report card built the other way.
+func TestReplayingATradingStrategyHasNoTradingModeToGive(t *testing.T) {
+	replay := abilityNamed(t, "trading_backtest_trading_strategy")
+
+	_, isDeclared := boxNamed(replay, "tradingMode")
+	assert.False(t, isDeclared, "填了會被交易服務安靜忽略的欄位，比沒有這個欄位更糟")
+
+	// Taking the knob away leaves the assistant knowing only that it does not have
+	// one. Where the knob actually is has to be said, or "my account cannot short"
+	// gets answered with "I cannot do that".
+	assert.Contains(t, replay.Description, "交易模式")
+	assert.Contains(t, replay.Description, "trading_update_trading_strategy")
+	assert.Contains(t, replay.Description, "不能放空")
+}
+
+// Replaying a bare script still asks the caller: there is no trading strategy there to
+// ask. Everything else the two replays want is still shared, so the split is one box
+// and not a second copy of the replay conditions.
+func TestReplayingAStrategyScriptStillAsksWhichWayToTrade(t *testing.T) {
+	scriptReplay := abilityNamed(t, "trading_backtest_strategy_script")
+
+	tradingMode, isDeclared := boxNamed(scriptReplay, "tradingMode")
+	require.True(t, isDeclared)
+	assert.False(t, tradingMode.IsRequired)
+	assert.NotEmpty(t, tradingMode.Description)
+
+	strategyReplayBoxes := boxNames(abilityNamed(t, "trading_backtest_trading_strategy"))
+	scriptReplayBoxes := boxNames(scriptReplay)
+
+	// Every condition the trading-strategy replay declares, apart from the identifier
+	// in its address, the script replay declares too — by the same name, out of the
+	// same shared list.
+	for _, boxName := range strategyReplayBoxes {
+		if boxName == "id" {
+			continue
+		}
+
+		assert.Contains(t, scriptReplayBoxes, boxName,
+			"這一欄兩支回測都要，應該還是共用的那一份：%s", boxName)
 	}
 }
