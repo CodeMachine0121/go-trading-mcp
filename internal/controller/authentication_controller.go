@@ -79,7 +79,7 @@ func (authenticationController *AuthenticationController) signIn(
 ) (*mcp.CallToolResult, error) {
 	var signInRequest signInRequest
 	if decodeError := json.Unmarshal(request.Params.Arguments, &signInRequest); decodeError != nil {
-		return replyTo(dto.ToolResultDto{
+		return replyTo(request.Params.Name, dto.ToolResultDto{
 			Outcome: dto.ToolOutcomeInvalidArguments,
 			Content: "送來的欄位不是一組可以讀的資料：" + decodeError.Error(),
 		}), nil
@@ -91,15 +91,15 @@ func (authenticationController *AuthenticationController) signIn(
 			Password: signInRequest.Password,
 		})
 	if signInError != nil {
-		return replyTo(domains.NewFailureReasonDomain(signInError).ToToolResultDto()), nil
+		return replyTo(request.Params.Name, domains.NewFailureReasonDomain(signInError).ToToolResultDto()), nil
 	}
 
 	if outcomeDto.Outcome != dto.ToolOutcomeSucceeded {
-		return replyTo(dto.ToolResultDto{
+		return replyTo(request.Params.Name, dto.ToolResultDto{
 			Outcome: outcomeDto.Outcome, Content: outcomeDto.Content}), nil
 	}
 
-	return replyTo(dto.ToolResultDto{
+	return replyTo(request.Params.Name, dto.ToolResultDto{
 		Outcome: dto.ToolOutcomeSucceeded,
 		Content: fmt.Sprintf(
 			"已登入：%s。這份登入到 %s 為止；過期時外掛會自己換新，你不必重登。",
@@ -116,10 +116,10 @@ func (authenticationController *AuthenticationController) signOut(
 	signOutError := authenticationController.authenticationApplication.SignOut(
 		ctx, callerOn(request).SessionKey())
 	if signOutError != nil {
-		return replyTo(domains.NewFailureReasonDomain(signOutError).ToToolResultDto()), nil
+		return replyTo(request.Params.Name, domains.NewFailureReasonDomain(signOutError).ToToolResultDto()), nil
 	}
 
-	return replyTo(dto.ToolResultDto{
+	return replyTo(request.Params.Name, dto.ToolResultDto{
 		Outcome: dto.ToolOutcomeSucceeded,
 		Content: "已登出。這個連線之後要身分的能力都會請你先登入。",
 	}), nil
@@ -132,10 +132,10 @@ func (authenticationController *AuthenticationController) renewSession(
 	renewalError := authenticationController.authenticationApplication.RenewSession(
 		ctx, callerOn(request).SessionKey())
 	if renewalError != nil {
-		return replyTo(domains.NewFailureReasonDomain(renewalError).ToToolResultDto()), nil
+		return replyTo(request.Params.Name, domains.NewFailureReasonDomain(renewalError).ToToolResultDto()), nil
 	}
 
-	return replyTo(dto.ToolResultDto{
+	return replyTo(request.Params.Name, dto.ToolResultDto{
 		Outcome: dto.ToolOutcomeSucceeded,
 		Content: "已換到一份新的登入。",
 	}), nil

@@ -1,8 +1,11 @@
 package controller_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,6 +52,20 @@ func connectedAssistant(
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts", "列出你的策略腳本",
 			vo.RequestVerbRead, "/strategy-scripts", true),
+		domains.NewApiToolDomain(
+			"trading_register_user", "建立一位使用者", vo.RequestVerbSubmit, "/users", false,
+			vo.NewToolParameterVo(
+				"email", vo.ToolParameterKindString, "電子郵件", true, vo.ToolParameterInBody),
+			vo.NewToolParameterVo(
+				"password", vo.ToolParameterKindString, "密碼", true, vo.ToolParameterInBody),
+		),
+		domains.NewApiToolDomain(
+			"trading_peek_live_k_candle",
+			"看一眼即時更新。unavailable 表示分不到名額，**不會自己好**，要改觀察清單",
+			vo.RequestVerbRead, "/k-candles/live", false,
+			vo.NewToolParameterVo(
+				"symbol", vo.ToolParameterKindString, "交易標的", true, vo.ToolParameterInQuery),
+		).Watching(time.Second),
 		domains.NewApiToolDomain(
 			"trading_get_k_candle", "讀一根 K 線", vo.RequestVerbRead,
 			"/k-candles/{symbol}/{openTime}", false,
@@ -539,4 +556,128 @@ func TestLosingTheTradingServiceWhileSigningOutStillGivesUpTheIdentityLocally(t 
 	assert.Contains(t, textOf(t, signedOut), "連不到交易服務")
 	assert.Equal(t, "請先登入", textOf(t, afterwards),
 		"但這台機器上的身分是真的放掉了——那一半不需要交易服務同意")
+}
+
+// TestEveryAttemptLeavesATraceThatNamesNoSecret is the guard on the one artifact that
+// outlives this process.
+//
+// A record gets copied into a bug report and pasted into a chat. A password that
+// reached one has been disclosed, and no later deletion undoes that — so this checks
+// what is *absent* as carefully as what is present.
+func TestEveryAttemptLeavesATraceThatNamesNoSecret(t *testing.T) {
+	var recorded bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&recorded, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	assistantSession := connectedAssistant(t, alwaysAnswering(http.StatusOK, `{
+		"accessToken":"secret-access","expiresAt":"2099-01-01T00:00:00Z",
+		"refreshToken":"secret-refresh","refreshTokenExpiresAt":"2099-01-01T00:00:00Z"}`), nil)
+
+	_, _ = assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_sign_in",
+		Arguments: map[string]any{"email": "james@example.com", "password": "correct horse"},
+	})
+	_, _ = assistantSession.CallTool(context.Background(),
+		&mcp.CallToolParams{Name: "trading_health"})
+
+	trace := recorded.String()
+
+	assert.Contains(t, trace, "trading_sign_in")
+	assert.Contains(t, trace, "trading_health")
+	assert.Contains(t, trace, "succeeded=true")
+	assert.Contains(t, trace, "outcome=succeeded")
+
+	assert.NotContains(t, trace, "correct horse", "密碼進了紀錄就是外洩了")
+	assert.NotContains(t, trace, "secret-access", "登入憑證進了紀錄就是外洩了")
+	assert.NotContains(t, trace, "secret-refresh", "續用憑證進了紀錄就是外洩了")
+	assert.NotContains(t, trace, "james@example.com", "誰在用不是除錯需要的資訊")
+}
+
+func TestATraceSaysWhichKindOfFailureItWas(t *testing.T) {
+	var recorded bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&recorded, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	assistantSession := connectedAssistant(t,
+		alwaysAnswering(http.StatusNotFound, `{"message":"這根 K 線不存在"}`), nil)
+
+	_, _ = assistantSession.CallTool(context.Background(),
+		&mcp.CallToolParams{Name: "trading_list_strategy_scripts"})
+	_, _ = assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_get_k_candle",
+		Arguments: map[string]any{"symbol": "BTCUSDT", "openTime": "2026-08-28T09:00:00Z"},
+	})
+
+	trace := recorded.String()
+
+	assert.Contains(t, trace, "outcome=signInRequired")
+	assert.Contains(t, trace, "outcome=refusedByTradingService")
+	assert.NotContains(t, trace, "這根 K 線不存在",
+		"回覆內容不進紀錄——它可能裝著使用者的資料")
+}
+
+func TestAnAbilityWithNoLiveSlotSaysSoAndSaysItWillNotFixItself(t *testing.T) {
+	assistantSession := connectedAssistant(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "text/event-stream")
+		_, _ = writer.Write([]byte(
+			"data: {\"symbol\":\"2330\",\"status\":\"unavailable\"}\n\n"))
+	}, nil)
+
+	result, callError := assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_peek_live_k_candle",
+		Arguments: map[string]any{"symbol": "2330"},
+	})
+
+	require.NoError(t, callError)
+	assert.False(t, result.IsError, "分不到名額是查到的事，不是這次呼叫做錯了")
+	assert.Contains(t, textOf(t, result), "unavailable")
+
+	listed, _ := assistantSession.ListTools(context.Background(), nil)
+	for _, tool := range listed.Tools {
+		if tool.Name == "trading_peek_live_k_candle" {
+			assert.Contains(t, tool.Description, "不會自己好",
+				"助理要知道這一種等下去也不會好，得去改觀察清單")
+			assert.Contains(t, tool.Description, "觀察清單")
+		}
+	}
+}
+
+func TestATradingServiceThatCannotSignAnybodyInSaysSoInItsOwnWords(t *testing.T) {
+	assistantSession := connectedAssistant(t, alwaysAnswering(
+		http.StatusServiceUnavailable, `{"message":"尚未設定簽發登入的鑰匙"}`), nil)
+
+	result, callError := assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_sign_in",
+		Arguments: map[string]any{"email": "james@example.com", "password": "correct horse"},
+	})
+
+	require.NoError(t, callError)
+	assert.True(t, result.IsError)
+	assert.Contains(t, textOf(t, result), "尚未設定簽發登入的鑰匙")
+	assert.NotContains(t, textOf(t, result), "連不到交易服務",
+		"它答話了，只是答不出憑證——那是它的規則，不是連線問題")
+}
+
+func TestBuildingAUserNeedsNoSignInAndReachesTheTradingServiceAsIs(t *testing.T) {
+	seenPath := ""
+	seenBody := ""
+	assistantSession := connectedAssistant(t, func(writer http.ResponseWriter, request *http.Request) {
+		body, _ := io.ReadAll(request.Body)
+		seenPath, seenBody = request.URL.Path, string(body)
+		writer.WriteHeader(http.StatusCreated)
+		_, _ = writer.Write([]byte(`{"id":1,"email":"new@example.com"}`))
+	}, nil)
+
+	result, callError := assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_register_user",
+		Arguments: map[string]any{"email": "new@example.com", "password": "correct horse"},
+	})
+
+	require.NoError(t, callError)
+	assert.False(t, result.IsError, "系統一位使用者都沒有時，這一支必須不需要身分")
+	assert.Equal(t, "/users", seenPath)
+	assert.JSONEq(t, `{"email":"new@example.com","password":"correct horse"}`, seenBody)
+	assert.NotContains(t, textOf(t, result), "correct horse")
 }
