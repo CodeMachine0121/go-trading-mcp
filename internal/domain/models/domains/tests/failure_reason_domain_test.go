@@ -3,6 +3,7 @@ package domains_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
@@ -47,4 +48,15 @@ func TestNotBeingAbleToReachTheTradingServiceNeverReadsAsAnExpiry(t *testing.T) 
 	assert.NotContains(t, resultDto.Content, "請重新登入",
 		"叫人白打一次密碼，是把「網路不通」誤診成「你過期了」的代價")
 	assert.Contains(t, resultDto.Content, "連不到交易服務")
+}
+
+func TestTheReasonIsSaidOnceRatherThanOnceForEveryLayerItPassedThrough(t *testing.T) {
+	alreadySaid := fmt.Errorf("%w：dial tcp: connection refused", domains.ErrTradingServiceUnreachable)
+
+	resultDto := domains.NewFailureReasonDomain(alreadySaid).ToToolResultDto()
+
+	assert.Equal(t, dto.ToolOutcomeTradingServiceUnreachable, resultDto.Outcome)
+	assert.Equal(t, 1,
+		strings.Count(resultDto.Content, domains.ErrTradingServiceUnreachable.Error()),
+		"每經過一層就再說一次，讀起來像壞了兩次")
 }

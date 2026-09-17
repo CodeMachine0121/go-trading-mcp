@@ -44,6 +44,11 @@ func (failureReasonDomain FailureReasonDomain) ToToolResultDto() dto.ToolResultD
 			Outcome: dto.ToolOutcomeSignInExpired,
 			Content: ErrSignInExpired.Error(),
 		}
+	case errors.Is(failureReasonDomain.cause, ErrTradingServiceUnreachable):
+		return dto.ToolResultDto{
+			Outcome: dto.ToolOutcomeTradingServiceUnreachable,
+			Content: failureReasonDomain.cause.Error(),
+		}
 	default:
 		return dto.ToolResultDto{
 			Outcome: dto.ToolOutcomeTradingServiceUnreachable,
