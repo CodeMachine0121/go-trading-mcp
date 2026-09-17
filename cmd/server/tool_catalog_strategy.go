@@ -85,6 +85,19 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("name", vo.ToolParameterKindString, "這份交易策略叫什麼", true),
+		// Beside the name, because the mode and the name are what this set of rules
+		// *is*, while the sources and the two conditions are what it is made of.
+		//
+		// The description has to map what the person said onto one of the two
+		// spellings. An assistant picking this cannot see their broker and cannot see
+		// whether the market allows shorting — the sentence they typed is its only
+		// clue, so the sentence has to be in here.
+		bodyParameter("tradingMode", vo.ToolParameterKindString,
+			"這份規則是寫給哪一種帳戶的。"+
+				"spot 只做多（賣出＝平掉回現金，空手時賣出不動作）；"+
+				"longShort 做得了空（賣出＝平掉多倉並反手做空）。省略即 longShort。"+
+				"使用者說他的帳戶不能放空（台股現貨、ETF、多數券商帳戶）時給 spot——"+
+				"它決定了重演這份規則時用哪一套算法，也決定了機器人訊息寫「買入／賣出」還是「做多／做空」", false),
 		bodyParameter("signalSources", vo.ToolParameterKindArray,
 			"這份策略要跑哪幾支策略腳本，每個為 "+
 				"{\"label\":\"短均線\", \"strategyScriptId\":1, \"aggregationInterval\":\"1h\", "+
@@ -158,14 +171,23 @@ func backtestApiTools() []domains.ApiToolDomain {
 					"自帶算式時它宣告的旋鈕", false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
+				// This replay's own box, not one every replay shares. There is no
+				// trading strategy here to ask, so the caller is the only one who can
+				// say it.
+				bodyParameter("tradingMode", vo.ToolParameterKindString,
+					"這次重演照哪一套規則交易。省略即一直留在市場裡", false),
 			)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_backtest_trading_strategy",
 			"拿**一份交易策略**重演一段已經發生過的行情。"+
-				"\n\n信號來源與買賣兩個條件都取自那份交易策略本身，這裡不必也不能再說一次。"+
+				"\n\n信號來源、買賣兩個條件與**交易模式**都取自那份交易策略本身，"+
+				"這裡不必也不能再說一次。"+
+				"\n\n**使用者說他的帳戶不能放空時，要改的不是這一次重演**——"+
+				"用 trading_update_trading_strategy 把那一份的 tradingMode 改成 spot，之後每一次重演都跟著對。"+
 				"\n\n這一支與 trading_backtest_strategy_script 的差別："+
-				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定。",
+				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定；"+
+				"而那一支沒有交易策略可問，所以交易模式由你當次指定。",
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,

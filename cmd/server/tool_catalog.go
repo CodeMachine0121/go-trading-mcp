@@ -79,6 +79,17 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 
 // backtestParameters are the account rules a replay trades by. Shared by replaying a
 // strategy script and replaying a trading strategy.
+//
+// **The trading mode is deliberately not here.** The two replays no longer want the
+// same conditions: replaying a script asks the caller which set of rules to trade by,
+// while replaying a trading strategy reads it off the trading strategy itself. So the
+// box belongs to the one ability that can answer it, and is added there.
+//
+// Keeping it shared would leave the trading-strategy replay carrying a box the trading
+// service ignores in silence — and an assistant has no way to tell it was ignored. It
+// would go on believing it replayed a spot account while reading a report card built
+// the other way. Before unifying this again, check whether that endpoint has started
+// accepting it.
 func backtestParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("symbol", vo.ToolParameterKindString, "要在哪一個交易標的上重演", true),
@@ -89,8 +100,6 @@ func backtestParameters() []vo.ToolParameterVo {
 			"每次進場押多少的方式。押全部時不必給 positionSizingValue", false),
 		bodyParameter("positionSizingValue", vo.ToolParameterKindString,
 			"搭配 positionSizingMode 的數字（字串形式的精確小數）", false),
-		bodyParameter("tradingMode", vo.ToolParameterKindString,
-			"這次重演照哪一套規則交易。省略即一直留在市場裡", false),
 	}
 }
 
