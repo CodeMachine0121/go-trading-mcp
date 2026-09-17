@@ -113,35 +113,47 @@ func (authenticationService *AuthenticationService) UsableAccessToken(
 		return signedInSession.AccessToken(), nil
 	}
 
-	return authenticationService.renewOnce(ctx, sessionKey)
+	return authenticationService.renewOnce(ctx, sessionKey, signedInSession.AccessToken())
 }
 
-// RenewedAccessToken spends the renewal whether or not the proof in hand looks spent.
+// RenewedAccessToken replaces a proof that has just been rejected, whatever the
+// expiry time said about it.
 //
-// It exists for the one case the expiry time cannot see: the trading service itself
-// says it does not recognise us, while our own arithmetic says there were minutes
-// left. Its answer is the one that counts.
+// It exists for the one case the arithmetic cannot see: the trading service itself
+// says it does not recognise us, while our own sums said there were minutes left.
+// Clocks disagree and a signing-in can be revoked from another device — either way its
+// answer is the one that counts.
+//
+// The rejected proof is named rather than implied, so that this can tell "nobody has
+// renewed yet" from "somebody already did while I was waiting". Passing none means
+// renew regardless, which is what a person asking for a fresh signing-in outright
+// means.
 func (authenticationService *AuthenticationService) RenewedAccessToken(
 	ctx context.Context,
 	sessionKey vo.SessionKeyVo,
+	rejectedAccessToken string,
 ) (string, error) {
 	if _, isSignedIn := authenticationService.signedInSessionRepository.Find(sessionKey); !isSignedIn {
 		return "", domains.ErrSignInRequired
 	}
 
-	return authenticationService.renewOnce(ctx, sessionKey)
+	return authenticationService.renewOnce(ctx, sessionKey, rejectedAccessToken)
 }
 
 // renewOnce is the renewal itself, behind this connection's gate.
 //
-// It is private and shared by the two public methods above, which is what makes
-// "spent once" true: both ways in go through the same door, and the door only lets
-// one through at a time. It re-reads the identity **after** taking the gate on
-// purpose — whoever held the gate before may have already renewed, and renewing on
-// top of that is precisely the double-spend this exists to prevent.
+// It is private and shared by both public ways in, which is what makes "spent once"
+// true: both doors lead here, and this one lets one caller through at a time.
+//
+// It re-reads the identity **after** taking the gate, and compares what it finds with
+// the proof the caller found wanting. A different one means somebody renewed while
+// this caller waited — so this caller takes theirs and renews nothing. Renewing on top
+// of that is exactly the double-spend the gate exists to prevent, and the trading
+// service answers a double-spend by voiding the chain and signing the real person out.
 func (authenticationService *AuthenticationService) renewOnce(
 	ctx context.Context,
 	sessionKey vo.SessionKeyVo,
+	rejectedAccessToken string,
 ) (string, error) {
 	lockForKey := authenticationService.renewalGate.Enter(sessionKey)
 	defer lockForKey.Unlock()
@@ -151,7 +163,7 @@ func (authenticationService *AuthenticationService) renewOnce(
 		return "", domains.ErrSignInRequired
 	}
 
-	if signedInSession.IsAccessTokenUsable(authenticationService.clock.Now()) {
+	if rejectedAccessToken != "" && signedInSession.AccessToken() != rejectedAccessToken {
 		return signedInSession.AccessToken(), nil
 	}
 

@@ -97,7 +97,8 @@ func (apiToolService *ApiToolService) CallApiTool(
 		return response.ToToolResultDto()
 	}
 
-	return apiToolService.retryWithRenewedIdentity(ctx, request, toolCallDto, response)
+	return apiToolService.retryWithRenewedIdentity(
+		ctx, request, toolCallDto, accessToken, response)
 }
 
 // identityFor settles whose identity this ask travels under.
@@ -142,6 +143,7 @@ func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 	ctx context.Context,
 	request vo.TradingServiceRequestVo,
 	toolCallDto dto.ToolCallDto,
+	rejectedAccessToken string,
 	firstResponse vo.TradingServiceResponseVo,
 ) dto.ToolResultDto {
 	if toolCallDto.SuppliedAccessToken != "" {
@@ -152,7 +154,7 @@ func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 	}
 
 	renewedAccessToken, renewalError := apiToolService.authenticationService.RenewedAccessToken(
-		ctx, vo.NewSessionKeyVo(toolCallDto.SessionKey))
+		ctx, vo.NewSessionKeyVo(toolCallDto.SessionKey), rejectedAccessToken)
 	if renewalError != nil {
 		return apiToolService.identityResultOf(renewalError)
 	}

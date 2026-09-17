@@ -50,7 +50,7 @@ func (authenticationApplication *AuthenticationApplication) RenewSession(
 	sessionKey string,
 ) error {
 	_, renewalError := authenticationApplication.authenticationService.RenewedAccessToken(
-		ctx, vo.NewSessionKeyVo(sessionKey))
+		ctx, vo.NewSessionKeyVo(sessionKey), "")
 
 	return renewalError
 }
