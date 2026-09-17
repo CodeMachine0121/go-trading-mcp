@@ -1,0 +1,11 @@
+.git
+.github
+.sdd
+.claude
+bin
+.env
+*.md
+Makefile
+Dockerfile
+docker-compose.yml
+.dockerignore

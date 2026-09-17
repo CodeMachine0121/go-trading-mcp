@@ -29,6 +29,30 @@ make start        # 啟動於 :8090，MCP 掛在 /mcp
 curl localhost:8090/health   # {"status":"Healthy"}
 ```
 
+### 或者用 Docker
+
+```bash
+docker compose up -d
+curl localhost:8090/health   # {"status":"Healthy"}
+```
+
+映像檔 7 MB、非 root、沒有掛任何 volume——這個外掛不寫檔案，掛上去也不會讓它記得任何事。
+
+**唯一要注意的一格：容器裡的 `localhost` 是容器自己。** 所以預設值是
+`http://host.docker.internal:8080`（交易服務跑在你的機器上），不是 `localhost:8080`。
+交易服務之後也搬進 Docker 時，改成 `http://go-trading:8080` 並讓兩邊在同一個網路上，
+改法寫在 `docker-compose.yml` 最下面。
+
+連接埠**只綁在 `127.0.0.1`**，這是刻意的——MCP 端點沒有任何門鎖，連得到的人就開得了
+一段連線並以自己的帳號登入。要對外開放之前請先讀下面那段。
+
+| 指令 | 用途 |
+| :--- | :--- |
+| `make docker-up` | 背景啟動 |
+| `make docker-down` | 停掉並移除 |
+| `make docker-logs` | 跟著看紀錄 |
+| `make docker-build` | 重新編映像檔 |
+
 接到助理（以 Claude Code 為例）：
 
 ```bash
@@ -59,6 +83,25 @@ claude mcp add --transport http go-trading http://localhost:8090/mcp
 
 **已經有憑證的人**可以跳過登入：在請求標頭帶 `Authorization: Bearer <你的登入憑證>`，
 外掛會照用。自備的身分外掛**不替你續用**——那一半不在它手上。
+
+## 誰是誰，怎麼分的
+
+MCP over HTTP 在連上時發一個**連線識別碼**（`Mcp-Session-Id`），之後每次請求都要帶著。
+外掛就用它當抽屜的鑰匙：一個連線一個抽屜，彼此讀不到。
+
+**那把鑰匙來自傳輸層，不來自助理填的任何欄位**——所以模型沒有辦法要求打開別人的抽屜，
+它根本說不出別人的抽屜叫什麼。
+
+兩件要知道的事：
+
+- **重開 Claude Code 就是新的連線識別碼**，舊抽屜變孤兒，要重新登入。外掛重啟也一樣。
+- **這道門沒有鎖。** 連得到 `:8090` 的人就開得了一段連線並以自己的帳號登入。
+  在本機自己用沒問題；**不要把這個埠對外開放**——連線識別碼本身就等於一把鑰匙，
+  走在沒有 TLS 的標頭裡。
+
+真的要給多個人用時，別用登入能力，改讓每個人自己帶
+`Authorization: Bearer <他自己的登入憑證>`：身分跟著每一次請求走，不放在外掛身上，
+重啟不影響，伺服器上也沒有東西可偷。代價是外掛**不替它續用**（續用的那一半不在它手上）。
 
 ## 做不成的時候，它會說清楚是哪一種
 
@@ -130,6 +173,9 @@ commit 前請自行跑過 `go build ./... && go vet ./... && go test ./...`。
 ## 專案結構
 
 ```
+Dockerfile               多階段建置：靜態編譯 → alpine，非 root
+docker-compose.yml       預設交易服務在宿主機上
+
 cmd/server/
 ├── main.go              進入點與有序關機
 ├── config.go            環境變數
