@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -182,16 +181,6 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 	return dto.ToolParameterDto{}, false
 }
 
-// boxNames is every box an ability declares, in the order it declares them.
-func boxNames(definitionDto dto.ToolDefinitionDto) []string {
-	names := make([]string, 0, len(definitionDto.Parameters))
-	for _, parameter := range definitionDto.Parameters {
-		names = append(names, parameter.Name)
-	}
-
-	return names
-}
-
 // An assistant picking a trading mode cannot see the person's broker and cannot see
 // whether the market allows shorting. The sentence they typed is its only clue, so the
 // description has to map that sentence onto one of the two spellings — otherwise it
@@ -247,18 +236,22 @@ func TestReplayingAStrategyScriptStillAsksWhichWayToTrade(t *testing.T) {
 	assert.False(t, tradingMode.IsRequired)
 	assert.NotEmpty(t, tradingMode.Description)
 
-	strategyReplayBoxes := boxNames(abilityNamed(t, "trading_backtest_trading_strategy"))
-	scriptReplayBoxes := boxNames(scriptReplay)
+	strategyReplay := abilityNamed(t, "trading_backtest_trading_strategy")
 
 	// Every condition the trading-strategy replay declares, apart from the identifier
-	// in its address, the script replay declares too — by the same name, out of the
-	// same shared list.
-	for _, boxName := range strategyReplayBoxes {
-		if boxName == "id" {
+	// in its address, the script replay declares too — and word for word, because both
+	// read it out of the same shared list. Matching only the names would pass a second
+	// copy of the list that had drifted a sentence.
+	for _, strategyReplayBox := range strategyReplay.Parameters {
+		if strategyReplayBox.Name == "id" {
 			continue
 		}
 
-		assert.Contains(t, scriptReplayBoxes, boxName,
-			"這一欄兩支回測都要，應該還是共用的那一份：%s", boxName)
+		scriptReplayBox, isDeclared := boxNamed(scriptReplay, strategyReplayBox.Name)
+
+		require.True(t, isDeclared,
+			"這一欄兩支回測都要，應該還是共用的那一份：%s", strategyReplayBox.Name)
+		assert.Equal(t, strategyReplayBox, scriptReplayBox,
+			"這一欄在兩支上不一樣，代表共用的那一份被抄成了兩份：%s", strategyReplayBox.Name)
 	}
 }
