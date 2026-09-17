@@ -1,0 +1,58 @@
+# 這份檔案預設「交易服務跑在你的機器上（make start），外掛跑在容器裡」——
+# 那是目前的實際情況。容器裡的 localhost 是容器自己，所以它**一定**要指到
+# host.docker.internal，不是 localhost。這是最容易踩到的一格。
+#
+# 交易服務之後也搬進 Docker 時，改法見檔案最下面。
+
+services:
+  go-trading-mcp:
+    build: .
+    image: go-trading-mcp:latest
+    container_name: go-trading-mcp
+    restart: unless-stopped
+
+    ports:
+      # 只綁在 127.0.0.1。這個外掛的 MCP 端點**沒有任何門鎖**——
+      # 連得到的人就開得了一段連線並以自己的帳號登入。綁在本機是那道鎖。
+      - "127.0.0.1:8090:8090"
+
+    environment:
+      # 交易服務在哪。填錯這一個，其餘全部不會動。
+      TRADING_SERVICE_BASE_URL: ${TRADING_SERVICE_BASE_URL:-http://host.docker.internal:8080}
+      # 容器裡**必須**聽 0.0.0.0，否則發佈出來的連接埠接不到任何東西。
+      # 門鎖在上面那一行：發佈時只綁在宿主機的 127.0.0.1。
+      SERVER_BIND_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8090"
+      MCP_PATH: /mcp
+      TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS: "30"
+      LIVE_UPDATE_WAIT_LIMIT_SECONDS: "10"
+      IDLE_CONNECTION_TIMEOUT_MINUTES: "60"
+
+    extra_hosts:
+      # Docker Desktop（macOS／Windows）本來就認得 host.docker.internal；
+      # 這一行是為了 Linux 上也認得，兩邊才是同一份設定。
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8090/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+    # 沒有 volumes，而且**不該有**。這個外掛不寫任何檔案：
+    # 身分只活在記憶體裡，重啟就要重新登入，那是刻意的。
+    # 掛一個 volume 上去不會讓它記得任何事，只會讓人以為它會。
+
+# 交易服務也搬進 Docker 之後：
+#
+#   1. 把上面的 TRADING_SERVICE_BASE_URL 改成 http://go-trading:8080
+#   2. 拿掉 extra_hosts
+#   3. 讓兩邊在同一個網路上——最省事的是在這裡加：
+#
+#        networks:
+#          default:
+#            name: go-trading_default
+#            external: true
+#
+#      （名稱以 `docker network ls` 實際看到的為準）
