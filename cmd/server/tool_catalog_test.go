@@ -347,6 +347,15 @@ func TestTheExitDistancesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 	assert.Contains(t, takeProfit.Description, "一律算止損")
 }
 
+// A report card with the exits simulated needs one more number read off it, and the
+// tool description is the only place an assistant learns that.
+func TestReplayingAScriptSaysWhyTheStopCountMatters(t *testing.T) {
+	description := abilityNamed(t, "trading_backtest_strategy_script").Description
+
+	assert.Contains(t, description, "stopLossExitCount")
+	assert.Contains(t, description, "exitReason")
+}
+
 // The assistant's whole loop is build, replay, read the report card, adjust, go live —
 // so its most natural next step is to take rules that backtested well and hang a stop
 // on them. The replay can now count those exits, but only when asked, so this warning
