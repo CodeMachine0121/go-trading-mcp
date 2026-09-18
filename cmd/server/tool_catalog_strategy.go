@@ -157,7 +157,11 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"所以這裡沒有 resultType 可填、也不需要填。"+
 				"\n\n回來的是成績單加交易明細，沒有資金曲線（每一點都從交易明細推得回來）。"+
 				"**成績單裡的交易筆數一定要看**——一張幾乎沒有交易的漂亮成績單會被讀成「很穩」，"+
-				"而真相是這份策略根本沒有在做決定。",
+				"而真相是這份策略根本沒有在做決定。"+
+				"\n\n模擬了出場價位時，**stopLossExitCount 也一定要看**："+
+				"十次出場八次是被停損掃出去的策略，與十次都靡訊號出場的，"+
+				"報酬率可以一模一樣——而前者是停損在支撑它，"+
+				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。",
 			vo.RequestVerbSubmit, "/backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,

@@ -80,6 +80,11 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 // backtestParameters are the account rules a replay trades by. Shared by replaying a
 // strategy script and replaying a trading strategy.
 //
+// The test for belonging here is one question: **does that endpoint actually use it?**
+// The two exit distances do — both replays read them, because a trading strategy has
+// no opinion about what its owner can sit through — so they are here, and a box added
+// once is a box both abilities get.
+//
 // **The trading mode is deliberately not here.** The two replays no longer want the
 // same conditions: replaying a script asks the caller which set of rules to trade by,
 // while replaying a trading strategy reads it off the trading strategy itself. So the
@@ -100,6 +105,28 @@ func backtestParameters() []vo.ToolParameterVo {
 			"每次進場押多少的方式。押全部時不必給 positionSizingValue", false),
 		bodyParameter("positionSizingValue", vo.ToolParameterKindString,
 			"搭配 positionSizingMode 的數字（字串形式的精確小數）", false),
+		// The three things an assistant cannot find out before sending: that leaving
+		// these out simulates nothing at all, that the distances are measured from
+		// the entry fill, and that a candle reaching both levels counts as the stop.
+		// The last one is the only one of the three that moves the numbers the
+		// *worse* way — a surprise in the good direction gets read as good news,
+		// one in the bad direction gets read as a bug somewhere else.
+		bodyParameter("stopLossPercentage", vo.ToolParameterKindString,
+			"這次重演要不要模擬止損，以及止損價離**進場價**幾個百分點"+
+				"（3 就是 3%，字串形式的精確小數）。"+
+				"**不給就是完全不模擬止損**——不是套用一個常見的預設值，"+
+				"所以不給的那一次成績單講的仍然是「一路抱到訊號叫你出場」。"+
+				"負的與超過 100 會被拒絕（正好 100 可以，那讓止損價正好是零）。"+
+				"**與機器人 positionPlan 裡那一格同名、不同事**："+
+				"那一格是「每一輪要建議什麼」、從最新價量起；"+
+				"這一個是「這一次怎麼模擬」、從進場價量起", false),
+		bodyParameter("takeProfitPercentage", vo.ToolParameterKindString,
+			"這次重演的止盈距離，規則與 stopLossPercentage 一字不差，方向相反。"+
+				"兩個可以各自單獨給。"+
+				"\n\n**同一根 K 線同時碰到止損與止盈時一律算止損**——"+
+				"一根 K 線的高低點說不出哪一個先到，"+
+				"而兩種讀法只有這一種永遠不會讓成績單變好看。"+
+				"所以兩個都給時，回來的數字會比「先碰到止盈」那種算法差，那是刻意的", false),
 	}
 }
 
