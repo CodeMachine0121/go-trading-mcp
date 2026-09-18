@@ -296,15 +296,72 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 	}
 }
 
+// Both replays take the two exit distances, so they live in the shared list rather
+// than being added twice. The test for belonging there is one question — does that
+// endpoint actually use it — and it is the same question that keeps the trading mode
+// out of it.
+func TestBothReplaysTakeTheSameTwoExitDistances(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			for _, boxName := range []string{"stopLossPercentage", "takeProfitPercentage"} {
+				box, isDeclared := boxNamed(abilityNamed(t, abilityName), boxName)
+
+				require.True(t, isDeclared,
+					"沒有這一欄，助手算不出一組停損的代價：%s", boxName)
+				// A replay that simulates no exits is the ordinary one, and was the
+				// only one until now.
+				assert.False(t, box.IsRequired)
+				// Money and every other exact decimal in this catalogue travels as a
+				// string.
+				assert.Equal(t, string(vo.ToolParameterKindString), box.Kind)
+			}
+		})
+	}
+}
+
+// Three things about these two boxes cannot be discovered before sending, and each
+// one is wrong in its own way if guessed. Leaving them out simulates nothing, so an
+// assistant guessing "a sensible default stop" believes it reconciled something it
+// did not. The distances are measured from the entry fill, so the pair sitting on a
+// bot — same names, measured from the latest price — is accepted here and answers a
+// different question. And a candle reaching both levels counts as the stop, which is
+// the only one of the three that moves the numbers the *worse* way: a surprise in the
+// good direction gets read as good news, one in the bad direction gets read as a bug.
+func TestTheExitDistancesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
+	replay := abilityNamed(t, "trading_backtest_strategy_script")
+
+	stopLoss, isDeclared := boxNamed(replay, "stopLossPercentage")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, stopLoss.Description, "不給就是完全不模擬止損")
+	assert.Contains(t, stopLoss.Description, "進場價")
+	assert.Contains(t, stopLoss.Description, "同名、不同事")
+	assert.Contains(t, stopLoss.Description, "正好 100 可以")
+
+	takeProfit, isDeclared := boxNamed(replay, "takeProfitPercentage")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, takeProfit.Description, "一律算止損")
+}
+
 // The assistant's whole loop is build, replay, read the report card, adjust, go live —
 // so its most natural next step is to take rules that backtested well and hang a stop
-// on them. Those two have never been reconciled, and nothing else would tell it.
-func TestPuttingABotLiveWarnsThatTheReplayIgnoredTheExits(t *testing.T) {
+// on them. The replay can now count those exits, but only when asked, so this warning
+// stays and points at how to ask rather than saying it cannot be done.
+func TestPuttingABotLiveSaysHowToReconcileTheExits(t *testing.T) {
 	description := abilityNamed(t, "trading_create_strategy_bot").Description
 
-	assert.Contains(t, description, "回測")
-	assert.Contains(t, description, "止損")
-	assert.Contains(t, description, "沒有對過帳")
+	// What it must no longer claim: that a replay never counts them.
+	assert.NotContains(t, description, "從頭到尾不把止損止盈算進去")
+	// What it must still refuse to let the assistant do.
+	assert.Contains(t, description, "還沒有對過帳")
+	// And the way out, named, because "go and reconcile it" without the box names is
+	// advice the assistant cannot act on.
+	assert.Contains(t, description, "stopLossPercentage")
+	assert.Contains(t, description, "takeProfitPercentage")
 }
 
 // Every other box on a bot is untouched: this slice adds one and changes none.

@@ -47,9 +47,12 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"建立一台策略機器人：讓一份交易策略在一個交易標的上定時自己跑。"+
 				"\n\n**建立不等於啟動。** 建好之後要用 trading_start_strategy_bot 才會開始跑。"+
 				"\n\n**填了 positionPlan 的機器人會在訊息裡建議止損與止盈價位，"+
-				"而回測從頭到尾不把止損止盈算進去。**"+
-				"所以一套「回測賺 25%」的規則配上一組停損，那兩件事從來沒有對過帳——"+
-				"要跟使用者講清楚，不要拿回測的數字替那組停損背書。",
+				"而回測只在你把那兩個距離填進去時才算它們。**"+
+				"所以一套「回測賺 25%」的規則配上一組停損，"+
+				"那兩件事**還沒有對過帳**——"+
+				"要對帳就用 trading_backtest_trading_strategy 的 stopLossPercentage "+
+				"與 takeProfitPercentage 再重演一次。"+
+				"在那之前，不要拿那個 25% 替這組停損背書。",
 			vo.RequestVerbSubmit, "/strategy-bots", true,
 			strategyBotWriteParameters()...,
 		),
