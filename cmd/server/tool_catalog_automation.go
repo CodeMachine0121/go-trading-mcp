@@ -7,6 +7,16 @@ import (
 
 // strategyBotWriteParameters are what a strategy bot is made of. Shared by creating
 // one and rewriting one.
+//
+// The position plan arrives nested rather than as five parallel boxes, the way the two
+// condition trees do. Those five figures only mean anything together: flat, an
+// assistant could send leverage with no capital — a combination nothing refuses, and
+// after which nothing happens.
+//
+// **It is also the only box here that filling in wrongly does not get refused.**
+// Leverage on a spot account is a legitimate figure, and four figures with no capital
+// read as no plan at all; the trading service accepts both, and the cost lands on
+// whoever reads the message. So its description is the only guard there is.
 func strategyBotWriteParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("name", vo.ToolParameterKindString, "這台機器人叫什麼", true),
@@ -15,6 +25,18 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 			"它照哪一份交易策略做決定", true),
 		bodyParameter("triggerIntervalMinutes", vo.ToolParameterKindInteger,
 			"每幾分鐘跑一輪", true),
+		bodyParameter("positionPlan", vo.ToolParameterKindObject,
+			"這台機器人每一輪要建議押多少、停在哪裡。**整組可以不給**——"+
+				"不給的機器人只報方向，不報數字。形狀："+
+				"{\"capital\":\"50000\", \"sizingMode\":\"percentage\", \"sizingValue\":\"10\", "+
+				"\"leverage\":\"3\", \"stopLossPercentage\":\"3\", \"takeProfitPercentage\":\"5\"}。"+
+				"capital 是這一組的開關：不給它，其餘四樣填了也不算。"+
+				"金額一律以字串給精確小數。"+
+				"sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、"+
+				"fixedAmount 每次押固定金額；不給即 allIn。"+
+				"不給 leverage 就是不上槓桿——**現貨帳戶不要給**，給了不會被拒絕，"+
+				"只會讓那台機器人的訊息多出兩行不該有的字。"+
+				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給", false),
 	}
 }
 
@@ -23,7 +45,11 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_create_strategy_bot",
 			"建立一台策略機器人：讓一份交易策略在一個交易標的上定時自己跑。"+
-				"\n\n**建立不等於啟動。** 建好之後要用 trading_start_strategy_bot 才會開始跑。",
+				"\n\n**建立不等於啟動。** 建好之後要用 trading_start_strategy_bot 才會開始跑。"+
+				"\n\n**填了 positionPlan 的機器人會在訊息裡建議止損與止盈價位，"+
+				"而回測從頭到尾不把止損止盈算進去。**"+
+				"所以一套「回測賺 25%」的規則配上一組停損，那兩件事從來沒有對過帳——"+
+				"要跟使用者講清楚，不要拿回測的數字替那組停損背書。",
 			vo.RequestVerbSubmit, "/strategy-bots", true,
 			strategyBotWriteParameters()...,
 		),

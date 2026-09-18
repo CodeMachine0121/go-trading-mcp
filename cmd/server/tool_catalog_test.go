@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
+	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -253,5 +254,69 @@ func TestReplayingAStrategyScriptStillAsksWhichWayToTrade(t *testing.T) {
 			"這一欄兩支回測都要，應該還是共用的那一份：%s", strategyReplayBox.Name)
 		assert.Equal(t, strategyReplayBox, scriptReplayBox,
 			"這一欄在兩支上不一樣，代表共用的那一份被抄成了兩份：%s", strategyReplayBox.Name)
+	}
+}
+
+// This box is the only one in the catalogue that filling in wrongly does not get
+// refused: leverage on a spot account is a legitimate figure, and four figures with no
+// capital read as no plan at all. The trading service accepts both, and the cost lands
+// on whoever reads the message — so its description is the only guard there is, and
+// every sentence in it is asserted rather than trusted.
+func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_create_strategy_bot",
+		"trading_update_strategy_bot",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			positionPlan, isDeclared := boxNamed(abilityNamed(t, abilityName), "positionPlan")
+
+			require.True(t, isDeclared, "沒有這個欄位，助理組不出一台會建議部位的機器人")
+			// Nested, so that "all of it or none of it" is true of the shape.
+			assert.Equal(t, string(vo.ToolParameterKindObject), positionPlan.Kind)
+			// Not required: a bot that suggests nothing is an ordinary bot.
+			assert.False(t, positionPlan.IsRequired)
+
+			// The six things that are accepted when wrong, and therefore have to be
+			// said here.
+			assert.Contains(t, positionPlan.Description, "整組可以不給")
+			assert.Contains(t, positionPlan.Description, "capital 是這一組的開關")
+			assert.Contains(t, positionPlan.Description, "字串給精確小數")
+			assert.Contains(t, positionPlan.Description, "不給即 allIn")
+			assert.Contains(t, positionPlan.Description, "現貨帳戶不要給")
+			assert.Contains(t, positionPlan.Description, "百分點")
+
+			// And the five figures named, so the assistant knows what to put in it.
+			for _, figure := range []string{
+				"capital", "sizingMode", "sizingValue",
+				"leverage", "stopLossPercentage", "takeProfitPercentage",
+			} {
+				assert.Contains(t, positionPlan.Description, figure)
+			}
+		})
+	}
+}
+
+// The assistant's whole loop is build, replay, read the report card, adjust, go live —
+// so its most natural next step is to take rules that backtested well and hang a stop
+// on them. Those two have never been reconciled, and nothing else would tell it.
+func TestPuttingABotLiveWarnsThatTheReplayIgnoredTheExits(t *testing.T) {
+	description := abilityNamed(t, "trading_create_strategy_bot").Description
+
+	assert.Contains(t, description, "回測")
+	assert.Contains(t, description, "止損")
+	assert.Contains(t, description, "沒有對過帳")
+}
+
+// Every other box on a bot is untouched: this slice adds one and changes none.
+func TestWritingAStrategyBotStillAsksForEverythingItAlwaysDid(t *testing.T) {
+	create := abilityNamed(t, "trading_create_strategy_bot")
+
+	for _, boxName := range []string{
+		"name", "symbol", "tradingStrategyId", "triggerIntervalMinutes",
+	} {
+		box, isDeclared := boxNamed(create, boxName)
+
+		require.True(t, isDeclared, boxName)
+		assert.True(t, box.IsRequired, "這一欄本來就是必填：%s", boxName)
 	}
 }
