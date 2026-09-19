@@ -681,3 +681,59 @@ func TestBuildingAUserNeedsNoSignInAndReachesTheTradingServiceAsIs(t *testing.T)
 	assert.JSONEq(t, `{"email":"new@example.com","password":"correct horse"}`, seenBody)
 	assert.NotContains(t, textOf(t, result), "correct horse")
 }
+
+func TestAnAccountNobodyHasLetInYetSignsInAndThenGetsRefusedInTheTradingServicesOwnWords(t *testing.T) {
+	// The trading service holds new accounts back until a person lets them in. Signing
+	// in still works — that is deliberate on its side, so somebody waiting can see
+	// their own standing — and everything else is refused. This connector has no idea
+	// any of that exists, and that is exactly what is being pinned here: the refusal
+	// reaches the assistant intact, and is not mistaken for a sign-in gone stale.
+	renewalCount := 0
+	assistantSession := connectedAssistant(t,
+		func(writer http.ResponseWriter, request *http.Request) {
+			if request.URL.Path == "/sessions" {
+				_, _ = writer.Write([]byte(`{
+					"accessToken":"waiting-token","expiresAt":"2099-01-01T00:00:00Z",
+					"refreshToken":"waiting-r","refreshTokenExpiresAt":"2099-01-01T00:00:00Z"}`))
+				return
+			}
+
+			if request.URL.Path == "/sessions/renewal" {
+				renewalCount++
+				writer.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			writer.WriteHeader(http.StatusForbidden)
+			_, _ = writer.Write([]byte(`{"message":"帳號尚未開通，請寄信申請開通",` +
+				`"activationInstruction":{"requestMailbox":"gatekeeper@example.com",` +
+				`"subject":"console access request：waiting@example.com"}}`))
+		}, nil)
+
+	signedIn, _ := assistantSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "trading_sign_in",
+		Arguments: map[string]any{"email": "waiting@example.com", "password": "correct horse"},
+	})
+	require.False(t, signedIn.IsError, "signing in works even before anybody is let in")
+
+	result, callError := assistantSession.CallTool(context.Background(),
+		&mcp.CallToolParams{Name: "trading_list_strategy_scripts"})
+
+	require.NoError(t, callError)
+	// Marked as a failure, so the assistant does not read the refusal as the list it
+	// asked for.
+	assert.True(t, result.IsError)
+
+	// Carried through word for word. What to do about this is a rule of the trading
+	// service, and rewording it here would put a second author on a sentence the
+	// assistant has to act on — one who does not know the rule.
+	refusal := textOf(t, result)
+	assert.Contains(t, refusal, "帳號尚未開通")
+	assert.Contains(t, refusal, "gatekeeper@example.com")
+	assert.Contains(t, refusal, "console access request：waiting@example.com")
+
+	// Not a stale sign-in, so nothing is renewed. Renewing would burn the one that
+	// works and end with the person being told to sign in again — the one thing that
+	// cannot change their situation.
+	assert.Zero(t, renewalCount)
+}
