@@ -1,0 +1,106 @@
+# This connector has no database and no storage tests, so unlike the trading service
+# its checks need nothing but a Go toolchain. The reason the file exists at all is the
+# second job: the image the cluster runs has to be built by something other than a
+# laptop, or "what is actually deployed" becomes a question only one machine can answer.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer worthless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: go mod download
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l ./cmd ./internal)
+          if [ -n "$unformatted" ]; then
+            echo "::error::not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      # -race here for the same reason as in the trading service: this process holds
+      # connections that outlive a single request, and a race only CI sees is a race
+      # nobody fixes until it is already merged.
+      - name: go test
+        run: go test ./... -count=1 -race
+
+  publish:
+    needs: verify
+
+    # Pull requests never reach here. This repository is public, so anyone can open
+    # one, and a fork's PR must not be able to put an image under this name.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # With this, the job's built-in token can push to GHCR, so there is no registry
+      # password to create, store or rotate anywhere.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The commit sha is the version. It is the only tag that still means something
+      # a week later, it is what a deployment manifest names, and it makes a rollback
+      # a one-word edit rather than a rebuild. Short form, because the place it gets
+      # read and typed is a manifest, not a log line.
+      #
+      # `latest` rides along only for running the image by hand. Nothing deployed
+      # should ever reference it — an image that means "whatever was pushed last"
+      # cannot be rolled back to, and makes `kubectl describe` unable to say what is
+      # actually running.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short,prefix=
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
