@@ -127,6 +127,33 @@ func backtestParameters() []vo.ToolParameterVo {
 				"一根 K 線的高低點說不出哪一個先到，"+
 				"而兩種讀法只有這一種永遠不會讓成績單變好看。"+
 				"所以兩個都給時，回來的數字會比「先碰到止盈」那種算法差，那是刻意的", false),
+		// The two boxes an assistant is most likely to leave out and least able to
+		// notice it left out. Everything the exit distances get wrong by guessing
+		// shows up as a refusal or a stranger-looking report card; everything these
+		// two get wrong by guessing shows up as **a better report card**, and nothing
+		// anywhere says so. The bias is also the one that ruins the job the assistant
+		// is asked to do most — putting two strategies side by side — so the warning
+		// names that job rather than describing the field.
+		bodyParameter("entryCostPercentage", vo.ToolParameterKindString,
+			"開倉要付的手續費，佔**押注金額**的百分之幾"+
+				"（0.1 就是 0.1%，字串形式的精確小數）。"+
+				"**不給就是完全不計手續費**——不是套用一個常見的費率，"+
+				"所以不給的那一次成績單講的是一個交易免費的世界，必然偏樂觀。"+
+				"\n\n**偏多少與交易次數成正比**：台股一趟完整進出約 0.47%，"+
+				"一年 4 趟只吃掉 1.9%，一年 200 趟吃掉六成本金。"+
+				"所以**比較兩支交易頻率差很多的策略時，不填費率等於沒有在比較**——"+
+				"交易頻繁的那一支被高估最多，而它的成績單看起來最漂亮，名次可能是反的。"+
+				"使用者問「扣掉手續費還賺嗎」時也一樣，填進去再跑一次。"+
+				"\n\n負的與超過 100 會被拒絕（正好 100 可以，那讓整筆成交金額都拿去付成本）", false),
+		bodyParameter("exitCostPercentage", vo.ToolParameterKindString,
+			"平倉要付的手續費與稅，佔**成交金額**的百分之幾，驗證規則與 entryCostPercentage 一字不差。"+
+				"\n\n**不給時沿用 entryCostPercentage**，不是不收——"+
+				"這與上面那兩個出場距離**不一樣**（那兩格各自獨立、各自留白即不模擬）。"+
+				"這兩格是同一件事的兩半，所以幣安那種兩邊一樣的只要填 entryCostPercentage 一格；"+
+				"台股買賣不對稱，才需要兩格都填。"+
+				"\n\n常見的實際數字：台股手續費 0.1425% 打六折約 **0.0855**，"+
+				"賣出再加 0.3% 證交稅，所以出場約 **0.3855**；"+
+				"幣安吃單兩邊各 **0.1**。你看不到使用者的券商，這幾個數字要由他確認", false),
 	}
 }
 
