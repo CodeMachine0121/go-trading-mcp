@@ -154,8 +154,62 @@ func backtestParameters() []vo.ToolParameterVo {
 				"\n\n常見的實際數字：台股手續費 0.1425% 打六折約 **0.0855**，"+
 				"賣出再加 0.3% 證交稅，所以出場約 **0.3855**；"+
 				"幣安吃單兩邊各 **0.1**。你看不到使用者的券商，這幾個數字要由他確認", false),
+		// The one box whose every wrong guess is invisible.
+		//
+		// Everything else on this list misbehaves in a way that shows: an exit
+		// distance guessed wrong produces a stranger report card, a cost rate
+		// guessed wrong produces a rosier one. Guessing this one wrong produces a
+		// report card for **an account that stopped existing halfway through** —
+		// complete, plausible, and counting dozens of trades that never happened.
+		//
+		// So this description carries six things rather than one, and their order
+		// is the design: what happens when it is left out, what happens when it is
+		// not, how far the position can fall, the one protection the assistant can
+		// actually add, where the damage becomes visible, and last the case that
+		// gets refused — because a refusal announces itself and the other five
+		// never do.
+		bodyParameter("leverage", vo.ToolParameterKindString,
+			"這次重演借幾倍的錢：曝險是押下去的錢的幾倍"+
+				"（5 就是 5 倍，字串形式的精確小數）。"+
+				"\n\n**不給、給 0 或給 1 都是不借錢**——不模擬強制平倉，"+
+				"成績單與沒有這一格的時候一字不差。"+
+				"\n\n給大於 1 就會模擬三件事：賺賠與手續費都照**放大後的曝險金額**算；"+
+				"價格逆著走到撐不住時那一注**被強制平倉、押下去的錢全沒了**；"+
+				"而**重演會照樣往下跑**——那個帳戶已經歸零，後面每一筆交易都不曾發生。"+
+				"\n\n**撐得住多遠由槓桿決定**：大約 `(100÷槓桿)` 個百分點"+
+				"（更準確地說是 `100÷槓桿 − 維持保證金率`）。"+
+				"5 倍約 **19.5%**、10 倍約 **9.5%**、20 倍約 **4.5%**——"+
+				"替使用者挑倍數之前先算這個數字，再對照那段行情的回檔幅度。"+
+				"\n\n**止損比強平近時永遠是止損先出場**（兩者在同一邊，近的先到）。"+
+				"所以**開了槓桿就一起給 stopLossPercentage**：那是你唯一擋得住歸零的辦法，"+
+				"而不給的話，5 倍配一段跌兩成的行情就是整個帳戶。"+
+				"\n\n成績單上的 **liquidationExitCount** 會告訴你這一次歸零過幾次。"+
+				"\n\n**現貨（spot）開不了槓桿**——現貨是拿現金換東西，沒有人借錢給你，"+
+				"所以那個交易模式給大於 1 會整次被拒絕", false),
+		bodyParameter("maintenanceMarginRate", vo.ToolParameterKindString,
+			"一注帳上剩到多少就被強制出場，佔**曝險金額**的百分之幾"+
+				"（0.5 就是 0.5%，字串形式的精確小數）。"+
+				"\n\n**不給不是關掉它，是用 0.5%**——這與旁邊每一格的留白都不一樣"+
+				"（出場距離留白是不模擬、進場成本率留白是不收費）。"+
+				"只要借了錢就一定有人在看著抵押品，這不是一件可以不模擬的事；"+
+				"留白只代表你沒有意見，於是用市場上的常見值。"+
+				"**沒有借錢時這一格不影響任何結果。**"+
+				"\n\n必須小於 `100÷槓桿`（5 倍時小於 20），"+
+				"否則那一注在開倉那一棒就已經撐不住，整次重演會被拒絕", false),
 	}
 }
+
+// liquidationReportCardNote is what a borrowed replay adds to the report card, said
+// once for both replays.
+//
+// One copy for the reason the costed note has one: the two replays must never tell
+// an assistant two different things about the same report card, and two wordings
+// are two chances for only one of them to get improved.
+//
+// It says why rather than what. "There is a count of liquidations" is something an
+// assistant can see in the response; that a respectable return rate can belong to an
+// account which was emptied three times on the way is not.
+const liquidationReportCardNote = "\n\n**開了槓桿時，成績單多一個 liquidationExitCount**——這次有幾注是被強制平倉打掉的（沒開槓桿時恆為零）。**這一格一定要看**：同一個報酬率講得出兩個完全不同的故事——一個是停損一路擋著、從來沒有真的危險過，另一個是這個帳戶歸零過三次而報酬率是靠剩下那幾筆湊回來的。少了這一格，兩者在成績單上長得一模一樣。每一筆交易的 exitReason 也會寫著 liquidation，看得出是哪幾筆。"
 
 // apiToolCatalog is everything this connector can do.
 //

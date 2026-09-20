@@ -172,7 +172,8 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"十次出場八次是被停損掃出去的策略，與十次都靡訊號出場的，"+
 				"報酬率可以一模一樣——而前者是停損在支撑它，"+
 				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。"+
-				costedReportCardNote,
+				costedReportCardNote+
+				liquidationReportCardNote,
 			vo.RequestVerbSubmit, "/backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -203,7 +204,8 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"\n\n這一支與 trading_backtest_strategy_script 的差別："+
 				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定；"+
 				"而那一支沒有交易策略可問，所以交易模式由你當次指定。"+
-				costedReportCardNote,
+				costedReportCardNote+
+				liquidationReportCardNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
