@@ -514,15 +514,19 @@ func TestBothReplaysTakeTheSameLeverage(t *testing.T) {
 // Both replays word it identically, because two wordings are two chances for only
 // one of them to be improved — and then the same figure would mean two things.
 func TestBothReplaysWordTheLeverageIdentically(t *testing.T) {
-	script, isDeclared := boxNamed(
-		abilityNamed(t, "trading_backtest_strategy_script"), "leverage")
-	require.True(t, isDeclared)
+	for _, boxName := range []string{"leverage", "maintenanceMarginRate"} {
+		t.Run(boxName, func(t *testing.T) {
+			script, isDeclared := boxNamed(
+				abilityNamed(t, "trading_backtest_strategy_script"), boxName)
+			require.True(t, isDeclared)
 
-	strategy, isDeclared := boxNamed(
-		abilityNamed(t, "trading_backtest_trading_strategy"), "leverage")
-	require.True(t, isDeclared)
+			strategy, isDeclared := boxNamed(
+				abilityNamed(t, "trading_backtest_trading_strategy"), boxName)
+			require.True(t, isDeclared)
 
-	assert.Equal(t, script.Description, strategy.Description)
+			assert.Equal(t, script.Description, strategy.Description)
+		})
+	}
 }
 
 // **This is the mechanical reason the slice exists.** The connector forwards only
@@ -617,6 +621,11 @@ func TestBothReplaysSayWhyTheWipeOutCountMatters(t *testing.T) {
 			// Why, not what: that a respectable return can belong to an account
 			// emptied three times on the way is the part it cannot see.
 			assert.Contains(t, description, "歸零過三次")
+			// And it is the *same* paragraph, not a second one that happens to
+			// mention the same two things. Asserting the words alone would let a
+			// copy drift a sentence at a time while this stayed green, and then
+			// the two replays would describe one report card two ways.
+			assert.Contains(t, description, liquidationReportCardNote)
 		})
 	}
 }
