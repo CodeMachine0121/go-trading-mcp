@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	"github.com/stretchr/testify/assert"
@@ -353,7 +355,11 @@ func TestReplayingAScriptSaysWhyTheStopCountMatters(t *testing.T) {
 	description := abilityNamed(t, "trading_backtest_strategy_script").Description
 
 	assert.Contains(t, description, "stopLossExitCount")
-	assert.Contains(t, description, "exitReason")
+	// The whole sentence, not the bare word. The wipe-out note added a second
+	// `exitReason` to this description, so matching the word alone stopped proving
+	// that *this* paragraph still points at it — the stop-count story could lose
+	// its pointer entirely and this would stay green.
+	assert.Contains(t, description, "每一筆交易自己也帶著 exitReason")
 }
 
 // The cost rates live in the shared list for the same reason the exit distances do:
@@ -462,5 +468,192 @@ func TestWritingAStrategyBotStillAsksForEverythingItAlwaysDid(t *testing.T) {
 
 		require.True(t, isDeclared, boxName)
 		assert.True(t, box.IsRequired, "這一欄本來就是必填：%s", boxName)
+	}
+}
+
+// apiToolNamed is the ability itself rather than the shape an assistant reads, for
+// the one question that cannot be asked of the shape: does a filled-in box actually
+// leave the connector.
+func apiToolNamed(t *testing.T, name string) domains.ApiToolDomain {
+	t.Helper()
+
+	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+		if apiTool.Name() == name {
+			return apiTool
+		}
+	}
+
+	require.FailNowf(t, "清單裡沒有這件能力", "%s", name)
+
+	return domains.ApiToolDomain{}
+}
+
+// The leverage sits in the shared list for the reason the exit distances and the
+// cost rates do: both replays take it, because a set of rules has no opinion about
+// how much its owner is willing to borrow.
+//
+// That is also exactly where it parts company with the trading mode, which the
+// second replay has no box for at all — one is a fact about the account, the other
+// is a property of the rules being replayed.
+func TestBothReplaysTakeTheSameLeverage(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			for _, boxName := range []string{"leverage", "maintenanceMarginRate"} {
+				box, isDeclared := boxNamed(abilityNamed(t, abilityName), boxName)
+
+				require.True(t, isDeclared,
+					"沒有這一欄，助手交出的成績單講的是另一個帳戶：%s", boxName)
+				// Borrowing nothing is the ordinary replay, and was the only one
+				// until now.
+				assert.False(t, box.IsRequired)
+				assert.Equal(t, string(vo.ToolParameterKindString), box.Kind)
+			}
+		})
+	}
+}
+
+// Both replays word it identically, because two wordings are two chances for only
+// one of them to be improved — and then the same figure would mean two things.
+func TestBothReplaysWordTheLeverageIdentically(t *testing.T) {
+	for _, boxName := range []string{"leverage", "maintenanceMarginRate"} {
+		t.Run(boxName, func(t *testing.T) {
+			script, isDeclared := boxNamed(
+				abilityNamed(t, "trading_backtest_strategy_script"), boxName)
+			require.True(t, isDeclared)
+
+			strategy, isDeclared := boxNamed(
+				abilityNamed(t, "trading_backtest_trading_strategy"), boxName)
+			require.True(t, isDeclared)
+
+			assert.Equal(t, script.Description, strategy.Description)
+		})
+	}
+}
+
+// **This is the mechanical reason the slice exists.** The connector forwards only
+// the names it declares, so a box nobody declared is a box the assistant can fill in
+// and watch vanish — with no error anywhere, and a report card that looks fine.
+func TestAFilledInLeverageActuallyLeavesTheConnector(t *testing.T) {
+	request, buildError := apiToolNamed(t, "trading_backtest_strategy_script").
+		BuildRequest(domains.NewToolArgumentsDomain(map[string]json.RawMessage{
+			"symbol":                json.RawMessage(`"BTCUSDT"`),
+			"startTime":             json.RawMessage(`"2026-09-01T00:00:00Z"`),
+			"endTime":               json.RawMessage(`"2026-09-10T00:00:00Z"`),
+			"initialCapital":        json.RawMessage(`"10000"`),
+			"leverage":              json.RawMessage(`"5"`),
+			"maintenanceMarginRate": json.RawMessage(`"0.5"`),
+		}))
+
+	require.NoError(t, buildError)
+	assert.Contains(t, string(request.Body), `"leverage":"5"`)
+	assert.Contains(t, string(request.Body), `"maintenanceMarginRate":"0.5"`)
+}
+
+// Leaving both out sends what it always sent. Not a new rule — the connector has
+// always forwarded only the boxes that were filled in — but it is the promise every
+// replay made before this slice depends on, so it is asserted rather than assumed.
+func TestLeavingTheLeverageOutSendsWhatItAlwaysSent(t *testing.T) {
+	request, buildError := apiToolNamed(t, "trading_backtest_strategy_script").
+		BuildRequest(domains.NewToolArgumentsDomain(map[string]json.RawMessage{
+			"symbol":         json.RawMessage(`"BTCUSDT"`),
+			"startTime":      json.RawMessage(`"2026-09-01T00:00:00Z"`),
+			"endTime":        json.RawMessage(`"2026-09-10T00:00:00Z"`),
+			"initialCapital": json.RawMessage(`"10000"`),
+		}))
+
+	require.NoError(t, buildError)
+	assert.NotContains(t, string(request.Body), "leverage")
+	assert.NotContains(t, string(request.Body), "maintenanceMarginRate")
+}
+
+// Six things about this box cannot be discovered by sending, and every one of them
+// is wrong in the *invisible* direction: the report card comes back complete and
+// plausible for an account that stopped existing halfway through.
+func TestTheLeverageSaysWhatCannotBeDiscoveredBySending(t *testing.T) {
+	leverage, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "leverage")
+	require.True(t, isDeclared)
+
+	// What leaving it out means — the most common case, and the one an assistant
+	// hits on every replay it has ever made.
+	assert.Contains(t, leverage.Description, "不給、給 0 或給 1 都是不借錢")
+	// That the replay keeps walking after the account is gone. This is the whole
+	// slice: the trades after that point did not happen.
+	assert.Contains(t, leverage.Description, "重演會照樣往下跑")
+	// How far it can fall, said three ways because they answer three questions.
+	// Each is asserted by a phrase that appears nowhere else in the description —
+	// `100÷槓桿` alone is not enough, since the exact form contains the rule of
+	// thumb and either one could quietly disappear behind the other.
+	assert.Contains(t, leverage.Description, "大約 `(100÷槓桿)` 個百分點")
+	assert.Contains(t, leverage.Description, "`100÷槓桿 − 維持保證金率`")
+	assert.Contains(t, leverage.Description, "5 倍約 **19.5%**")
+	// The one protection the assistant can actually add, which it would never guess.
+	assert.Contains(t, leverage.Description, "stopLossPercentage")
+	// Where the invisible damage becomes visible.
+	assert.Contains(t, leverage.Description, "liquidationExitCount")
+	// And last, the two cases that announce themselves by being refused. Half a
+	// multiplier needs saying because the sentence above it names 0 and 1 as
+	// harmless, which reads as "anything at or below one is a no-op" — and the
+	// value between them is the one an assistant reaches for when it means half a
+	// position.
+	assert.Contains(t, leverage.Description, "介於 0 與 1 之間會整次被拒絕")
+	assert.Contains(t, leverage.Description, "現貨（spot）開不了槓桿")
+}
+
+// The two boxes sit on the same call and both describe what a percentage is taken
+// of, so they must not answer it differently. Borrowing multiplies what the entry
+// charge is levied on, and the cost box is where an assistant looks for that.
+func TestTheEntryCostAndTheLeverageAgreeOnWhatTheFeeIsTakenOf(t *testing.T) {
+	entryCost, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "entryCostPercentage")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, entryCost.Description, "佔**曝險金額**的百分之幾")
+	// And says so in a way that needs no cross-referencing: what it means when
+	// nothing is borrowed, and what it costs when something is.
+	assert.Contains(t, entryCost.Description, "沒開槓桿時曝險金額就是押注金額")
+	assert.Contains(t, entryCost.Description, "開了 5 倍，同一個費率收的錢就是五倍")
+}
+
+// The maintenance margin's blank means something different from every blank beside
+// it, and three groups sit together on the same call. Nothing but this sentence
+// stops an assistant carrying the neighbours' rule across.
+func TestTheMaintenanceMarginSaysItsBlankIsNotTheOthers(t *testing.T) {
+	rate, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "maintenanceMarginRate")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, rate.Description, "不給不是關掉它，是用 0.5%")
+	// The second half this test is named for, which it did not assert: *why* the
+	// blank is not the neighbours'. Deleting the contrast clause left it green,
+	// and that clause is the entire reason this box needs a sentence of its own.
+	assert.Contains(t, rate.Description, "這與旁邊每一格的留白都不一樣")
+	assert.Contains(t, rate.Description, "100÷槓桿")
+}
+
+// A borrowed replay puts one more number on the report card, and the tool
+// description is the only place an assistant learns what it is for. Both replays say
+// it, word for word, because they hand back the same report card.
+func TestBothReplaysSayWhyTheWipeOutCountMatters(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			description := abilityNamed(t, abilityName).Description
+
+			assert.Contains(t, description, "liquidationExitCount")
+			// Why, not what: that a respectable return can belong to an account
+			// emptied three times on the way is the part it cannot see.
+			assert.Contains(t, description, "歸零過三次")
+			// And it is the *same* paragraph, not a second one that happens to
+			// mention the same two things. Asserting the words alone would let a
+			// copy drift a sentence at a time while this stayed green, and then
+			// the two replays would describe one report card two ways.
+			assert.Contains(t, description, liquidationReportCardNote)
+		})
 	}
 }

@@ -135,7 +135,8 @@ func backtestParameters() []vo.ToolParameterVo {
 		// is asked to do most — putting two strategies side by side — so the warning
 		// names that job rather than describing the field.
 		bodyParameter("entryCostPercentage", vo.ToolParameterKindString,
-			"開倉要付的手續費，佔**押注金額**的百分之幾"+
+			"開倉要付的手續費，佔**曝險金額**的百分之幾"+
+				"（沒開槓桿時曝險金額就是押注金額；開了 5 倍，同一個費率收的錢就是五倍）"+
 				"（0.1 就是 0.1%，字串形式的精確小數）。"+
 				"**不給就是完全不計手續費**——不是套用一個常見的費率，"+
 				"所以不給的那一次成績單講的是一個交易免費的世界，必然偏樂觀。"+
@@ -154,6 +155,50 @@ func backtestParameters() []vo.ToolParameterVo {
 				"\n\n常見的實際數字：台股手續費 0.1425% 打六折約 **0.0855**，"+
 				"賣出再加 0.3% 證交稅，所以出場約 **0.3855**；"+
 				"幣安吃單兩邊各 **0.1**。你看不到使用者的券商，這幾個數字要由他確認", false),
+		// The one box whose every wrong guess is invisible.
+		//
+		// Everything else on this list misbehaves in a way that shows: an exit
+		// distance guessed wrong produces a stranger report card, a cost rate
+		// guessed wrong produces a rosier one. Guessing this one wrong produces a
+		// report card for **an account that stopped existing halfway through** —
+		// complete, plausible, and counting dozens of trades that never happened.
+		//
+		// So this description carries six things rather than one, and their order
+		// is the design: what happens when it is left out, what happens when it is
+		// not, how far the position can fall, the one protection the assistant can
+		// actually add, where the damage becomes visible, and last the case that
+		// gets refused — because a refusal announces itself and the other five
+		// never do.
+		bodyParameter("leverage", vo.ToolParameterKindString,
+			"這次重演借幾倍的錢：曝險是押下去的錢的幾倍"+
+				"（5 就是 5 倍，字串形式的精確小數）。"+
+				"\n\n**不給、給 0 或給 1 都是不借錢**——不模擬強制平倉，"+
+				"成績單與沒有這一格的時候一字不差。"+
+				"\n\n給大於 1 就會模擬三件事：賺賠與手續費都照**放大後的曝險金額**算；"+
+				"價格逆著走到撐不住時那一注**被強制平倉、押下去的錢全沒了**；"+
+				"而**重演會照樣往下跑**——那個帳戶已經歸零，後面每一筆交易都不曾發生。"+
+				"\n\n**撐得住多遠由槓桿決定**：大約 `(100÷槓桿)` 個百分點"+
+				"（更準確地說是 `100÷槓桿 − 維持保證金率`）。"+
+				"5 倍約 **19.5%**、10 倍約 **9.5%**、20 倍約 **4.5%**——"+
+				"替使用者挑倍數之前先算這個數字，再對照那段行情的回檔幅度。"+
+				"\n\n**止損比強平近時永遠是止損先出場**（兩者在同一邊，近的先到）。"+
+				"所以**開了槓桿就一起給 stopLossPercentage**：那是你唯一擋得住歸零的辦法，"+
+				"而不給的話，5 倍配一段跌兩成的行情就是整個帳戶。"+
+				"\n\n成績單上的 **liquidationExitCount** 會告訴你這一次歸零過幾次。"+
+				"\n\n**介於 0 與 1 之間會整次被拒絕**——0 是「沒填」、1 是「不借錢」，"+
+				"但 0.5 兩者都不是。打 0.5 的人多半想押半個部位，那要改的是 positionSizingValue。"+
+				"\n\n**現貨（spot）開不了槓桿**——現貨是拿現金換東西，沒有人借錢給你，"+
+				"所以那個交易模式給大於 1 會整次被拒絕", false),
+		bodyParameter("maintenanceMarginRate", vo.ToolParameterKindString,
+			"一注帳上剩到多少就被強制出場，佔**曝險金額**的百分之幾"+
+				"（0.5 就是 0.5%，字串形式的精確小數）。"+
+				"\n\n**不給不是關掉它，是用 0.5%**——這與旁邊每一格的留白都不一樣"+
+				"（出場距離留白是不模擬、進場成本率留白是不收費）。"+
+				"只要借了錢就一定有人在看著抵押品，這不是一件可以不模擬的事；"+
+				"留白只代表你沒有意見，於是用市場上的常見值。"+
+				"**沒有借錢時這一格不影響任何結果。**"+
+				"\n\n必須小於 `100÷槓桿`（5 倍時小於 20），"+
+				"否則那一注在開倉那一棒就已經撐不住，整次重演會被拒絕", false),
 	}
 }
 
