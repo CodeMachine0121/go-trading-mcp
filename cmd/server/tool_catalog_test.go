@@ -356,6 +356,84 @@ func TestReplayingAScriptSaysWhyTheStopCountMatters(t *testing.T) {
 	assert.Contains(t, description, "exitReason")
 }
 
+// The cost rates live in the shared list for the same reason the exit distances do:
+// both replays take them, because a set of rules has no opinion about what its
+// owner's broker charges. Sharing the list is what makes "the same on both" a fact
+// rather than a rule somebody has to remember.
+func TestBothReplaysTakeTheSameTwoCostRates(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			for _, boxName := range []string{"entryCostPercentage", "exitCostPercentage"} {
+				box, isDeclared := boxNamed(abilityNamed(t, abilityName), boxName)
+
+				require.True(t, isDeclared,
+					"沒有這一欄，助手每一次重演都在比一個交易免費的世界：%s", boxName)
+				// A replay that pays nothing is the ordinary one, and was the only
+				// one until now.
+				assert.False(t, box.IsRequired)
+				assert.Equal(t, string(vo.ToolParameterKindString), box.Kind)
+			}
+		})
+	}
+}
+
+// Guessing wrong about these two is not like guessing wrong about anything else in
+// this catalogue. Every other bad guess comes back as a refusal or as numbers that
+// look odd; a missing cost rate comes back as **a better report card**, and nothing
+// anywhere says so.
+//
+// Worse, the bias grows with how often the strategy trades — which ruins the one job
+// the assistant is asked to do most, putting two strategies side by side. So the
+// description has to name that job, not merely describe the field.
+func TestTheCostRatesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
+	replay := abilityNamed(t, "trading_backtest_strategy_script")
+
+	entryCost, isDeclared := boxNamed(replay, "entryCostPercentage")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, entryCost.Description, "不給就是完全不計手續費")
+	assert.Contains(t, entryCost.Description, "偏樂觀")
+	assert.Contains(t, entryCost.Description, "與交易次數成正比")
+	assert.Contains(t, entryCost.Description, "不填費率等於沒有在比較")
+	assert.Contains(t, entryCost.Description, "正好 100 可以")
+
+	exitCost, isDeclared := boxNamed(replay, "exitCostPercentage")
+	require.True(t, isDeclared)
+
+	// The one rule these two break that the exit distances keep: a blank here is not
+	// "no charge", it is "the same as the entry". An assistant carrying the exit
+	// distances' rule across would believe it had set up a free exit.
+	assert.Contains(t, exitCost.Description, "沿用 entryCostPercentage")
+	assert.Contains(t, exitCost.Description, "不一樣")
+	// It cannot see the person's broker, so the usual numbers have to be here.
+	assert.Contains(t, exitCost.Description, "0.0855")
+	assert.Contains(t, exitCost.Description, "0.3855")
+	assert.Contains(t, exitCost.Description, "幣安")
+}
+
+// A costed report card carries one more number and quietly changes the meaning of two
+// it already had. The last of those is the expensive one: an assistant still reading
+// profit as the price move will call a round trip that earned less than its fees a
+// winning trade — exactly the misreading this whole change exists to remove.
+func TestBothReplaysSayHowToReadACostedReportCard(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			description := abilityNamed(t, abilityName).Description
+
+			assert.Contains(t, description, "totalTransactionCost")
+			assert.Contains(t, description, "被手續費吃掉")
+			assert.Contains(t, description, "淨額")
+			assert.Contains(t, description, "勝率")
+		})
+	}
+}
+
 // The assistant's whole loop is build, replay, read the report card, adjust, go live —
 // so its most natural next step is to take rules that backtested well and hang a stop
 // on them. The replay can now count those exits, but only when asked, so this warning

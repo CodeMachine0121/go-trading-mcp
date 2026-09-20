@@ -147,6 +147,16 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 	}
 }
 
+// costedReportCardNote is how to read a report card that had the fees taken out of
+// it, said once for both replays.
+//
+// Both of them need it and it has to be the same sentence in both: it corrects a
+// reading the assistant already has. Two copies would be two places to improve the
+// wording, and the day only one of them improved, one replay would be telling the
+// assistant that profit is gross while the other said it is net — and the numbers
+// themselves look identical either way.
+const costedReportCardNote = "\n\n**填了交易成本時，成績單多一個 totalTransactionCost**——這次總共付掉多少。有了它才答得出「這支策略是抓價差不行，還是被手續費吃掉」，而同一個報酬率本來講得出這兩個完全不同的故事。**每一筆交易的 profit 已經是扣掉成本後的淨額，勝率也是照淨額算的**——價差賺得到、卻賺不過手續費的那一趟不算贏，別把它讀成賺錢的交易。"
+
 func backtestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
@@ -161,7 +171,8 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"\n\n模擬了出場價位時，**stopLossExitCount 也一定要看**："+
 				"十次出場八次是被停損掃出去的策略，與十次都靡訊號出場的，"+
 				"報酬率可以一模一樣——而前者是停損在支撑它，"+
-				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。",
+				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。"+
+				costedReportCardNote,
 			vo.RequestVerbSubmit, "/backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -191,7 +202,8 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"用 trading_update_trading_strategy 把那一份的 tradingMode 改成 spot，之後每一次重演都跟著對。"+
 				"\n\n這一支與 trading_backtest_strategy_script 的差別："+
 				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定；"+
-				"而那一支沒有交易策略可問，所以交易模式由你當次指定。",
+				"而那一支沒有交易策略可問，所以交易模式由你當次指定。"+
+				costedReportCardNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
