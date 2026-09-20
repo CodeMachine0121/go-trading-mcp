@@ -199,18 +199,6 @@ func backtestParameters() []vo.ToolParameterVo {
 	}
 }
 
-// liquidationReportCardNote is what a borrowed replay adds to the report card, said
-// once for both replays.
-//
-// One copy for the reason the costed note has one: the two replays must never tell
-// an assistant two different things about the same report card, and two wordings
-// are two chances for only one of them to get improved.
-//
-// It says why rather than what. "There is a count of liquidations" is something an
-// assistant can see in the response; that a respectable return rate can belong to an
-// account which was emptied three times on the way is not.
-const liquidationReportCardNote = "\n\n**開了槓桿時，成績單多一個 liquidationExitCount**——這次有幾注是被強制平倉打掉的（沒開槓桿時恆為零）。**這一格一定要看**：同一個報酬率講得出兩個完全不同的故事——一個是停損一路擋著、從來沒有真的危險過，另一個是這個帳戶歸零過三次而報酬率是靠剩下那幾筆湊回來的。少了這一格，兩者在成績單上長得一模一樣。每一筆交易的 exitReason 也會寫著 liquidation，看得出是哪幾筆。"
-
 // apiToolCatalog is everything this connector can do.
 //
 // **One thing the trading service offers is deliberately not here: its own chat
