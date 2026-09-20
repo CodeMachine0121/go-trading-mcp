@@ -33,8 +33,8 @@
 | AC-06 | 說得出留白是什麼意思 | 說出不給／0／1 都是不借錢，也不模擬強制平倉 | `TestTheLeverageSaysWhatCannotBeDiscoveredBySending`（逐字） | asserts-oracle | produces-oracle | ✅ |
 | AC-07 | 說得出撐得住多遠，並給實際數字 | 說出約 `100÷槓桿` 個百分點，且至少一個實際數字 | 同上——**三個各自唯一的片語**：約略式、精確式、`5 倍約 19.5%` | asserts-oracle | produces-oracle | ✅ ² |
 | AC-08 | 說得出止損比強平近時止損先出場 | 說出開了槓桿就該一起給止損距離 | 同上（`stopLossPercentage`；整句被刪的突變會紅） | asserts-oracle | produces-oracle | ✅ |
-| AC-09 | 說得出現貨開不了槓桿 | 說出現貨給大於 1 會整次被拒絕 | 同上（逐字） | asserts-oracle | produces-oracle | ✅ |
-| AC-10 | 維持保證金率留白不是關掉它 | 說出留白時是 0.5%，且與隔壁不一樣 | `TestTheMaintenanceMarginSaysItsBlankIsNotTheOthers`（「不給不是關掉它，是用 0.5%」一句同時涵蓋兩半） | asserts-oracle | produces-oracle | ✅ |
+| AC-09 | 說得出會被拒絕的那幾種 | 說出現貨給大於 1 會整次被拒絕 | 同上（逐字），**另加「介於 0 與 1 之間會整次被拒絕」** | asserts-oracle | produces-oracle | ✅ ⁶ |
+| AC-10 | 維持保證金率留白不是關掉它 | 說出留白時是 0.5%，且與隔壁不一樣 | `TestTheMaintenanceMarginSaysItsBlankIsNotTheOthers`（**兩句各驗一半**：「不給不是關掉它，是用 0.5%」與「這與旁邊每一格的留白都不一樣」） | asserts-oracle | produces-oracle | ✅ ⁵ |
 | AC-11 | 說得出上限是算出來的 | 說出必須小於 `100÷槓桿` | 同上 | asserts-oracle | produces-oracle | ✅ |
 
 ² 稽核前只驗 `100÷槓桿`——而那個字串在那段說明裡出現**兩次**（約略式與精確式），
@@ -59,6 +59,9 @@
 | BR-2 | 連接器不驗證 | 這兩格不會在連接器被拒絕 | 沒有新增任何判斷 | asserts-oracle | produces-oracle | ✅ ⁴ |
 | BR-3 | 留白的不上線 | 沒填的名字不出現在內文裡 | `EncodedSubset`（既有） | asserts-oracle | produces-oracle | ✅ |
 | BR-4 | 成績單那段說明兩支共用一份 | 兩支的那一段逐字相同 | `liquidationReportCardNote` | asserts-oracle | produces-oracle | ✅（見註 ³） |
+
+⁵ 稽核當下誤判為「一句涵蓋兩半」，由外部 code review 指出。已補第二個斷言。
+⁶ 原本只說了現貨那一種拒絕；`0 < x < 1` 那一種是 code review 補上的。
 
 ⁴ 連接器對一個欄位**唯一做得到**的判斷就是必不必填，而那一項被斷言為「選填」。
 再多的驗證都得是新程式碼，不是既有路徑的分支——所以這一條的守衛是那個 `IsRequired=false`，
@@ -100,7 +103,26 @@
 
 **Conformance: 20 / 20 ＝ 100%**
 
-### 本次稽核抓到並已修正的兩件事
+### Code review 之後補上的四件事（`ad256a6` 之後）
+
+外部 review 抓到四個 LOW，四個都是這一刀造成的，四個都已修：
+
+1. **`exitReason` 被我加成出現兩次。** 新的成績單說明尾端也提到它，於是既有的
+   `TestReplayingAScriptSaysWhyTheStopCountMatters` 停止咬人——止損那一段可以整句
+   掉光而測試照樣綠。改成釘住那一整句（`每一筆交易自己也帶著 exitReason`）。
+2. **AC-10 只驗了一半。** 測試名字與這份文件都說它涵蓋兩半，實際上只驗了
+   「不給不是關掉它，是用 0.5%」；那句對照子句刪掉照樣綠。已補上第二個斷言，
+   本表的 AC-10 一列也一併更正——**那句「同時涵蓋兩半」原本就是錯的**。
+3. **`0 < x < 1` 會被拒絕，而說明從沒提過。** 上一句才說「0 是不借錢、1 是不借錢」，
+   讀起來就像「小於等於 1 都無害」，而 0.5 正是助手想押半個部位時會打的數字。
+   這個 repo 自己的規矩是「說明要說出什麼會被拒絕」，而它只說了現貨那一種。已補。
+4. **手續費的基準前後矛盾。** `entryCostPercentage` 說收「押注金額」的百分比，
+   新的槓桿那一格說「手續費照放大後的曝險金額算」——開了槓桿這是兩個數字。
+   後端在同一刀改成收曝險，所以**舊的那句已經是錯的**。已改，並說出沒開槓桿時兩者相同。
+
+四個各有一條斷言，並以突變確認會紅。
+
+### 稽核當下抓到並已修正的兩件事
 
 兩件都是**斷言比 oracle 弱**，而且都屬於同一類——這一刀的產出幾乎全是文字，
 而驗文字最容易寫出「看起來有驗、其實放得過」的斷言：

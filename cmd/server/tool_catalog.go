@@ -135,7 +135,8 @@ func backtestParameters() []vo.ToolParameterVo {
 		// is asked to do most — putting two strategies side by side — so the warning
 		// names that job rather than describing the field.
 		bodyParameter("entryCostPercentage", vo.ToolParameterKindString,
-			"開倉要付的手續費，佔**押注金額**的百分之幾"+
+			"開倉要付的手續費，佔**曝險金額**的百分之幾"+
+				"（沒開槓桿時曝險金額就是押注金額；開了 5 倍，同一個費率收的錢就是五倍）"+
 				"（0.1 就是 0.1%，字串形式的精確小數）。"+
 				"**不給就是完全不計手續費**——不是套用一個常見的費率，"+
 				"所以不給的那一次成績單講的是一個交易免費的世界，必然偏樂觀。"+
@@ -184,6 +185,8 @@ func backtestParameters() []vo.ToolParameterVo {
 				"所以**開了槓桿就一起給 stopLossPercentage**：那是你唯一擋得住歸零的辦法，"+
 				"而不給的話，5 倍配一段跌兩成的行情就是整個帳戶。"+
 				"\n\n成績單上的 **liquidationExitCount** 會告訴你這一次歸零過幾次。"+
+				"\n\n**介於 0 與 1 之間會整次被拒絕**——0 是「沒填」、1 是「不借錢」，"+
+				"但 0.5 兩者都不是。打 0.5 的人多半想押半個部位，那要改的是 positionSizingValue。"+
 				"\n\n**現貨（spot）開不了槓桿**——現貨是拿現金換東西，沒有人借錢給你，"+
 				"所以那個交易模式給大於 1 會整次被拒絕", false),
 		bodyParameter("maintenanceMarginRate", vo.ToolParameterKindString,

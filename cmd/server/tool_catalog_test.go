@@ -355,7 +355,11 @@ func TestReplayingAScriptSaysWhyTheStopCountMatters(t *testing.T) {
 	description := abilityNamed(t, "trading_backtest_strategy_script").Description
 
 	assert.Contains(t, description, "stopLossExitCount")
-	assert.Contains(t, description, "exitReason")
+	// The whole sentence, not the bare word. The wipe-out note added a second
+	// `exitReason` to this description, so matching the word alone stopped proving
+	// that *this* paragraph still points at it — the stop-count story could lose
+	// its pointer entirely and this would stay green.
+	assert.Contains(t, description, "每一筆交易自己也帶著 exitReason")
 }
 
 // The cost rates live in the shared list for the same reason the exit distances do:
@@ -590,8 +594,28 @@ func TestTheLeverageSaysWhatCannotBeDiscoveredBySending(t *testing.T) {
 	assert.Contains(t, leverage.Description, "stopLossPercentage")
 	// Where the invisible damage becomes visible.
 	assert.Contains(t, leverage.Description, "liquidationExitCount")
-	// And last, the case that announces itself by being refused.
+	// And last, the two cases that announce themselves by being refused. Half a
+	// multiplier needs saying because the sentence above it names 0 and 1 as
+	// harmless, which reads as "anything at or below one is a no-op" — and the
+	// value between them is the one an assistant reaches for when it means half a
+	// position.
+	assert.Contains(t, leverage.Description, "介於 0 與 1 之間會整次被拒絕")
 	assert.Contains(t, leverage.Description, "現貨（spot）開不了槓桿")
+}
+
+// The two boxes sit on the same call and both describe what a percentage is taken
+// of, so they must not answer it differently. Borrowing multiplies what the entry
+// charge is levied on, and the cost box is where an assistant looks for that.
+func TestTheEntryCostAndTheLeverageAgreeOnWhatTheFeeIsTakenOf(t *testing.T) {
+	entryCost, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "entryCostPercentage")
+	require.True(t, isDeclared)
+
+	assert.Contains(t, entryCost.Description, "佔**曝險金額**的百分之幾")
+	// And says so in a way that needs no cross-referencing: what it means when
+	// nothing is borrowed, and what it costs when something is.
+	assert.Contains(t, entryCost.Description, "沒開槓桿時曝險金額就是押注金額")
+	assert.Contains(t, entryCost.Description, "開了 5 倍，同一個費率收的錢就是五倍")
 }
 
 // The maintenance margin's blank means something different from every blank beside
@@ -603,6 +627,10 @@ func TestTheMaintenanceMarginSaysItsBlankIsNotTheOthers(t *testing.T) {
 	require.True(t, isDeclared)
 
 	assert.Contains(t, rate.Description, "不給不是關掉它，是用 0.5%")
+	// The second half this test is named for, which it did not assert: *why* the
+	// blank is not the neighbours'. Deleting the contrast clause left it green,
+	// and that clause is the entire reason this box needs a sentence of its own.
+	assert.Contains(t, rate.Description, "這與旁邊每一格的留白都不一樣")
 	assert.Contains(t, rate.Description, "100÷槓桿")
 }
 
