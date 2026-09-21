@@ -214,9 +214,18 @@ func backtestApiTools() []domains.ApiToolDomain {
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 				// This replay's own box, not one every replay shares. There is no
 				// trading strategy here to ask, so the caller is the only one who can
-				// say it.
+				// say it — which is also why the spellings are written out here. On
+				// the other path the mode is read off a stored strategy and the
+				// assistant never types it; on this one, a box that names none of
+				// them leaves it guessing at a string.
 				bodyParameter("tradingMode", vo.ToolParameterKindString,
-					"這次重演照哪一套規則交易。省略即一直留在市場裡", false),
+					"這次重演照哪一套規則交易，三選一。"+
+						"longShort 做得了空、也借得到錢（賣出＝平掉多倉並反手做空）；"+
+						"spot 做不了空、也借不到錢（賣出＝平掉回現金，空手時賣出不動作）；"+
+						"leveragedLong 做不了空、但借得到錢——進出場與 spot 一字不差，"+
+						"差別只有它開得了槓桿（合約帳戶只做多就是這一種）。"+
+						"省略即 longShort，也就是一直留在市場裡。"+
+						"認不得的值會整次被拒絕，不會默默用預設的那一個", false),
 			)...,
 		),
 		domains.NewApiToolDomain(

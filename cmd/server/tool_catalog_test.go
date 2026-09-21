@@ -674,3 +674,35 @@ func TestBothReplaysSayWhyTheWipeOutCountMatters(t *testing.T) {
 		})
 	}
 }
+
+// Replaying a script is the one path where the assistant types the trading mode
+// itself: there is no stored strategy to read it off, so this box is the only place
+// it could learn what the spellings are.
+//
+// It used to name none of them — "省略即一直留在市場裡" and nothing else — which left
+// an assistant guessing at a string, and guessing wrong is refused outright.
+func TestReplayingAScriptSaysWhichModesItMayBeTold(t *testing.T) {
+	tradingMode, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "tradingMode")
+
+	require.True(t, isDeclared, "沒有這個欄位，助理就說不出這一次要照哪一套規則重演")
+	// Each spelling with what sets it apart, not the spelling alone: they appear in
+	// the prose beside each other, so a bare substring check would stay green on a
+	// box that offers only two of the three.
+	for _, describedMode := range []struct {
+		spelling    string
+		description string
+	}{
+		{"longShort", "做得了空、也借得到錢"},
+		{"spot", "做不了空、也借不到錢"},
+		{"leveragedLong", "做不了空、但借得到錢"},
+	} {
+		assert.Contains(t, tradingMode.Description, describedMode.spelling)
+		assert.Contains(t, tradingMode.Description, describedMode.description)
+	}
+
+	// What saying nothing means, and that a wrong guess is not quietly swallowed.
+	assert.Contains(t, tradingMode.Description, "省略即 longShort")
+	assert.Contains(t, tradingMode.Description, "整次被拒絕")
+	assert.False(t, tradingMode.IsRequired)
+}
