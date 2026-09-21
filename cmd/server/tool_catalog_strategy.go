@@ -88,18 +88,18 @@ func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 		// Beside the name, because the mode and the name are what this set of rules
 		// *is*, while the sources and the two conditions are what it is made of.
 		//
-		// The description has to map what the person said onto one of the three
+		// The description has to map what the person said onto one of the four
 		// spellings. An assistant picking this cannot see their broker and cannot see
 		// whether the market allows shorting — the sentence they typed is its only
 		// clue, so the sentence has to be in here.
 		//
-		// Three spellings because the box answers two questions at once, and the pair
+		// Four spellings because the box answers two questions at once, and the pair
 		// somebody is most likely to describe without naming — long only, on borrowed
 		// money — is the one an assistant reaching for the obvious "cannot short"
 		// answer gets wrong. Getting it wrong is not cosmetic: that person's bot then
 		// cannot be saved with the leverage they are actually running.
 		//
-		// The venue is the trap. Two of the three run on a perpetual contract account,
+		// The venue is the trap. Three of the four run on a perpetual contract account,
 		// so "I trade Binance perps" narrows nothing — and the half of the question it
 		// leaves open is the half the default answers wrongly. Guessing long-short
 		// reverses every sell into a short the person never asked for, and the report
@@ -133,7 +133,8 @@ func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 				"而那是一份與他實際會做的事相反的東西，他不會發現。"+
 				"不確定就問一句：「你要兩邊都做、只做多、還是只做空？」"+
 				"\n\n它決定了重演這份規則時用哪一套算法、這份規則開不開得了槓桿，"+
-				"也決定了機器人訊息寫「買入／出場」「做多／做空」還是「做空／出場」", false),
+				"也決定了機器人訊息寫「買入／出場」「做多／做空」還是「出場／做空」"+
+				"（每一組都是「買入的動詞／賣出的動詞」——只做空的買入是平倉，所以它排前面）", false),
 		bodyParameter("signalSources", vo.ToolParameterKindArray,
 			"這份策略要跑哪幾支策略腳本，每個為 "+
 				"{\"label\":\"短均線\", \"strategyScriptId\":1, \"aggregationInterval\":\"1h\", "+

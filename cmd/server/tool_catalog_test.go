@@ -186,7 +186,7 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 
 // An assistant picking a trading mode cannot see the person's broker and cannot see
 // whether the market allows shorting. The sentence they typed is its only clue, so the
-// description has to map that sentence onto one of the two spellings — otherwise it
+// description has to map that sentence onto one of the four spellings — otherwise it
 // knows there are three and not which one was just described to it.
 func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 	for _, abilityName := range []string{
@@ -210,8 +210,12 @@ func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 				{"leveragedLong", "只做多、借得到錢"},
 				{"shortOnly", "只做空、借得到錢"},
 			} {
-				assert.Contains(t, tradingMode.Description, describedMode.spelling)
-				assert.Contains(t, tradingMode.Description, describedMode.description)
+				// One adjacent substring rather than two independent checks: every
+				// spelling is named again in the advice below, so separate checks
+				// stay green on a box with two of the descriptions swapped — which
+				// hands the assistant a direction that is exactly backwards.
+				assert.Contains(t, tradingMode.Description,
+					describedMode.spelling+" "+describedMode.description)
 			}
 			// What happens when it says nothing, and which one the person just
 			// described. Both are things it can only learn here.
@@ -331,7 +335,11 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 			// the leverage the person is actually running, rather than by naming the
 			// mode that would have allowed it.
 			assert.Contains(t, positionPlan.Description, "整台被拒絕")
-			assert.Contains(t, positionPlan.Description, "leveragedLong")
+			// The whole list, as one string. Naming one borrower proves nothing
+			// about the others: a mode quietly dropped from it leaves the assistant
+			// stripping the leverage that mode was allowed to run.
+			assert.Contains(t, positionPlan.Description,
+				"longShort、leveragedLong 與 shortOnly 借得到錢，spot 借不到")
 
 			// And the five figures named, so the assistant knows what to put in it.
 			for _, figure := range []string{
@@ -649,8 +657,8 @@ func TestTheLeverageSaysWhatCannotBeDiscoveredBySending(t *testing.T) {
 	// Which modes may borrow, rather than which one may not: an assistant told only
 	// that spot is refused has no word for the account that is long-only and
 	// borrowed, and will send the person back to spot with the leverage removed.
-	assert.Contains(t, leverage.Description, "現貨（spot）借不到")
-	assert.Contains(t, leverage.Description, "leveragedLong")
+	assert.Contains(t, leverage.Description,
+		"longShort、leveragedLong 與 shortOnly 借得到，**現貨（spot）借不到**")
 }
 
 // The two boxes sit on the same call and both describe what a percentage is taken
@@ -731,8 +739,11 @@ func TestReplayingAScriptSaysWhichModesItMayBeTold(t *testing.T) {
 		{"leveragedLong", "只做多、借得到錢"},
 		{"shortOnly", "只做空、借得到錢"},
 	} {
-		assert.Contains(t, tradingMode.Description, describedMode.spelling)
-		assert.Contains(t, tradingMode.Description, describedMode.description)
+		// One adjacent substring, for the reason the create/update box gives: two
+		// separate checks cannot tell a swapped pair of descriptions from a correct
+		// one, and a swapped pair is a direction told backwards.
+		assert.Contains(t, tradingMode.Description,
+			describedMode.spelling+" "+describedMode.description)
 	}
 
 	// What saying nothing means, and that a wrong guess is not quietly swallowed.
