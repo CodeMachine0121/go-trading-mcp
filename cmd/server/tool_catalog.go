@@ -187,8 +187,11 @@ func backtestParameters() []vo.ToolParameterVo {
 				"\n\n成績單上的 **liquidationExitCount** 會告訴你這一次歸零過幾次。"+
 				"\n\n**介於 0 與 1 之間會整次被拒絕**——0 是「沒填」、1 是「不借錢」，"+
 				"但 0.5 兩者都不是。打 0.5 的人多半想押半個部位，那要改的是 positionSizingValue。"+
-				"\n\n**現貨（spot）開不了槓桿**——現貨是拿現金換東西，沒有人借錢給你，"+
-				"所以那個交易模式給大於 1 會整次被拒絕", false),
+				"\n\n**借不借得到錢由交易模式決定**：longShort 與 leveragedLong 借得到，"+
+				"**現貨（spot）借不到**——現貨是拿現金換東西，沒有人借錢給你，"+
+				"所以那個交易模式給大於 1 會整次被拒絕。"+
+				"使用者是在合約帳戶上只做多的話，要改的是那份交易策略的交易模式"+
+				"（改成 leveragedLong），不是把槓桿拿掉", false),
 		bodyParameter("maintenanceMarginRate", vo.ToolParameterKindString,
 			"一注帳上剩到多少就被強制出場，佔**曝險金額**的百分之幾"+
 				"（0.5 就是 0.5%，字串形式的精確小數）。"+
