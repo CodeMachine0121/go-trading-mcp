@@ -210,17 +210,17 @@ func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 			// situation has to be named, not only the spelling.
 			assert.Contains(t, tradingMode.Description, "只做多、要上一點槓桿")
 
-		// The venue does not settle it, and saying so is the only thing standing
-		// between "我在幣安永續" and the default.
-		//
-		// Two of the three run there, so that sentence rules nothing out — and the
-		// two mistakes are not equally survivable. Reaching for spot gets refused,
-		// which the person sees. Reaching for long-short, or reaching for nothing at
-		// all, turns every sell into a short they never asked for and returns a
-		// report card that looks entirely reasonable. So the box has to say to ask.
-		assert.Contains(t, tradingMode.Description, "場所不決定模式")
-		assert.Contains(t, tradingMode.Description, "沒問出他放不放空之前不要猜")
-		assert.Contains(t, tradingMode.Description, "反手做空")
+			// The venue does not settle it, and saying so is the only thing standing
+			// between "我在幣安永續" and the default.
+			//
+			// Two of the three run there, so that sentence rules nothing out — and the
+			// two mistakes are not equally survivable. Reaching for spot gets refused,
+			// which the person sees. Reaching for long-short, or reaching for nothing at
+			// all, turns every sell into a short they never asked for and returns a
+			// report card that looks entirely reasonable. So the box has to say to ask.
+			assert.Contains(t, tradingMode.Description, "場所不決定模式")
+			assert.Contains(t, tradingMode.Description, "沒問出他放不放空之前不要猜")
+			assert.Contains(t, tradingMode.Description, "反手做空")
 			// Not required: saying nothing is a legitimate thing to do, and the
 			// default belongs to the trading service rather than to this list.
 			assert.False(t, tradingMode.IsRequired)
