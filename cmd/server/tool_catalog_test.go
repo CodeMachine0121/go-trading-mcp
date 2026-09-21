@@ -187,7 +187,7 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 // An assistant picking a trading mode cannot see the person's broker and cannot see
 // whether the market allows shorting. The sentence they typed is its only clue, so the
 // description has to map that sentence onto one of the two spellings — otherwise it
-// knows there are two and not which one was just described to it.
+// knows there are three and not which one was just described to it.
 func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 	for _, abilityName := range []string{
 		"trading_create_trading_strategy",
@@ -199,10 +199,16 @@ func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 			require.True(t, isDeclared, "沒有這個欄位，助理就說不出這份規則是寫給哪一種帳戶的")
 			assert.Contains(t, tradingMode.Description, "spot")
 			assert.Contains(t, tradingMode.Description, "longShort")
+			assert.Contains(t, tradingMode.Description, "leveragedLong")
 			// What happens when it says nothing, and which one the person just
 			// described. Both are things it can only learn here.
 			assert.Contains(t, tradingMode.Description, "省略即 longShort")
 			assert.Contains(t, tradingMode.Description, "不能放空")
+			// The third one is the one it would otherwise never reach for: somebody
+			// who only goes long reads as spot right up until the leverage comes up,
+			// and spot is the answer that leaves their bot unsaveable. So the
+			// situation has to be named, not only the spelling.
+			assert.Contains(t, tradingMode.Description, "只做多、要上一點槓桿")
 			// Not required: saying nothing is a legitimate thing to do, and the
 			// default belongs to the trading service rather than to this list.
 			assert.False(t, tradingMode.IsRequired)
@@ -278,14 +284,21 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 			// Not required: a bot that suggests nothing is an ordinary bot.
 			assert.False(t, positionPlan.IsRequired)
 
-			// The six things that are accepted when wrong, and therefore have to be
+			// The things that are accepted when wrong, and therefore have to be
 			// said here.
 			assert.Contains(t, positionPlan.Description, "整組可以不給")
 			assert.Contains(t, positionPlan.Description, "capital 是這一組的開關")
 			assert.Contains(t, positionPlan.Description, "字串給精確小數")
 			assert.Contains(t, positionPlan.Description, "不給即 allIn")
-			assert.Contains(t, positionPlan.Description, "現貨帳戶不要給")
 			assert.Contains(t, positionPlan.Description, "百分點")
+
+			// Leverage is no longer one of them — rules that cannot borrow now refuse
+			// the whole bot. It still has to be described, for the opposite reason:
+			// an assistant that only knows "this gets refused" fixes it by deleting
+			// the leverage the person is actually running, rather than by naming the
+			// mode that would have allowed it.
+			assert.Contains(t, positionPlan.Description, "整台被拒絕")
+			assert.Contains(t, positionPlan.Description, "leveragedLong")
 
 			// And the five figures named, so the assistant knows what to put in it.
 			for _, figure := range []string{
@@ -600,7 +613,11 @@ func TestTheLeverageSaysWhatCannotBeDiscoveredBySending(t *testing.T) {
 	// value between them is the one an assistant reaches for when it means half a
 	// position.
 	assert.Contains(t, leverage.Description, "介於 0 與 1 之間會整次被拒絕")
-	assert.Contains(t, leverage.Description, "現貨（spot）開不了槓桿")
+	// Which modes may borrow, rather than which one may not: an assistant told only
+	// that spot is refused has no word for the account that is long-only and
+	// borrowed, and will send the person back to spot with the leverage removed.
+	assert.Contains(t, leverage.Description, "現貨（spot）借不到")
+	assert.Contains(t, leverage.Description, "leveragedLong")
 }
 
 // The two boxes sit on the same call and both describe what a percentage is taken
@@ -656,4 +673,36 @@ func TestBothReplaysSayWhyTheWipeOutCountMatters(t *testing.T) {
 			assert.Contains(t, description, liquidationReportCardNote)
 		})
 	}
+}
+
+// Replaying a script is the one path where the assistant types the trading mode
+// itself: there is no stored strategy to read it off, so this box is the only place
+// it could learn what the spellings are.
+//
+// It used to name none of them — "省略即一直留在市場裡" and nothing else — which left
+// an assistant guessing at a string, and guessing wrong is refused outright.
+func TestReplayingAScriptSaysWhichModesItMayBeTold(t *testing.T) {
+	tradingMode, isDeclared := boxNamed(
+		abilityNamed(t, "trading_backtest_strategy_script"), "tradingMode")
+
+	require.True(t, isDeclared, "沒有這個欄位，助理就說不出這一次要照哪一套規則重演")
+	// Each spelling with what sets it apart, not the spelling alone: they appear in
+	// the prose beside each other, so a bare substring check would stay green on a
+	// box that offers only two of the three.
+	for _, describedMode := range []struct {
+		spelling    string
+		description string
+	}{
+		{"longShort", "做得了空、也借得到錢"},
+		{"spot", "做不了空、也借不到錢"},
+		{"leveragedLong", "做不了空、但借得到錢"},
+	} {
+		assert.Contains(t, tradingMode.Description, describedMode.spelling)
+		assert.Contains(t, tradingMode.Description, describedMode.description)
+	}
+
+	// What saying nothing means, and that a wrong guess is not quietly swallowed.
+	assert.Contains(t, tradingMode.Description, "省略即 longShort")
+	assert.Contains(t, tradingMode.Description, "整次被拒絕")
+	assert.False(t, tradingMode.IsRequired)
 }

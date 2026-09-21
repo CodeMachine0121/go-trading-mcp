@@ -13,10 +13,11 @@ import (
 // assistant could send leverage with no capital — a combination nothing refuses, and
 // after which nothing happens.
 //
-// **It is also the only box here that filling in wrongly does not get refused.**
-// Leverage on a spot account is a legitimate figure, and four figures with no capital
-// read as no plan at all; the trading service accepts both, and the cost lands on
-// whoever reads the message. So its description is the only guard there is.
+// **Leverage against rules that cannot borrow is now refused**, where it used to be
+// accepted and only showed up as two lines that should not have been in the message.
+// What is still not refused is four figures with no capital: that reads as no plan at
+// all, the trading service accepts it, and the cost lands on whoever reads the
+// message. So the description is still the only guard over that half.
 func strategyBotWriteParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("name", vo.ToolParameterKindString, "這台機器人叫什麼", true),
@@ -34,8 +35,11 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"金額一律以字串給精確小數。"+
 				"sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、"+
 				"fixedAmount 每次押固定金額；不給即 allIn。"+
-				"不給 leverage 就是不上槓桿——**現貨帳戶不要給**，給了不會被拒絕，"+
-				"只會讓那台機器人的訊息多出兩行不該有的字。"+
+				"不給 leverage 就是不上槓桿。"+
+				"**給大於 1 之前先看那份交易策略的 tradingMode**："+
+				"longShort 與 leveragedLong 借得到錢，spot 借不到——"+
+				"對著一份 spot 交易策略給大於 1 會**整台被拒絕**，"+
+				"而該改的多半是那份交易策略（合約帳戶只做多＝leveragedLong），不是把槓桿拿掉。"+
 				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給", false),
 	}
 }
