@@ -186,7 +186,7 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 
 // An assistant picking a trading mode cannot see the person's broker and cannot see
 // whether the market allows shorting. The sentence they typed is its only clue, so the
-// description has to map that sentence onto one of the two spellings — otherwise it
+// description has to map that sentence onto one of the four spellings — otherwise it
 // knows there are three and not which one was just described to it.
 func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 	for _, abilityName := range []string{
@@ -197,9 +197,26 @@ func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 			tradingMode, isDeclared := boxNamed(abilityNamed(t, abilityName), "tradingMode")
 
 			require.True(t, isDeclared, "沒有這個欄位，助理就說不出這份規則是寫給哪一種帳戶的")
-			assert.Contains(t, tradingMode.Description, "spot")
-			assert.Contains(t, tradingMode.Description, "longShort")
-			assert.Contains(t, tradingMode.Description, "leveragedLong")
+			// Each spelling with what sets it apart, not the spelling alone. Every
+			// spelling is also named in the advice further down the box, so a bare
+			// substring check stays green on a box that defines only some of them
+			// — which is exactly what it did when short-only was added.
+			for _, describedMode := range []struct {
+				spelling    string
+				description string
+			}{
+				{"spot", "只做多、借不到錢"},
+				{"longShort", "兩邊都做、借得到錢"},
+				{"leveragedLong", "只做多、借得到錢"},
+				{"shortOnly", "只做空、借得到錢"},
+			} {
+				// One adjacent substring rather than two independent checks: every
+				// spelling is named again in the advice below, so separate checks
+				// stay green on a box with two of the descriptions swapped — which
+				// hands the assistant a direction that is exactly backwards.
+				assert.Contains(t, tradingMode.Description,
+					describedMode.spelling+" "+describedMode.description)
+			}
 			// What happens when it says nothing, and which one the person just
 			// described. Both are things it can only learn here.
 			assert.Contains(t, tradingMode.Description, "省略即 longShort")
@@ -209,17 +226,25 @@ func TestWritingATradingStrategySaysWhichKindOfAccountItIsFor(t *testing.T) {
 			// and spot is the answer that leaves their bot unsaveable. So the
 			// situation has to be named, not only the spelling.
 			assert.Contains(t, tradingMode.Description, "只做多、要上一點槓桿")
+			// The fourth has a worse failure than being unreachable: it is reachable
+			// through a trick. Long-short with a buy condition that can never hold
+			// trades exactly like it, so an assistant that has not been warned off
+			// will build that instead — and leave behind rules that say they face
+			// both ways while only ever facing one.
+			assert.Contains(t, tradingMode.Description, "只想做空")
+			assert.Contains(t, tradingMode.Description, "永遠不成立的買入條件")
 
 			// The venue does not settle it, and saying so is the only thing standing
 			// between "我在幣安永續" and the default.
 			//
-			// Two of the three run there, so that sentence rules nothing out — and the
+			// Three of the four run there, so that sentence rules nothing out — and the
 			// two mistakes are not equally survivable. Reaching for spot gets refused,
 			// which the person sees. Reaching for long-short, or reaching for nothing at
-			// all, turns every sell into a short they never asked for and returns a
-			// report card that looks entirely reasonable. So the box has to say to ask.
+			// all, turns every opposite signal into a reversal they never asked for and
+			// returns a report card that looks entirely reasonable. So the box has to
+			// say to ask.
 			assert.Contains(t, tradingMode.Description, "場所不決定模式")
-			assert.Contains(t, tradingMode.Description, "沒問出他放不放空之前不要猜")
+			assert.Contains(t, tradingMode.Description, "沒問出他做哪一邊之前不要猜")
 			assert.Contains(t, tradingMode.Description, "反手做空")
 			// Not required: saying nothing is a legitimate thing to do, and the
 			// default belongs to the trading service rather than to this list.
@@ -310,7 +335,11 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 			// the leverage the person is actually running, rather than by naming the
 			// mode that would have allowed it.
 			assert.Contains(t, positionPlan.Description, "整台被拒絕")
-			assert.Contains(t, positionPlan.Description, "leveragedLong")
+			// The whole list, as one string. Naming one borrower proves nothing
+			// about the others: a mode quietly dropped from it leaves the assistant
+			// stripping the leverage that mode was allowed to run.
+			assert.Contains(t, positionPlan.Description,
+				"longShort、leveragedLong 與 shortOnly 借得到錢，spot 借不到")
 
 			// And the five figures named, so the assistant knows what to put in it.
 			for _, figure := range []string{
@@ -628,8 +657,8 @@ func TestTheLeverageSaysWhatCannotBeDiscoveredBySending(t *testing.T) {
 	// Which modes may borrow, rather than which one may not: an assistant told only
 	// that spot is refused has no word for the account that is long-only and
 	// borrowed, and will send the person back to spot with the leverage removed.
-	assert.Contains(t, leverage.Description, "現貨（spot）借不到")
-	assert.Contains(t, leverage.Description, "leveragedLong")
+	assert.Contains(t, leverage.Description,
+		"longShort、leveragedLong 與 shortOnly 借得到，**現貨（spot）借不到**")
 }
 
 // The two boxes sit on the same call and both describe what a percentage is taken
@@ -700,17 +729,21 @@ func TestReplayingAScriptSaysWhichModesItMayBeTold(t *testing.T) {
 	require.True(t, isDeclared, "沒有這個欄位，助理就說不出這一次要照哪一套規則重演")
 	// Each spelling with what sets it apart, not the spelling alone: they appear in
 	// the prose beside each other, so a bare substring check would stay green on a
-	// box that offers only two of the three.
+	// box that offers only some of them.
 	for _, describedMode := range []struct {
 		spelling    string
 		description string
 	}{
-		{"longShort", "做得了空、也借得到錢"},
-		{"spot", "做不了空、也借不到錢"},
-		{"leveragedLong", "做不了空、但借得到錢"},
+		{"longShort", "兩邊都做、借得到錢"},
+		{"spot", "只做多、借不到錢"},
+		{"leveragedLong", "只做多、借得到錢"},
+		{"shortOnly", "只做空、借得到錢"},
 	} {
-		assert.Contains(t, tradingMode.Description, describedMode.spelling)
-		assert.Contains(t, tradingMode.Description, describedMode.description)
+		// One adjacent substring, for the reason the create/update box gives: two
+		// separate checks cannot tell a swapped pair of descriptions from a correct
+		// one, and a swapped pair is a direction told backwards.
+		assert.Contains(t, tradingMode.Description,
+			describedMode.spelling+" "+describedMode.description)
 	}
 
 	// What saying nothing means, and that a wrong guess is not quietly swallowed.

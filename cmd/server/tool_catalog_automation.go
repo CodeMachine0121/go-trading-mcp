@@ -37,9 +37,10 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"fixedAmount 每次押固定金額；不給即 allIn。"+
 				"不給 leverage 就是不上槓桿。"+
 				"**給大於 1 之前先看那份交易策略的 tradingMode**："+
-				"longShort 與 leveragedLong 借得到錢，spot 借不到——"+
+				"longShort、leveragedLong 與 shortOnly 借得到錢，spot 借不到——"+
 				"對著一份 spot 交易策略給大於 1 會**整台被拒絕**，"+
-				"而該改的多半是那份交易策略（合約帳戶只做多＝leveragedLong），不是把槓桿拿掉。"+
+				"而該改的多半是那份交易策略（合約帳戶只做多＝leveragedLong，"+
+				"只做空＝shortOnly），不是把槓桿拿掉。"+
 				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給", false),
 	}
 }
