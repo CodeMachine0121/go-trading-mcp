@@ -8,16 +8,14 @@ import (
 // strategyBotWriteParameters are what a strategy bot is made of. Shared by creating
 // one and rewriting one.
 //
-// The position plan arrives nested rather than as five parallel boxes, the way the two
-// condition trees do. Those five figures only mean anything together: flat, an
-// assistant could send leverage with no capital — a combination nothing refuses, and
-// after which nothing happens.
+// The position plan arrives nested rather than as four parallel boxes, the way the two
+// condition trees do. Those four figures only mean anything together: flat, an
+// assistant could send a stop distance with no capital — a combination nothing
+// refuses, and after which nothing happens.
 //
-// **Leverage against rules that cannot borrow is now refused**, where it used to be
-// accepted and only showed up as two lines that should not have been in the message.
-// What is still not refused is four figures with no capital: that reads as no plan at
-// all, the trading service accepts it, and the cost lands on whoever reads the
-// message. So the description is still the only guard over that half.
+// That combination is still not refused: it reads as no plan at all, the trading
+// service accepts it, and the cost lands on whoever reads the message. So the
+// description is still the only guard over it.
 func strategyBotWriteParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("name", vo.ToolParameterKindString, "這台機器人叫什麼", true),
@@ -30,17 +28,13 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 			"這台機器人每一輪要建議押多少、停在哪裡。**整組可以不給**——"+
 				"不給的機器人只報方向，不報數字。形狀："+
 				"{\"capital\":\"50000\", \"sizingMode\":\"percentage\", \"sizingValue\":\"10\", "+
-				"\"leverage\":\"3\", \"stopLossPercentage\":\"3\", \"takeProfitPercentage\":\"5\"}。"+
-				"capital 是這一組的開關：不給它，其餘四樣填了也不算。"+
+				"\"stopLossPercentage\":\"3\", \"takeProfitPercentage\":\"5\"}。"+
+				"capital 是這一組的開關：不給它，其餘三樣填了也不算。"+
 				"金額一律以字串給精確小數。"+
 				"sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、"+
 				"fixedAmount 每次押固定金額；不給即 allIn。"+
-				"不給 leverage 就是不上槓桿。"+
-				"**給大於 1 之前先看那份交易策略的 tradingMode**："+
-				"longShort、leveragedLong 與 shortOnly 借得到錢，spot 借不到——"+
-				"對著一份 spot 交易策略給大於 1 會**整台被拒絕**，"+
-				"而該改的多半是那份交易策略（合約帳戶只做多＝leveragedLong，"+
-				"只做空＝shortOnly），不是把槓桿拿掉。"+
+				"**沒有槓桿這一項**——這個服務只做現貨，機器人建議得了的就是它重演得了的，"+
+				"而重演借不到錢。"+
 				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給", false),
 	}
 }

@@ -85,56 +85,6 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("name", vo.ToolParameterKindString, "這份交易策略叫什麼", true),
-		// Beside the name, because the mode and the name are what this set of rules
-		// *is*, while the sources and the two conditions are what it is made of.
-		//
-		// The description has to map what the person said onto one of the four
-		// spellings. An assistant picking this cannot see their broker and cannot see
-		// whether the market allows shorting — the sentence they typed is its only
-		// clue, so the sentence has to be in here.
-		//
-		// Four spellings because the box answers two questions at once, and the pair
-		// somebody is most likely to describe without naming — long only, on borrowed
-		// money — is the one an assistant reaching for the obvious "cannot short"
-		// answer gets wrong. Getting it wrong is not cosmetic: that person's bot then
-		// cannot be saved with the leverage they are actually running.
-		//
-		// The venue is the trap. Three of the four run on a perpetual contract account,
-		// so "I trade Binance perps" narrows nothing — and the half of the question it
-		// leaves open is the half the default answers wrongly. Guessing long-short
-		// reverses every sell into a short the person never asked for, and the report
-		// card that comes back is entirely plausible, so nothing tells them. That is
-		// why this box says to ask rather than to infer.
-		bodyParameter("tradingMode", vo.ToolParameterKindString,
-			"這份規則是寫給哪一種帳戶的。它答兩個各自獨立的問題——做得了哪一邊、借不借得到錢——"+
-				"而四個取值就是那兩個問題的四種合法組合（做得了空卻借不到錢不存在："+
-				"放空本來就要先借到東西才賣得出去）。"+
-				"spot 只做多、借不到錢（賣出＝平掉回現金，空手時賣出不動作）；"+
-				"longShort 兩邊都做、借得到錢（賣出＝平掉多倉並反手做空）；"+
-				"leveragedLong 只做多、借得到錢——進出場與 spot 一字不差，"+
-				"差別只有它開得了槓桿；"+
-				"shortOnly 只做空、借得到錢——它是 leveragedLong 的鏡像："+
-				"賣出＝開空倉，買入＝平掉回現金，空手時買入不動作，永遠不會有多倉。"+
-				"省略即 longShort。"+
-				"使用者說他的帳戶不能放空（台股現貨、ETF、多數券商帳戶）時給 spot；"+
-				"**說他在合約帳戶上只做多、要上一點槓桿（例如幣安永續開多）時給 leveragedLong**——"+
-				"這時給 spot 是錯的，他會連重演都跑不了，機器人也存不進大於 1 倍的槓桿；"+
-				"**說他這段時間只想做空、不要叫他做多時給 shortOnly**——"+
-				"**絕對不要用「longShort 配一個永遠不成立的買入條件」去湊**："+
-				"那樣跑得出來，但那份規則會寫著兩邊都做、實際上只做空，"+
-				"下一個讀到它的人（包括三個月後的他自己）沒有任何方法看出來。"+
-				"\n\n**場所不決定模式，做哪一邊才決定。** 他說「我在幣安永續」「我開合約」"+
-				"只講了場所——longShort、leveragedLong 與 shortOnly 都跑在那裡，"+
-				"那句話一個都沒排除掉。"+
-				"**沒問出他做哪一邊之前不要猜。** 猜錯的代價差很多："+
-				"該給 leveragedLong 卻給了 spot，他會被拒絕，至少他知道；"+
-				"**該給 leveragedLong 或 shortOnly 卻給了 longShort（也就是不給，因為那是預設），"+
-				"他每一次反向信號都會被反手**——成績單照樣跑得出來、看起來完全合理，"+
-				"而那是一份與他實際會做的事相反的東西，他不會發現。"+
-				"不確定就問一句：「你要兩邊都做、只做多、還是只做空？」"+
-				"\n\n它決定了重演這份規則時用哪一套算法、這份規則開不開得了槓桿，"+
-				"也決定了機器人訊息寫「買入／出場」「做多／做空」還是「出場／做空」"+
-				"（每一組都是「買入的動詞／賣出的動詞」——只做空的買入是平倉，所以它排前面）", false),
 		bodyParameter("signalSources", vo.ToolParameterKindArray,
 			"這份策略要跑哪幾支策略腳本，每個為 "+
 				"{\"label\":\"短均線\", \"strategyScriptId\":1, \"aggregationInterval\":\"1h\", "+
@@ -194,17 +144,18 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 // themselves look identical either way.
 const costedReportCardNote = "\n\n**填了交易成本時，成績單多一個 totalTransactionCost**——這次總共付掉多少。有了它才答得出「這支策略是抓價差不行，還是被手續費吃掉」，而同一個報酬率本來講得出這兩個完全不同的故事。**每一筆交易的 profit 已經是扣掉成本後的淨額，勝率也是照淨額算的**——價差賺得到、卻賺不過手續費的那一趟不算贏，別把它讀成賺錢的交易。"
 
-// liquidationReportCardNote is what a borrowed replay adds to the report card, said
-// once for both replays.
+// spotOnlyReplayNote is what a replay here actually does, said once for both replays.
 //
-// One copy for the reason the costed note has one: the two replays must never tell
-// an assistant two different things about the same report card, and two wordings
-// are two chances for only one of them to get improved.
+// One copy for the reason the costed note has one: the two replays must never tell an
+// assistant two different things about the same replay, and two wordings are two
+// chances for only one of them to get improved.
 //
-// It says why rather than what. "There is a count of liquidations" is something an
-// assistant can see in the response; that a respectable return rate can belong to an
-// account which was emptied three times on the way is not.
-const liquidationReportCardNote = "\n\n**開了槓桿時，成績單多一個 liquidationExitCount**——這次有幾注是被強制平倉打掉的（沒開槓桿時恆為零）。**這一格一定要看**：同一個報酬率講得出兩個完全不同的故事——一個是停損一路擋著、從來沒有真的危險過，另一個是這個帳戶歸零過三次而報酬率是靠剩下那幾筆湊回來的。少了這一格，兩者在成績單上長得一模一樣。每一筆交易的 exitReason 也會寫著 liquidation，看得出是哪幾筆。"
+// It says what this service does **and** what it does not, because the second half is
+// the one an assistant cannot find out by reading the boxes. A missing box reads as
+// "not supported yet, try another way" — so somebody asking to short gets a strategy
+// bent into shape rather than an answer. The last sentence is there to stop exactly
+// that.
+const spotOnlyReplayNote = "\n\n**重演只做現貨，而且只有這一種。** 買入時空手就開倉、已經有倉位就當作沒聽到；賣出就平倉把錢收回來、之後空手等下一個買點；空手時聽到賣出什麼都不做。\n\n**這裡沒有交易模式可以指定，也開不了槓桿**——借錢、做空與強制平倉是合約帳戶的事，那是另外一件事，這個服務目前不做，所以也不會有強制平倉這種出場。\n\n**使用者提到要放空、要開槓桿、或說他在合約帳戶上操作時，直接告訴他這個服務目前只重演現貨**——不要替他換一組設定去湊：湊出來的成績單是照他做不到的操作算的，而他不會發現。"
 
 func backtestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
@@ -222,7 +173,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"報酬率可以一模一樣——而前者是停損在支撑它，"+
 				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。"+
 				costedReportCardNote+
-				liquidationReportCardNote,
+				spotOnlyReplayNote,
 			vo.RequestVerbSubmit, "/backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -236,44 +187,16 @@ func backtestApiTools() []domains.ApiToolDomain {
 					"自帶算式時它宣告的旋鈕", false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
-				// This replay's own box, not one every replay shares. There is no
-				// trading strategy here to ask, so the caller is the only one who can
-				// say it — which is also why the spellings are written out here. On
-				// the other path the mode is read off a stored strategy and the
-				// assistant never types it; on this one, a box that names none of
-				// them leaves it guessing at a string.
-				bodyParameter("tradingMode", vo.ToolParameterKindString,
-					"這次重演照哪一套規則交易，四選一。"+
-						"longShort 兩邊都做、借得到錢（賣出＝平掉多倉並反手做空）；"+
-						"spot 只做多、借不到錢（賣出＝平掉回現金，空手時賣出不動作）；"+
-						"leveragedLong 只做多、借得到錢——進出場與 spot 一字不差，"+
-						"差別只有它開得了槓桿（合約帳戶只做多就是這一種）；"+
-						"shortOnly 只做空、借得到錢——它是 leveragedLong 的鏡像："+
-						"賣出＝開空倉，買入＝平掉回現金，空手時買入不動作，永遠不會有多倉。"+
-						"**場所不決定模式**：longShort、leveragedLong 與 shortOnly "+
-						"都跑在永續合約上，差的是做哪一邊。沒問出他做哪一邊就用預設，"+
-						"等於替他把每一次反向信號換成一個反手，而成績單看起來完全合理。"+
-						"省略即 longShort，也就是一直留在市場裡。"+
-						"認不得的值會整次被拒絕，不會默默用預設的那一個", false),
 			)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_backtest_trading_strategy",
 			"拿**一份交易策略**重演一段已經發生過的行情。"+
-				"\n\n信號來源、買賣兩個條件與**交易模式**都取自那份交易策略本身，"+
-				"這裡不必也不能再說一次。"+
-				"\n\n**使用者說他的帳戶不能放空時，要改的不是這一次重演**——"+
-				"用 trading_update_trading_strategy 把那一份的 tradingMode 改成 spot，之後每一次重演都跟著對。"+
-				"\n\n**他是在合約帳戶上只做多的話，要改成 leveragedLong 而不是 spot**："+
-				"兩者的進出場一字不差，但 spot 借不到錢，他上線在用的槓桿在這裡會被整份拒絕，"+
-				"於是他驗證不了自己真正在做的事。"+
-				"\n\n**他說這段時間只做空的話，要改成 shortOnly**——"+
-				"不是拿 longShort 配一個永遠不成立的買入條件去湊。"+
+				"\n\n信號來源與買賣兩個條件都取自那份交易策略本身，這裡不必也不能再說一次。"+
 				"\n\n這一支與 trading_backtest_strategy_script 的差別："+
-				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定；"+
-				"而那一支沒有交易策略可問，所以交易模式由你當次指定。"+
+				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定。"+
 				costedReportCardNote+
-				liquidationReportCardNote,
+				spotOnlyReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
