@@ -23,7 +23,7 @@ Oracle: Acceptance Criteria — 23 clauses (17 `AC-`, 4 `BR-`, 2 `NFR-`)
 |----|--------|------------------------|------|------|------------|------------|--------|
 | AC-4 | 重演一支策略腳本不再問借幾倍 | 沒有借幾倍、沒有維持保證金率；其餘八格照舊 | `tool_catalog.go:backtestParameters`（12→10 格） | `T/:483` `NeitherReplayTakesALeverage`；`T/:293`、`T/:357`（止損與成本仍在） | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-5 | 重演一份交易策略不再問借幾倍 | 同上 | 同上（兩支共用） | 同上（迴圈涵蓋兩支） | asserts-oracle | produces-oracle | ✅ conforms |
-| AC-6 | 機器人的建議部位剩四樣 | 說明列出四樣，沒有槓桿 | `tool_catalog_automation.go:strategyBotWriteParameters` | `T/:249` `WritingAStrategyBotSaysHowToSizeAPosition` | asserts-oracle | produces-oracle | ✅ conforms |
+| AC-6 | 機器人的建議部位剩四樣 | 說明列出四樣，沒有槓桿 | `tool_catalog_automation.go:strategyBotWriteParameters` | `T/` `WritingAStrategyBotSaysHowToSizeAPosition` | asserts-oracle *(初稿 shallow，見下方修訂)* | produces-oracle | ✅ conforms |
 | AC-7 | 修改機器人與建立那一支一致 | 說明逐字相同 | 同上（兩支共用同一個函式） | 同上（迴圈涵蓋 update） | asserts-oracle | produces-oracle | ✅ conforms |
 
 ### US-03 — 助手知道這個服務做什麼、不做什麼
@@ -33,7 +33,7 @@ Oracle: Acceptance Criteria — 23 clauses (17 `AC-`, 4 `BR-`, 2 `NFR-`)
 | AC-8 | 目錄說出重演怎麼走倉位 | 說明寫著只做現貨，以及買入／賣出／空手時賣出各自的結果 | `tool_catalog_strategy.go:spotOnlyReplayNote` | `T/:541` `BothReplaysSayTheyOnlyEverTradeSpot` | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-9 | 目錄說出這裡做不到什麼 | 說明寫著沒有交易模式可指定、開不了槓桿 | 同上 | 同上 | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-10 | 目錄說出遇到那種要求該怎麼回 | 說明要助手直接說只重演現貨、不要換設定去湊 | 同上 | 同上 | asserts-oracle | produces-oracle | ✅ conforms |
-| AC-11 | 舊的挑模式指引整段不見 | 找不到那三個詞，也找不到那類建議 | 三個 catalog 檔的整段刪除 | `T/:194`（四支工具逐支斷言 NotContains 三個拼法） | asserts-oracle | produces-oracle | ✅ conforms |
+| AC-11 | 舊的挑模式指引整段不見 | 找不到那三個詞，也找不到那類建議 | 三個 catalog 檔的整段刪除 | `T/` `NoAbilityOffersATradingModeToChoose`（逐支工具 ＋ **逐格參數說明**斷言 NotContains 三個拼法） | asserts-oracle *(初稿 shallow，見下方修訂)* | produces-oracle | ✅ conforms |
 
 ### US-04 — 成績單的描述與成績單本身一致
 
@@ -77,7 +77,7 @@ Oracle: Acceptance Criteria — 23 clauses (17 `AC-`, 4 `BR-`, 2 `NFR-`)
 
 - Conforms: **22/23** clauses ✅ (96%)
 - Violations: 無
-- Mis-asserted: 無
+- Mis-asserted: 無（**初稿有三處，已於 code review 後補殺，見下節**）
 - Partial: **BR-4** 🟡 — 「這個外掛不自己再擋一次」是一條關於**沒有做什麼**的規則，
   它由 `internal/` 0 檔案被動來滿足。要用測試釘住它得寫一個「沒有新增驗證」的斷言，
   而那種斷言只會在下一次有人動 `internal/` 時變成噪音。**判斷：不補。**
@@ -89,8 +89,22 @@ Oracle: Acceptance Criteria — 23 clauses (17 `AC-`, 4 `BR-`, 2 `NFR-`)
 
 這一刀改的**全是給助手讀的散文與一份參數清單**，兩者都沒有型別可以檢查。
 所以測試以**缺席**為主要斷言對象——三個「那一格不在」、一個「那三個詞不在」、
-一個「送了也出不去」。7 個 mutation 全數被殺，包含最容易漏的那一個：
-**兩支重演各自抄一份說明**（改寫成看起來一樣的兩段文字，測試仍然紅）。
+一個「送了也出不去」。
+
+### 初稿漏掉的三個 mutant（code review 後補上）
+
+本檔第一版寫著「7 個 mutation 全數被殺」。**那句話是錯的**——事後的 code review
+逐一重現，有三個 mutant 活著通過整套測試。記在這裡，因為在一個把 CONTRACT.md
+當稽核紀錄的 repo 裡，一張假的全過通知正是下一次漂移沒有人看見的原因。
+
+| # | Mutation | 為什麼活下來 | 怎麼殺掉 |
+|---|----------|--------------|----------|
+| 1 | 把 `"leverage":"3"` 放回機器人建議部位的 JSON 形狀 | AC-6 的測試只斷言四樣**在**，沒有斷言第五樣**不在**——而這一刀刪的正是第五樣 | `WritingAStrategyBotSaysHowToSizeAPosition` 增加 `NotContains(positionPlan.Description, "\"leverage\"")` |
+| 2 | 把挑模式的指引藏進某一格**參數**的說明裡 | AC-11 的迴圈只掃 `ability.Description`，參數說明沒掃到 | 同一個迴圈改為連 `ability.Parameters[].Description` 一起掃 |
+| 3 | 把 `tradingStrategyWriteParameters()` 整個清空 | 全部斷言都是「這個不在」，一份空目錄自然全過 | 新增 `TestWritingATradingStrategyStillAsksForEverythingItAlwaysDid`（正向配重：該問的每一格都還在） |
+
+共同的病灶只有一個：**這一刀的斷言幾乎全是否定句，而否定句對「東西全部消失」是免疫的。**
+一組只說「什麼不該在」的測試，必須配一個說「什麼仍該在」的正向斷言，否則刪光就是滿分。
 
 > **Ceiling.** 靜態一致性稽核：對照 PRD 推出的預期結果分別審測試與程式碼，
 > 不靠跑整套測試下結論。這一刀無法用測試驗證的那一半，是**交易服務那一邊真的照這份目錄行為**——

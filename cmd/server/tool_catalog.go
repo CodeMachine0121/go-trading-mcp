@@ -85,16 +85,14 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 // no opinion about what its owner can sit through — so they are here, and a box added
 // once is a box both abilities get.
 //
-// **The trading mode is deliberately not here.** The two replays no longer want the
-// same conditions: replaying a script asks the caller which set of rules to trade by,
-// while replaying a trading strategy reads it off the trading strategy itself. So the
-// box belongs to the one ability that can answer it, and is added there.
+// **Which set of rules to trade by is not here, and not anywhere.** There is one, so
+// there is nothing to ask. **Do not add it back when a replay of contracts arrives** —
+// that is a second ability with its own list, the way contract candles are their own
+// line rather than a flag on spot ones. A box here would put a choice back on the two
+// replays that cannot honour it.
 //
-// Keeping it shared would leave the trading-strategy replay carrying a box the trading
-// service ignores in silence — and an assistant has no way to tell it was ignored. It
-// would go on believing it replayed a spot account while reading a report card built
-// the other way. Before unifying this again, check whether that endpoint has started
-// accepting it.
+// The same goes for borrowing: this list had a multiplier and a maintenance margin
+// until this service stopped lending.
 func backtestParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("symbol", vo.ToolParameterKindString, "要在哪一個交易標的上重演", true),

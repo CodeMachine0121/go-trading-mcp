@@ -208,10 +208,44 @@ func TestNoAbilityOffersATradingModeToChoose(t *testing.T) {
 			// the spellings would have the assistant telling somebody to go and
 			// change a setting that no longer exists — advice that reads perfectly
 			// sensibly and cannot be carried out.
+			//
+			// **Every box's description is read as well as the ability's own.** The
+			// advice lived almost entirely in box descriptions, so scanning only the
+			// ability's own text leaves this assertion true of three of these four
+			// before the change — green, and proving nothing.
 			for _, removedSpelling := range []string{
 				"longShort", "leveragedLong", "shortOnly",
 			} {
 				assert.NotContains(t, ability.Description, removedSpelling)
+				for _, box := range ability.Parameters {
+					assert.NotContainsf(t, box.Description, removedSpelling,
+						"那三個拼法還留在 %s 這一格的說明裡", box.Name)
+				}
+			}
+		})
+	}
+}
+
+// The two writing abilities still ask for everything they always asked for.
+//
+// It is the counterweight to the absence assertion above: that one alone stays green
+// on an ability whose parameter list has been emptied altogether, and an assistant
+// handed a tool with no boxes cannot build anything at all.
+func TestWritingATradingStrategyStillAsksForEverythingItAlwaysDid(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_create_trading_strategy",
+		"trading_update_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			ability := abilityNamed(t, abilityName)
+
+			for _, boxName := range []string{
+				"name", "signalSources", "buyCondition", "sellCondition",
+			} {
+				box, isDeclared := boxNamed(ability, boxName)
+
+				require.Truef(t, isDeclared, "少了這一格就拼不出一份交易策略：%s", boxName)
+				assert.NotEmptyf(t, box.Description, "這一格沒有說明：%s", boxName)
 			}
 		})
 	}
@@ -241,11 +275,11 @@ func TestBothReplaysReadTheSameConditionsOutOfOneList(t *testing.T) {
 	}
 }
 
-// This box is the only one in the catalogue that filling in wrongly does not get
-// refused: leverage on a spot account is a legitimate figure, and four figures with no
-// capital read as no plan at all. The trading service accepts both, and the cost lands
-// on whoever reads the message — so its description is the only guard there is, and
-// every sentence in it is asserted rather than trusted.
+// This box is the only one in the catalogue whose contents the trading service does
+// not police: the plan arrives as opaque JSON, so what the connector forwards is
+// whatever the assistant put inside it. Figures with no capital read as no plan at
+// all, and the cost lands on whoever reads the message — so its description is the
+// only guard there is, and every sentence in it is asserted rather than trusted.
 func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 	for _, abilityName := range []string{
 		"trading_create_strategy_bot",
@@ -275,6 +309,14 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 			assert.Contains(t, positionPlan.Description, "沒有槓桿這一項")
 			assert.NotContains(t, positionPlan.Description, "leveragedLong")
 
+			// **And the key is absent from the shape**, which is the half that
+			// matters: this plan travels as opaque JSON, so the assistant copies
+			// this example verbatim and the connector forwards whatever is in it.
+			// A sentence saying "no leverage" beside an example that still shows
+			// `"leverage":"3"` is a sentence nobody reads.
+			assert.NotContains(t, positionPlan.Description, `"leverage"`)
+			assert.NotContains(t, positionPlan.Description, `\"leverage\"`)
+
 			// And the four figures named, so the assistant knows what to put in it.
 			for _, figure := range []string{
 				"capital", "sizingMode", "sizingValue",
@@ -287,9 +329,8 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 }
 
 // Both replays take the two exit distances, so they live in the shared list rather
-// than being added twice. The test for belonging there is one question — does that
-// endpoint actually use it — and it is the same question that keeps the trading mode
-// out of it.
+// than being added twice. The test for belonging there is one question: does that
+// endpoint actually use it.
 func TestBothReplaysTakeTheSameTwoExitDistances(t *testing.T) {
 	for _, abilityName := range []string{
 		"trading_backtest_strategy_script",

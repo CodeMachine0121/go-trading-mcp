@@ -33,8 +33,8 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"金額一律以字串給精確小數。"+
 				"sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、"+
 				"fixedAmount 每次押固定金額；不給即 allIn。"+
-				"**沒有槓桿這一項**——這個服務只做現貨，機器人建議得了的就是它重演得了的，"+
-				"而重演借不到錢。"+
+				"**沒有槓桿這一項**——一台機器人建議得了的，就是重演驗證得了的，"+
+				"而重演借不到錢（重演那兩支工具的說明講得完整）。"+
 				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給", false),
 	}
 }
