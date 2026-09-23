@@ -80,9 +80,28 @@ func contractApiTools() []domains.ApiToolDomain {
 				"\n\n每一根除了價量，還帶標記價格、指數價格、溢價指數各自的開高低收與成交筆數。"+
 				"**指數價格與溢價指數是 null 的那幾根，是這兩項出現之前存下的舊資料**，不是零；"+
 				"用 trading_sync_contract_k_candle_history 同步那一段就會補上。"+
-				"單次筆數有上限，超過即拒絕。",
+				"單次筆數有上限，超過即拒絕；要看長區間請改用 trading_get_contract_k_candle_series。"+
+				"結束早於開始也會被拒絕。",
 			vo.RequestVerbRead, "/contract-k-candles", false,
 			contractRangeParameters()...,
+		),
+		domains.NewApiToolDomain(
+			"trading_get_contract_k_candle_series",
+			"查一段區間的**永續合約**彙總 K 線序列：同一個刻度區間裡的合約 K 線合併成一根，"+
+				"說法與規則與 trading_get_k_candle_series（現貨）一字不差。沒有資料的刻度區間不產出那一根。"+
+				"\n\n合併方式：價量照現貨（開取最早、收取最晚、高取最高、低取最低、成交數字加總），成交筆數加總，"+
+				"標記價格、指數價格、溢價指數三條線各自一樣合併。"+
+				"**一格裡只要有一根是舊資料、缺指數價格或溢價指數，那一格的那條線就是 null**——不是零，也不是用剩下幾根湊的。"+
+				"\n\n**interval 與 displayableCandleCount 兩者只能給一個**，兩個都給即整次拒絕；兩個都不給時由系統挑一種刻度，"+
+				"回應一律說出實際用的是哪一種，請照抄不要自行推算。區間依刻度切出的格數超過單次上限會被拒絕，"+
+				"可縮小區間或改用更長的刻度。",
+			vo.RequestVerbRead, "/contract-k-candles/series", false,
+			append(contractRangeParameters(),
+				queryParameter("interval", vo.ToolParameterKindString,
+					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d。與 displayableCandleCount 互斥", false),
+				queryParameter("displayableCandleCount", vo.ToolParameterKindInteger,
+					"你這邊一次擺得下幾根，由系統據此挑一種刻度。必須大於零。與 interval 互斥", false),
+			)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_get_contract_k_candle",
@@ -103,7 +122,8 @@ func contractApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_delete_contract_k_candle",
-			"刪掉一根指定的永續合約 K 線。現貨同代號同時間那根完全不受影響。成功沒有內容可回。",
+			"刪掉一根指定的永續合約 K 線。現貨同代號同時間那根完全不受影響。成功沒有內容可回；"+
+				"指名的那一根不存在時回 404。",
 			vo.RequestVerbRemove, "/contract-k-candles/{symbol}/{openTime}", false,
 			pathParameter("symbol", "合約標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
@@ -173,7 +193,8 @@ func contractApiTools() []domains.ApiToolDomain {
 				"**費率為正時做多的人付給做空的人，為負時反過來**，金額按部位名目計——這是合約持倉最重要的一項成本，"+
 				"持倉跨過結算時間點才收付。多數合約每八小時結算一次（有的四小時、一小時，看交易規格的 fundingIntervalHours）。"+
 				"\n\n結算時間照來源原樣記下，可能帶一毫秒的尾數，**不要自行取整**。"+
-				"markPrice 為 null 的是來源早年沒記下的結算，不是零。區間內沒有結算回空陣列。",
+				"markPrice 為 null 的是來源早年沒記下的結算，不是零。區間內沒有結算回空陣列。"+
+				"\n\n**會被拒絕的情況**：結束早於開始；區間裡的結算超過單次筆數上限（請縮小區間，分段查）。",
 			vo.RequestVerbRead, "/contract-funding-rate-settlements", false,
 			contractRangeParameters()...,
 		),
@@ -185,7 +206,9 @@ func contractApiTools() []domains.ApiToolDomain {
 				"topTraderPosition 開頭的三個（持倉最大那批帳戶的**部位**裡多空各佔多少與比值）。"+
 				"價漲而持倉量漲是新資金進場，價漲而持倉量跌是空方平倉。"+
 				"\n\n**來源只留最近三十天**，所以系統手上的歷史是從加入追蹤名單前三十天開始錄的；"+
-				"更早的查不到不是壞掉，是從來沒有人錄。",
+				"更早的查不到不是壞掉，是從來沒有人錄。"+
+				"\n\n**會被拒絕的情況**：結束早於開始；區間裡的持倉統計超過單次筆數上限"+
+				"（五分鐘一筆，一千筆約三天半，請縮小區間分段查）。",
 			vo.RequestVerbRead, "/contract-position-statistics", false,
 			contractRangeParameters()...,
 		),
@@ -196,7 +219,8 @@ func contractApiTools() []domains.ApiToolDomain {
 				"maintenanceAmount（速算額）、maximumLeverage、confirmedAt。"+
 				"一筆部位的維持保證金＝名目 × 它所在那一級的維持保證金率 − 那一級的速算額。"+
 				"\n\n**這份資料要交易服務設定了幣安帳戶金鑰才會有**；沒設定時回空陣列，那不是錯誤，"+
-				"而是只能用交易規格裡最小那一級的維持保證金率。",
+				"而是只能用交易規格裡最小那一級的維持保證金率。"+
+				"還沒抓過分級的合約標的一樣回空陣列；代號留白會被拒絕。",
 			vo.RequestVerbRead, "/contract-maintenance-margin-tiers", false,
 			queryParameter("symbol", vo.ToolParameterKindString, "合約標的", true),
 		),

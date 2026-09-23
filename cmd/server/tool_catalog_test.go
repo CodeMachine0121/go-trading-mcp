@@ -48,6 +48,7 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	// 永續合約（自成一條路，與現貨互不相干）
 	"trading_create_contract_k_candle":               false,
 	"trading_list_contract_k_candles":                false,
+	"trading_get_contract_k_candle_series":           false,
 	"trading_get_contract_k_candle":                  false,
 	"trading_update_contract_k_candle":               false,
 	"trading_delete_contract_k_candle":               false,

@@ -15,6 +15,7 @@ import (
 var everyContractAbility = []string{
 	"trading_create_contract_k_candle",
 	"trading_list_contract_k_candles",
+	"trading_get_contract_k_candle_series",
 	"trading_get_contract_k_candle",
 	"trading_update_contract_k_candle",
 	"trading_delete_contract_k_candle",
@@ -222,7 +223,7 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 		// An empty past is not a fault: nobody recorded it.
 		{abilityName: "trading_list_contract_position_statistics", mustSay: []string{"只留最近三十天"}},
 		// An empty ladder is not a fault either: no account key.
-		{abilityName: "trading_get_contract_maintenance_margin_tiers", mustSay: []string{"帳戶金鑰", "不是錯誤"}},
+		{abilityName: "trading_get_contract_maintenance_margin_tiers", mustSay: []string{"帳戶金鑰", "回空陣列", "不是錯誤"}},
 		// null on an old candle is not zero, and there is a way to fill it in.
 		{abilityName: "trading_list_contract_k_candles",
 			mustSay: []string{"舊資料", "trading_sync_contract_k_candle_history"}},
@@ -234,7 +235,11 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 		// Contract runs are numbered apart from spot ones.
 		{abilityName: "trading_get_contract_k_candle_history_sync", mustSay: []string{"合約自己那一串"}},
 		// Leaving the watchlist loses nothing.
-		{abilityName: "trading_remove_from_contract_watchlist", mustSay: []string{"只停止追蹤", "不刪", "現貨"}},
+		{abilityName: "trading_remove_from_contract_watchlist",
+			mustSay: []string{"只停止追蹤", "一筆都不刪", "現貨那邊完全不受影響"}},
+		// Two ways of asking for an interval cannot both be given.
+		{abilityName: "trading_get_contract_k_candle_series",
+			mustSay: []string{"interval 與 displayableCandleCount 兩者只能給一個", "null"}},
 	}
 
 	for _, testCase := range testCases {
@@ -247,6 +252,85 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 
 			for _, phrase := range testCase.mustSay {
 				assert.Contains(t, described, phrase)
+			}
+		})
+	}
+}
+
+// Asking for the candles of one stretch, on each side, reaches that side's own
+// address with the contract and the stretch — not merely "not the other side".
+func TestReadingCandlesAsksTheRightLineForTheRightStretch(t *testing.T) {
+	testCases := []struct {
+		abilityName  string
+		expectedPath string
+	}{
+		{abilityName: "trading_list_contract_k_candles", expectedPath: "/contract-k-candles"},
+		{abilityName: "trading_get_contract_k_candle_series", expectedPath: "/contract-k-candles/series"},
+		{abilityName: "trading_list_k_candles", expectedPath: "/k-candles"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			request, buildError := apiToolNamed(t, testCase.abilityName).
+				BuildRequest(domains.NewToolArgumentsDomain(map[string]json.RawMessage{
+					"symbol":    json.RawMessage(`"BTCUSDT"`),
+					"startTime": json.RawMessage(`"2026-09-23T08:00:00Z"`),
+					"endTime":   json.RawMessage(`"2026-09-23T09:00:00Z"`),
+				}))
+
+			require.NoError(t, buildError)
+			assert.Equal(t, testCase.expectedPath, request.Path)
+			assert.Equal(t, "BTCUSDT", request.Query["symbol"])
+			assert.Equal(t, "2026-09-23T08:00:00Z", request.Query["startTime"])
+			assert.Equal(t, "2026-09-23T09:00:00Z", request.Query["endTime"])
+		})
+	}
+}
+
+// The series takes the spot series' two ways of asking for an interval, and hands
+// on whichever one was given.
+func TestTheContractSeriesAsksForAnIntervalTheWayTheSpotOneDoes(t *testing.T) {
+	request, buildError := apiToolNamed(t, "trading_get_contract_k_candle_series").
+		BuildRequest(domains.NewToolArgumentsDomain(map[string]json.RawMessage{
+			"symbol":                 json.RawMessage(`"BTCUSDT"`),
+			"startTime":              json.RawMessage(`"2026-09-16T00:00:00Z"`),
+			"endTime":                json.RawMessage(`"2026-09-23T00:00:00Z"`),
+			"displayableCandleCount": json.RawMessage(`100`),
+		}))
+
+	require.NoError(t, buildError)
+	assert.Equal(t, "100", request.Query["displayableCandleCount"])
+	for _, boxName := range []string{"interval", "displayableCandleCount"} {
+		box, isDeclared := boxNamed(abilityNamed(t, "trading_get_contract_k_candle_series"), boxName)
+		require.True(t, isDeclared, boxName)
+		assert.False(t, box.IsRequired, "兩種說法都不給時由系統挑，所以兩格都不是必填：%s", boxName)
+	}
+}
+
+// Every contract ability that reads data says what will get it refused, so an
+// assistant learns it before sending rather than by being refused.
+func TestEveryContractReadSaysWhatWillGetItRefused(t *testing.T) {
+	testCases := []struct {
+		abilityName string
+		mustSay     []string
+	}{
+		{abilityName: "trading_list_contract_funding_rate_settlements",
+			mustSay: []string{"會被拒絕的情況", "結束早於開始", "單次筆數上限"}},
+		{abilityName: "trading_list_contract_position_statistics",
+			mustSay: []string{"會被拒絕的情況", "結束早於開始", "單次筆數上限"}},
+		{abilityName: "trading_list_contract_k_candles", mustSay: []string{"結束早於開始", "上限"}},
+		{abilityName: "trading_get_contract_k_candle_series", mustSay: []string{"超過單次上限會被拒絕"}},
+		{abilityName: "trading_delete_contract_k_candle", mustSay: []string{"404"}},
+		{abilityName: "trading_get_contract_k_candle", mustSay: []string{"404"}},
+		{abilityName: "trading_get_contract_maintenance_margin_tiers", mustSay: []string{"代號留白會被拒絕"}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			description := abilityNamed(t, testCase.abilityName).Description
+
+			for _, phrase := range testCase.mustSay {
+				assert.Contains(t, description, phrase)
 			}
 		})
 	}
