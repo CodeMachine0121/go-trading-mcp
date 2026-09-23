@@ -11,18 +11,21 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 			"trading_create_strategy_script",
 			"建立一支屬於你的策略腳本：一個名字、一段算式、它產出什麼形狀，以及它自己的旋鈕。"+
 				"\n\n**要多粗、要幾根、算到什麼時候都不記在策略腳本身上**——那是每一次執行的事。"+
-				"所以同一支「二十根均線」可以在一小時的刻度上看一次、再在一分鐘的刻度上看一次，不必存成兩支。",
+				"所以同一支「二十根均線」可以在一小時的刻度上看一次、再在一分鐘的刻度上看一次，不必存成兩支。"+
+				"\n\n**吃哪一種行情（marketDataKind）才是記在它身上的**，而且建立當下就定了、之後不能換。"+
+				contractKCandleScriptNote,
 			vo.RequestVerbSubmit, "/strategy-scripts", true,
 			strategyScriptWriteParameters()...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts",
-			"列出你用得到的每一支策略腳本：你自己的，加上你從市集採用的。",
+			"列出你用得到的每一支策略腳本：你自己的，加上你從市集採用的。"+
+				"每一支都帶著 marketDataKind——它吃 K 線還是合約行情，決定它能拿去哪一種指標計算。",
 			vo.RequestVerbRead, "/strategy-scripts", true,
 		),
 		domains.NewApiToolDomain(
 			"trading_get_strategy_script",
-			"讀一支策略腳本的完整內容，含算式本身與它宣告的旋鈕。"+
+			"讀一支策略腳本的完整內容，含算式本身、它宣告的旋鈕，以及它吃哪一種行情（marketDataKind）。"+
 				"\n\n讀得到的是你自己的、你採用過的、以及上架在市集的。別人的且沒上架的會被拒絕。",
 			vo.RequestVerbRead, "/strategy-scripts/{id}", true,
 			pathParameter("id", "策略腳本識別碼"),
@@ -30,7 +33,10 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_update_strategy_script",
 			"改一支**你自己的**策略腳本。這是整份改寫：沒帶到的欄位會變成空的，不是保留原值。"+
-				"\n\n採用自市集的那些改不動——它們是別人的。",
+				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的行情種類，照抄原本的也可以；"+
+				"要換成另一種會被拒絕（行情種類建立後不得更換），要吃另一種請另建一支。"+
+				"\n\n採用自市集的那些改不動——它們是別人的。"+
+				contractKCandleScriptNote,
 			vo.RequestVerbReplace, "/strategy-scripts/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一支")},
 				strategyScriptWriteParameters()...)...,
@@ -56,7 +62,8 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_browse_marketplace",
 			"瀏覽市集上每一支上架中的策略腳本。列表給的是名字與說明——"+
-				"說明是讀者唯一看得到的東西，算式本身要採用或讀取才看得到。",
+				"說明是讀者唯一看得到的東西，算式本身要採用或讀取才看得到。"+
+				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情。",
 			vo.RequestVerbRead, "/marketplace/strategy-scripts", true,
 		),
 		domains.NewApiToolDomain(
@@ -133,6 +140,38 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 		),
 	}
 }
+
+// contractKCandleScriptNote is how to write a strategy script that eats the perpetual
+// contract, said once for every ability that has the assistant write or run one.
+//
+// One copy for the reason the replay notes have one: an assistant reading two
+// wordings of one shape writes a script that fits only one of them. It names every
+// figure by the name the script reads it under, because a figure the assistant cannot
+// name is a figure it guesses — and a wrong guess is not refused, it simply does not
+// compile, which reads as "the script is broken" about a script that is not.
+//
+// The last paragraph is the half that cannot be learnt from the boxes: the replays,
+// trading strategies and bots take any strategy script id they are handed, and a
+// contract one fails there only when it runs. When they learn contract bars, this is
+// the one sentence to change.
+const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 contractKCandle）的算式**，入口是 " +
+	"func Calculate(data []indicator.ContractKCandle) <依 resultType 而定>——照現貨的寫法收 []indicator.KCandle 會算不動。" +
+	"每一格是一個走完的刻度區間，**現貨 K 線有的每一項這裡都有、而且同名**" +
+	"（Symbol、OpenTimeUnixSeconds、Open、High、Low、Close、Volume、QuoteVolume、TakerBuyBaseVolume、TakerBuyQuoteVolume），" +
+	"所以讀收盤價、成交量的那幾行不必改。另外多了：" +
+	"TradeCount（成交筆數，int64）；" +
+	"Mark、Index、PremiumIndex（標記價格、指數價格、溢價指數，各是一個 indicator.PriceLine，有 Open／High／Low／Close，溢價指數可以是負的）；" +
+	"FundingRate（收盤時現行的資金費率，正的是做多付給做空）與 FundingSettledInBar（這一格內有沒有真的結算）；" +
+	"OpenInterest、OpenInterestValue（持倉量、持倉價值）、" +
+	"AccountLongShare、AccountShortShare、AccountLongShortRatio（多空人數比）、" +
+	"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio（大戶多空持倉比）。" +
+	"\n\n**資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付**——" +
+	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
+	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +
+	"第一次結算之前沒有費率、持倉統計只留三十天而且要夠新（沒有就整組為零）。算式要自己判斷，例如持倉量為零多半是沒錄到。" +
+	"\n\n**吃合約行情的策略腳本目前只能用在 trading_calculate_contract_indicator。** " +
+	"重演、交易策略、策略機器人還不能用它——它們會照收，然後在執行時才失敗。" +
+	"使用者要拿它去重演或掛上機器人時，直接告訴他目前做不到，不要替他改寫成一支吃 K 線的去湊。"
 
 // costedReportCardNote is how to read a report card that had the fees taken out of
 // it, said once for both replays.

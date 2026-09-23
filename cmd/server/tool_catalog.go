@@ -64,11 +64,23 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 			"它是做什麼的。上架到市集時，這是讀者唯一看得到的東西", false),
 		bodyParameter("script", vo.ToolParameterKindString,
 			"一段 Go 算式。形狀固定為 package main / import \"indicator\" / "+
-				"func Calculate(data []indicator.KCandle) <依 resultType 而定>。"+
+				"func Calculate(data <依 marketDataKind 而定>) <依 resultType 而定>："+
+				"吃 K 線的收 []indicator.KCandle，吃合約行情的收 []indicator.ContractKCandle——"+
+				"入口收錯形狀就算不動。"+
 				"只能做純運算，可用 math 與 sort；os、net/http、time、亂數一律取用不到", true),
 		bodyParameter("resultType", vo.ToolParameterKindString,
 			"指標值種類，五選一：float（預設，回 map[string]float64）、floatList（map[string][]float64）、"+
 				"bool、boolList、signal（回 indicator.Signal，值只能是 Buy/Sell/Hold，回測一律用這種）", false),
+		// Leaving it out means two different things on the two abilities that share this
+		// list — the spot K candle on a create, the kind already held on a rewrite — and
+		// both are said here, in the one box both of them show. The connector forwards
+		// only what was filled in, so a blank never leaves here as a kind at all: the
+		// trading service's own rule decides, and filling in kCandle on the caller's
+		// behalf would get a contract script's rename refused.
+		bodyParameter("marketDataKind", vo.ToolParameterKindString,
+			"這支算式吃哪一種行情，二選一：kCandle（現貨 K 線）或 contractKCandle（永續合約的合約行情格）。"+
+				"**建立時不給就是 kCandle**；**修改時不給就是保留原本的**，照抄原本的也可以。"+
+				"**建立後不得更換**——換成另一種會被拒絕，要吃另一種請另建一支", false),
 		bodyParameter("parameters", vo.ToolParameterKindArray,
 			"這支算式自己的旋鈕，每個為 {\"name\":…, \"kind\":…, \"defaultValue\":…}。"+
 				"kind 只有兩種：lookbackCount（大於零的整數，這條線要回看幾根；系統取所有這種的最大值決定要讀幾根）"+
