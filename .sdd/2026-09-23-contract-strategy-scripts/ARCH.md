@@ -22,7 +22,7 @@
 | `cmd/server/tool_catalog_market.go` | **Modify** | 抽出 `indicatorCalculationParameters()`（除了 `symbol` 以外現貨與合約共用的九格）；`indicatorApiTools()` 多一件 `trading_calculate_contract_indicator`；現貨那一件的說明補「指名合約策略腳本會被拒絕」 |
 | `cmd/server/tool_catalog_test.go` | **Modify** | `everyAbilityTheTradingServiceOffers` 多一列（`true`） |
 | `cmd/server/tool_catalog_contract_test.go` | **Modify** | `everyContractAbility` 與位址表各多一列——守衛本來就是為了這種時候 |
-| `cmd/server/tool_catalog_contract_indicator_test.go` | **Add** | 這一刀專屬的測試 |
+| `cmd/server/tool_catalog_contract_script_test.go` | **Add** | 這一刀專屬的測試 |
 | `README.md` | **Modify** | 能力數 66 → 67；補行情種類與合約指標計算 |
 | 轉達流程（`internal/`） | **Not touched** | 沒有新的行為；留白不送是既有規則 |
 | 重演、交易策略、策略機器人的欄位 | **Not touched** | PRD Out of Scope；交易服務的下一刀才會有 |
@@ -63,9 +63,9 @@
 | :--- | :--- | :--- |
 | US-01 全部 | `strategyScriptWriteParameters()` 的 `marketDataKind` ＋ 既有「只送有填的」 | `TestWritingAStrategyScriptForwardsTheMarketKindOnlyWhenGiven`、`TestTheMarketKindBoxSaysWhatLeavingItOutMeans` |
 | US-02 全部 | 同上 ＋ 修改的說明 | 同上 ＋ `TestRewritingAStrategyScriptSaysTheKindIsKept` |
-| US-03 全部 | `contractKCandleScriptNote` ＋ `script` 那一格 | `TestTheContractScriptShapeIsTaughtOnceInBothPlaces`、`TestTheContractScriptNoteNamesEveryFigure` |
-| US-04 全部 | `trading_calculate_contract_indicator` ＋ `indicatorCalculationParameters()` | `TestTheContractIndicatorCalculationAsksTheContractLine`、`TestBothIndicatorCalculationsTakeTheSameBoxes`、`TestTheContractIndicatorCalculationStopsAMissingBox`、`TestTheContractIndicatorCalculationSaysWhatWillGetItRefused` |
-| US-05 全部 | 現貨計算說明、`contractKCandleScriptNote`、讀取三件的說明 | `TestTheSpotCalculationSaysAContractScriptIsRefused`、`TestEveryStrategyScriptReadSaysItCarriesTheKind`、`TestTheSpotCalculationStillAsksWhereItAlwaysDid` |
+| US-03 全部 | `contractKCandleScriptNote` ＋ `script` 那一格 | `TestTheContractScriptShapeIsTaughtOnceInBothPlaces`、`TestTheContractScriptNoteNamesEveryFigure`、`TestTheScriptBoxTeachesBothEntryPoints` |
+| US-04 全部 | `trading_calculate_contract_indicator` ＋ `indicatorCalculationParameters()` | `TestTheContractIndicatorCalculationAsksTheContractLine`、`TestTheContractIndicatorCalculationCarriesABroughtAlongScript`、`TestBothIndicatorCalculationsTakeTheSameBoxes`、`TestTheContractIndicatorCalculationStopsAMissingBox`、`TestTheContractIndicatorCalculationSaysWhatWillGetItRefused` |
+| US-05 全部 | 現貨計算說明、`contractKCandleScriptNote`、讀取三件的說明 | `TestTheSpotCalculationSaysAContractScriptIsRefused`、`TestTheContractScriptNoteSaysWhereItCannotGoYet`、`TestEveryStrategyScriptReadSaysItCarriesTheKind`、`TestTheSpotCalculationStillAsksWhereItAlwaysDid` |
 | US-06 全部 | `apiToolCatalog` | `TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse`、`TestContractAbilitiesOnlyEverReachTheContractLine`、`TestEveryContractAbilityAsksTheRightWayAtTheRightAddress` |
 
 ## 8. Risks & Open Decisions
