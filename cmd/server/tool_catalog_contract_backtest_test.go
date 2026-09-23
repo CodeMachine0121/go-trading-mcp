@@ -231,3 +231,14 @@ func TestABotSaysItOnlyFollowsKCandleTradingStrategies(t *testing.T) {
 		})
 	}
 }
+
+// Each contract replay says which kind of script or trading strategy gets it refused,
+// and where that one goes instead.
+func TestTheContractReplaysSayWhatTheyRefuseAndWhereItGoes(t *testing.T) {
+	scriptReplay := abilityNamed(t, "trading_backtest_contract_strategy_script").Description
+	assert.Contains(t, scriptReplay, "吃 K 線的會被拒絕，那一支要用 trading_backtest_strategy_script")
+	assert.Contains(t, scriptReplay, "沒有 spot 這一種")
+
+	strategyReplay := abilityNamed(t, "trading_backtest_contract_trading_strategy").Description
+	assert.Contains(t, strategyReplay, "吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy")
+}
