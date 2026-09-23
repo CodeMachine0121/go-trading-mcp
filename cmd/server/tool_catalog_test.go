@@ -45,6 +45,22 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_list_trading_symbols":  false,
 	"trading_add_to_watchlist":      false,
 	"trading_remove_from_watchlist": false,
+	// 永續合約（自成一條路，與現貨互不相干）
+	"trading_create_contract_k_candle":               false,
+	"trading_list_contract_k_candles":                false,
+	"trading_get_contract_k_candle_series":           false,
+	"trading_get_contract_k_candle":                  false,
+	"trading_update_contract_k_candle":               false,
+	"trading_delete_contract_k_candle":               false,
+	"trading_backfill_contract_k_candles":            false,
+	"trading_sync_contract_k_candle_history":         false,
+	"trading_get_contract_k_candle_history_sync":     false,
+	"trading_list_contract_trading_symbols":          false,
+	"trading_add_to_contract_watchlist":              false,
+	"trading_remove_from_contract_watchlist":         false,
+	"trading_list_contract_funding_rate_settlements": false,
+	"trading_list_contract_position_statistics":      false,
+	"trading_get_contract_maintenance_margin_tiers":  false,
 	// 指標
 	"trading_calculate_indicator": true,
 	// 策略腳本與市集
