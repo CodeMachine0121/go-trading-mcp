@@ -62,7 +62,8 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_list_contract_position_statistics":      false,
 	"trading_get_contract_maintenance_margin_tiers":  false,
 	// 指標
-	"trading_calculate_indicator": true,
+	"trading_calculate_indicator":          true,
+	"trading_calculate_contract_indicator": true,
 	// 策略腳本與市集
 	"trading_create_strategy_script":   true,
 	"trading_list_strategy_scripts":    true,

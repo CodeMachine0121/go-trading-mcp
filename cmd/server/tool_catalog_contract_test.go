@@ -29,6 +29,7 @@ var everyContractAbility = []string{
 	"trading_list_contract_funding_rate_settlements",
 	"trading_list_contract_position_statistics",
 	"trading_get_contract_maintenance_margin_tiers",
+	"trading_calculate_contract_indicator",
 }
 
 // contractCandleFigureNames are every figure a contract candle carries.
@@ -114,6 +115,7 @@ func TestEveryContractAbilityAsksTheRightWayAtTheRightAddress(t *testing.T) {
 		{"trading_list_contract_funding_rate_settlements", vo.RequestVerbRead, "/contract-funding-rate-settlements"},
 		{"trading_list_contract_position_statistics", vo.RequestVerbRead, "/contract-position-statistics"},
 		{"trading_get_contract_maintenance_margin_tiers", vo.RequestVerbRead, "/contract-maintenance-margin-tiers"},
+		{"trading_calculate_contract_indicator", vo.RequestVerbSubmit, "/contract-indicator-calculations"},
 	}
 	require.Len(t, testCases, len(everyContractAbility))
 
