@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
+	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -86,6 +87,51 @@ func TestContractAbilitiesOnlyEverReachTheContractLine(t *testing.T) {
 		}
 	}
 	assert.Equal(t, len(everyContractAbility), checkedContractAbilities)
+}
+
+// Every contract ability asks the trading service the way its contract line answers:
+// the right kind of ask, at the right address, with the named contract, candle and
+// sync filled into it. A wrong kind of ask or a mistyped address is refused as
+// "nothing here", which an assistant cannot tell apart from "nothing held".
+func TestEveryContractAbilityAsksTheRightWayAtTheRightAddress(t *testing.T) {
+	testCases := []struct {
+		abilityName  string
+		expectedVerb vo.RequestVerb
+		expectedPath string
+	}{
+		{"trading_create_contract_k_candle", vo.RequestVerbSubmit, "/contract-k-candles"},
+		{"trading_list_contract_k_candles", vo.RequestVerbRead, "/contract-k-candles"},
+		{"trading_get_contract_k_candle_series", vo.RequestVerbRead, "/contract-k-candles/series"},
+		{"trading_get_contract_k_candle", vo.RequestVerbRead, "/contract-k-candles/BTCUSDT/2026-09-23T08:00:00Z"},
+		{"trading_update_contract_k_candle", vo.RequestVerbReplace, "/contract-k-candles/BTCUSDT/2026-09-23T08:00:00Z"},
+		{"trading_delete_contract_k_candle", vo.RequestVerbRemove, "/contract-k-candles/BTCUSDT/2026-09-23T08:00:00Z"},
+		{"trading_backfill_contract_k_candles", vo.RequestVerbSubmit, "/contract-k-candles/backfill"},
+		{"trading_sync_contract_k_candle_history", vo.RequestVerbSubmit, "/contract-k-candles/history"},
+		{"trading_get_contract_k_candle_history_sync", vo.RequestVerbRead, "/contract-k-candles/history/7"},
+		{"trading_list_contract_trading_symbols", vo.RequestVerbRead, "/contract-trading-symbols"},
+		{"trading_add_to_contract_watchlist", vo.RequestVerbSubmit, "/contract-watchlist"},
+		{"trading_remove_from_contract_watchlist", vo.RequestVerbRemove, "/contract-watchlist/BTCUSDT"},
+		{"trading_list_contract_funding_rate_settlements", vo.RequestVerbRead, "/contract-funding-rate-settlements"},
+		{"trading_list_contract_position_statistics", vo.RequestVerbRead, "/contract-position-statistics"},
+		{"trading_get_contract_maintenance_margin_tiers", vo.RequestVerbRead, "/contract-maintenance-margin-tiers"},
+	}
+	require.Len(t, testCases, len(everyContractAbility))
+
+	for _, testCase := range testCases {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			filledIn := everyBoxFilledIn()
+			filledIn["symbol"] = json.RawMessage(`"BTCUSDT"`)
+			filledIn["openTime"] = json.RawMessage(`"2026-09-23T08:00:00Z"`)
+			filledIn["id"] = json.RawMessage(`"7"`)
+
+			request, buildError := apiToolNamed(t, testCase.abilityName).
+				BuildRequest(domains.NewToolArgumentsDomain(filledIn))
+
+			require.NoError(t, buildError)
+			assert.Equal(t, testCase.expectedVerb, request.Verb)
+			assert.Equal(t, testCase.expectedPath, request.Path)
+		})
+	}
 }
 
 // Writing a contract candle asks for every figure, the three price lines included: a
