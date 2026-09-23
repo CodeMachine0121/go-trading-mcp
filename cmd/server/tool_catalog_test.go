@@ -106,7 +106,7 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
 	requiresSignInPerNames := map[string]bool{}
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		requiresSignInPerNames[apiTool.Name()] = apiTool.RequiresSignIn()
 	}
 
@@ -114,7 +114,7 @@ func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *te
 }
 
 func TestNoTwoAbilitiesShareAName(t *testing.T) {
-	catalog := apiToolCatalog(10 * time.Second)
+	catalog := apiToolCatalog(10*time.Second, 120*time.Second)
 
 	seenNames := map[string]bool{}
 	for _, apiTool := range catalog {
@@ -125,7 +125,7 @@ func TestNoTwoAbilitiesShareAName(t *testing.T) {
 }
 
 func TestEveryAbilityTellsTheAssistantWhatItIsForAndWhatEachBoxMeans(t *testing.T) {
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		definitionDto := apiTool.ToDefinitionDto()
 
 		assert.NotEmpty(t, definitionDto.Description,
@@ -141,7 +141,7 @@ func TestEveryAbilityTellsTheAssistantWhatItIsForAndWhatEachBoxMeans(t *testing.
 }
 
 func TestOnlyWatchingAnAbilityStaysOnTheLine(t *testing.T) {
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		request, buildError := apiTool.BuildRequest(noFilledInBoxes())
 		if buildError != nil {
 			continue
@@ -169,7 +169,7 @@ func TestOnlyWatchingAnAbilityStaysOnTheLine(t *testing.T) {
 // ability to reach for it unprompted, so this checks that no such entry has quietly
 // come back.
 func TestNoAbilityLetsOneAssistantSpendAnothersBudget(t *testing.T) {
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		assert.NotContains(t, apiTool.Name(), "assistant",
 			"外掛不代 AI 去問另一個 AI：%s", apiTool.Name())
 		assert.NotContains(t, apiTool.Name(), "chat",
@@ -182,7 +182,7 @@ func TestNoAbilityLetsOneAssistantSpendAnothersBudget(t *testing.T) {
 func abilityNamed(t *testing.T, name string) dto.ToolDefinitionDto {
 	t.Helper()
 
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		if apiTool.Name() == name {
 			return apiTool.ToDefinitionDto()
 		}
@@ -523,7 +523,7 @@ func TestWritingAStrategyBotStillAsksForEverythingItAlwaysDid(t *testing.T) {
 func apiToolNamed(t *testing.T, name string) domains.ApiToolDomain {
 	t.Helper()
 
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		if apiTool.Name() == name {
 			return apiTool
 		}

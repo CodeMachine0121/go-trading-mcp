@@ -25,7 +25,7 @@ func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
 	authenticationService := service.NewAuthenticationService(
 		tradingServiceProxy, signedInSessionRepository, clock.NewClock())
 	apiToolService := service.NewApiToolService(
-		apiToolCatalog(applicationConfig.LiveUpdateWaitLimit),
+		apiToolCatalog(applicationConfig.LiveUpdateWaitLimit, applicationConfig.TradingServiceReplayTimeout),
 		authenticationService,
 		tradingServiceProxy,
 	)
