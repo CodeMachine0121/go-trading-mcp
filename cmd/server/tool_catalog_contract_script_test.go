@@ -76,7 +76,8 @@ func TestTheMarketKindBoxSaysWhatLeavingItOutMeans(t *testing.T) {
 			require.True(t, isDeclared)
 			assert.False(t, box.IsRequired, "不說行情種類的舊寫法要照舊有效")
 			assert.Equal(t, string(vo.ToolParameterKindString), box.Kind)
-			assert.Contains(t, box.Description, "kCandle（現貨 K 線）或 contractKCandle")
+			// Exactly two, said as exactly two.
+			assert.Contains(t, box.Description, "二選一：kCandle（現貨 K 線）或 contractKCandle")
 			assert.Contains(t, box.Description, "建立時不給就是 kCandle")
 			assert.Contains(t, box.Description, "修改時不給就是保留原本的")
 			assert.Contains(t, box.Description, "建立後不得更換")
@@ -156,14 +157,22 @@ func TestTheContractScriptShapeIsTaughtOnceInBothPlaces(t *testing.T) {
 
 // Every read of a strategy script says the kind comes back with it, because the kind
 // decides which calculation the script can be handed to.
+//
+// The whole claim, not the bare word: a description that named marketDataKind only to
+// say something else about it would leave the assistant not looking for it.
 func TestEveryStrategyScriptReadSaysItCarriesTheKind(t *testing.T) {
-	for _, abilityName := range []string{
-		"trading_list_strategy_scripts",
-		"trading_get_strategy_script",
-		"trading_browse_marketplace",
-	} {
-		t.Run(abilityName, func(t *testing.T) {
-			assert.Contains(t, abilityNamed(t, abilityName).Description, "marketDataKind")
+	testCases := []struct {
+		abilityName string
+		mustSay     string
+	}{
+		{abilityName: "trading_list_strategy_scripts", mustSay: "每一支都帶著 marketDataKind"},
+		{abilityName: "trading_get_strategy_script", mustSay: "以及它吃哪一種行情（marketDataKind）"},
+		{abilityName: "trading_browse_marketplace", mustSay: "每一支都帶著 marketDataKind"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			assert.Contains(t, abilityNamed(t, testCase.abilityName).Description, testCase.mustSay)
 		})
 	}
 }
@@ -297,15 +306,25 @@ func TestTheSpotCalculationSaysAContractScriptIsRefused(t *testing.T) {
 func TestTheSpotCalculationStillAsksWhereItAlwaysDid(t *testing.T) {
 	spot := abilityNamed(t, "trading_calculate_indicator")
 
-	requiredPerBoxNames := map[string]bool{}
-	for _, box := range spot.Parameters {
-		requiredPerBoxNames[box.Name] = box.IsRequired
+	type boxShape struct {
+		kind       vo.ToolParameterKind
+		isRequired bool
 	}
-	assert.Equal(t, map[string]bool{
-		"strategyScriptId": false, "symbol": true, "startTime": true, "endTime": false,
-		"aggregationInterval": false, "script": false, "resultType": false,
-		"parameters": false, "parameterValues": false,
-	}, requiredPerBoxNames)
+	shapePerBoxNames := map[string]boxShape{}
+	for _, box := range spot.Parameters {
+		shapePerBoxNames[box.Name] = boxShape{kind: vo.ToolParameterKind(box.Kind), isRequired: box.IsRequired}
+	}
+	assert.Equal(t, map[string]boxShape{
+		"strategyScriptId":    {vo.ToolParameterKindInteger, false},
+		"symbol":              {vo.ToolParameterKindString, true},
+		"startTime":           {vo.ToolParameterKindString, true},
+		"endTime":             {vo.ToolParameterKindString, false},
+		"aggregationInterval": {vo.ToolParameterKindString, false},
+		"script":              {vo.ToolParameterKindString, false},
+		"resultType":          {vo.ToolParameterKindString, false},
+		"parameters":          {vo.ToolParameterKindArray, false},
+		"parameterValues":     {vo.ToolParameterKindArray, false},
+	}, shapePerBoxNames)
 
 	symbol, isDeclared := boxNamed(spot, "symbol")
 	require.True(t, isDeclared)
