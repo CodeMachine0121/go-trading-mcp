@@ -245,6 +245,7 @@ MCP over HTTP 在連上時發一個**連線識別碼**（`Mcp-Session-Id`），�
 | `SERVER_PORT` | `8090` | 外掛自己聽在哪個埠 |
 | `MCP_PATH` | `/mcp` | 掛在哪個路徑上 |
 | `TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS` | `30` | 單次請求逾時 |
+| `TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS` | `120` | 四件重演自己的逾時。**要比交易服務整次重演的允許時間（預設 90 秒）長**，讓交易服務自己先說「沒跑完」，而不是外掛先放棄 |
 | `LIVE_UPDATE_WAIT_LIMIT_SECONDS` | `10` | 「看一眼即時更新」最長等幾秒 |
 | `IDLE_CONNECTION_TIMEOUT_MINUTES` | `60` | 連線閒置多久就放掉（放掉要重新登入） |
 
@@ -290,6 +291,20 @@ MCP over HTTP 在連上時發一個**連線識別碼**（`Mcp-Session-Id`），�
   資金費率一律計入、分級只有今天那一組，以及怎麼讀強平、資金費用、多空分開的勝率、被擋下的開倉。
 - 建立／修改交易策略多了 `marketDataKind`（建立後不得更換、修改不給即保留）與 `tradingMode`（只有合約交易策略有）。
 - 現貨重演兩件的說明從「這個服務只重演現貨」改成「這兩件只重演現貨，合約的事改用合約重演」。
+
+### 短線重演
+
+四件重演（現貨與合約、策略腳本與交易策略）共用：
+
+- **`fillTiming`**：`close`（預設，說出信號那一格收盤成交）或 `nextOpen`（下一格開盤成交）。說明要助理研發短線時用 `nextOpen`。
+- **`validationStartTime`**：切出調參段與驗證段，結果多 `inSample` 與 `validation` 兩份、各自從空手開始。
+  說明要助理**只拿調參段調參、只以驗證段判斷**。
+- 一段共用說明（`shortTermReplayNote`）教助理讀五格新統計：`profitFactor`、`expectancy`、`averageHoldingSeconds`、
+  `maximumConsecutiveLossCount`、`costToGrossProfitRatio`。
+- **重演等比較久**（`TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS`），其他能力照舊。
+- **成功的重演結果交給助理前會先精簡**（`ReplayResultDomain`）：資金曲線超過 200 點時平均取 200 點（頭尾必留）並加
+  `equityCurvePointTotalCount`；交易明細超過 100 筆時只留最近 100 筆並加 `closedTradeTotalCount`；`inSample`／`validation`
+  各自照做。**成績單一個數字都不動**；被拒絕的回覆與看不懂的回覆原封轉交。
 
 ## 新增一件能力
 
