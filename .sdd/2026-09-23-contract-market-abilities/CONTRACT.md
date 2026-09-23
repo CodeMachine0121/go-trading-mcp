@@ -92,3 +92,19 @@ Oracle: Acceptance Criteria + Business Rules（24 條）
 - Unclear: —
 - Orphans: 0
 - 位址／動詞對照交易服務：14/14 一致，無違規。
+
+---
+
+## 第二輪（修正後）
+
+| ID | 第一輪 | 第二輪 | 怎麼解決的 |
+|----|--------|--------|------------|
+| BR-02 | 🔴 | ✅ | 查資金費率結算、查持倉統計、查合約 K 線、合約序列的說明補上「會被拒絕的情況」；刪除／讀一根寫明 404；分級寫明代號留白會被拒絕。`TestEveryContractReadSaysWhatWillGetItRefused` |
+| AC-01 | 🟠 | ✅ | `TestReadingCandlesAsksTheRightLineForTheRightStretch` 斷言確切位址 `/contract-k-candles` 與查詢字串 |
+| AC-02 | 🟠 | ✅ | 同一支測試斷言現貨確切走到 `/k-candles` |
+| AC-11 | 🟠 | ✅ | 說明測試加上「回空陣列」 |
+| AC-20 | 🟠 | ✅ | 說明測試改為「一筆都不刪」「現貨那邊完全不受影響」 |
+
+另外依使用者決定新增第十五件能力「查合約 K 線序列」（PRD US-01 新增兩個情境），由 `TestReadingCandlesAsksTheRightLineForTheRightStretch`、`TestTheContractSeriesAsksForAnIntervalTheWayTheSpotOneDoes` 與說明測試覆蓋。
+
+**第二輪結果：全部條款 conforms，無違規、無弱斷言、無孤兒。**
