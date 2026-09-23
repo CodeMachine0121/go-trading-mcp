@@ -144,9 +144,9 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_update_trading_strategy",
 			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
-				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的，換成另一種會被拒絕。"+
-				"吃合約行情的那一種可以換交易模式（tradingMode），**但它與其他欄位一樣是整份改寫：不給就回到 longShort**——"+
-				"只改名字時也要照抄原本的交易模式，否則一份只做空的交易策略會安靜地變成多空反手。",
+				"\n\n**例外是 marketDataKind 與 tradingMode**：不給就是保留原本的。"+
+				"marketDataKind 換成另一種會被拒絕；吃合約行情的那一種可以換交易模式（tradingMode），"+
+				"只改名字或條件時不必重帶它。",
 			vo.RequestVerbReplace, "/trading-strategies/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
