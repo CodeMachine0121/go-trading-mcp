@@ -179,6 +179,7 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
 	catalog = append(catalog, accountApiTools()...)
 	catalog = append(catalog, kCandleApiTools(liveUpdateWaitLimit)...)
 	catalog = append(catalog, tradingSymbolApiTools()...)
+	catalog = append(catalog, contractApiTools()...)
 	catalog = append(catalog, indicatorApiTools()...)
 	catalog = append(catalog, strategyScriptApiTools()...)
 	catalog = append(catalog, tradingStrategyApiTools()...)
