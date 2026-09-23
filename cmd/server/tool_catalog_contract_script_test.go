@@ -139,9 +139,15 @@ func TestTheContractScriptNoteSaysWhereItCannotGoYet(t *testing.T) {
 	assert.Contains(t, contractKCandleScriptNote, "直接告訴他目前做不到")
 }
 
-// The writing abilities read the note word for word, not a paraphrase of it.
-func TestWritingAStrategyScriptTeachesTheContractShape(t *testing.T) {
-	for _, abilityName := range []string{"trading_create_strategy_script", "trading_update_strategy_script"} {
+// Every ability that has the assistant write or run a contract script reads the note
+// word for word, not a paraphrase of it: two wordings of one shape get a script that
+// fits only one of them.
+func TestTheContractScriptShapeIsTaughtOnceInBothPlaces(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_create_strategy_script",
+		"trading_update_strategy_script",
+		"trading_calculate_contract_indicator",
+	} {
 		t.Run(abilityName, func(t *testing.T) {
 			assert.Contains(t, abilityNamed(t, abilityName).Description, contractKCandleScriptNote)
 		})
@@ -160,4 +166,156 @@ func TestEveryStrategyScriptReadSaysItCarriesTheKind(t *testing.T) {
 			assert.Contains(t, abilityNamed(t, abilityName).Description, "marketDataKind")
 		})
 	}
+}
+
+// aContractCalculation is one filled-in contract indicator calculation naming an
+// existing strategy script.
+func aContractCalculation() map[string]json.RawMessage {
+	return map[string]json.RawMessage{
+		"strategyScriptId":    json.RawMessage(`7`),
+		"symbol":              json.RawMessage(`"BTCUSDT"`),
+		"startTime":           json.RawMessage(`"2026-09-22T08:00:00Z"`),
+		"endTime":             json.RawMessage(`"2026-09-23T08:00:00Z"`),
+		"aggregationInterval": json.RawMessage(`"1h"`),
+	}
+}
+
+// Naming a contract strategy script for one day of BTCUSDT asks the contract line's
+// calculation, as whoever is signed in, with everything that was said.
+func TestTheContractIndicatorCalculationAsksTheContractLine(t *testing.T) {
+	request, buildError := apiToolNamed(t, "trading_calculate_contract_indicator").
+		BuildRequest(domains.NewToolArgumentsDomain(aContractCalculation()))
+
+	require.NoError(t, buildError)
+	assert.Equal(t, vo.RequestVerbSubmit, request.Verb)
+	assert.Equal(t, "/contract-indicator-calculations", request.Path)
+	assert.True(t, request.CarriesIdentity, "策略腳本是某個人的，這一件要帶著身分")
+	assert.JSONEq(t, `{
+		"strategyScriptId": 7,
+		"symbol": "BTCUSDT",
+		"startTime": "2026-09-22T08:00:00Z",
+		"endTime": "2026-09-23T08:00:00Z",
+		"aggregationInterval": "1h"
+	}`, string(request.Body))
+}
+
+// A script brought along goes out with its result type, its knobs and this time's
+// settings of them, untouched.
+func TestTheContractIndicatorCalculationCarriesABroughtAlongScript(t *testing.T) {
+	filledIn := aContractCalculation()
+	delete(filledIn, "strategyScriptId")
+	filledIn["script"] = json.RawMessage(`"package main"`)
+	filledIn["resultType"] = json.RawMessage(`"float"`)
+	filledIn["parameters"] = json.RawMessage(`[{"name":"期數","kind":"lookbackCount","defaultValue":20}]`)
+	filledIn["parameterValues"] = json.RawMessage(`[{"name":"期數","value":12}]`)
+
+	request, buildError := apiToolNamed(t, "trading_calculate_contract_indicator").
+		BuildRequest(domains.NewToolArgumentsDomain(filledIn))
+
+	require.NoError(t, buildError)
+	sentBody := map[string]json.RawMessage{}
+	require.NoError(t, json.Unmarshal(request.Body, &sentBody))
+	assert.JSONEq(t, `"package main"`, string(sentBody["script"]))
+	assert.JSONEq(t, `"float"`, string(sentBody["resultType"]))
+	assert.JSONEq(t, `[{"name":"期數","kind":"lookbackCount","defaultValue":20}]`, string(sentBody["parameters"]))
+	assert.JSONEq(t, `[{"name":"期數","value":12}]`, string(sentBody["parameterValues"]))
+}
+
+// The trading service asks both calculations for the same body, so both declare the
+// same boxes, required alike, and every one of them goes into the body. Apart from
+// the symbol, word for word too — they are read out of one list.
+func TestBothIndicatorCalculationsTakeTheSameBoxes(t *testing.T) {
+	spot := abilityNamed(t, "trading_calculate_indicator")
+	contract := abilityNamed(t, "trading_calculate_contract_indicator")
+
+	require.Len(t, contract.Parameters, len(spot.Parameters))
+	for _, spotBox := range spot.Parameters {
+		contractBox, isDeclared := boxNamed(contract, spotBox.Name)
+
+		require.True(t, isDeclared, "合約指標計算少了這一格：%s", spotBox.Name)
+		assert.Equal(t, spotBox.IsRequired, contractBox.IsRequired, spotBox.Name)
+		assert.Equal(t, spotBox.Kind, contractBox.Kind, spotBox.Name)
+		if spotBox.Name != "symbol" {
+			assert.Equal(t, spotBox, contractBox, "這一格應該讀自同一份清單：%s", spotBox.Name)
+		}
+	}
+
+	for _, abilityName := range []string{"trading_calculate_indicator", "trading_calculate_contract_indicator"} {
+		filledIn := everyBoxFilledIn()
+		request, buildError := apiToolNamed(t, abilityName).BuildRequest(domains.NewToolArgumentsDomain(filledIn))
+		require.NoError(t, buildError)
+
+		sentBody := map[string]json.RawMessage{}
+		require.NoError(t, json.Unmarshal(request.Body, &sentBody))
+		assert.Empty(t, request.Query, abilityName)
+		for _, box := range abilityNamed(t, abilityName).Parameters {
+			assert.Contains(t, sentBody, box.Name, "%s 的 %s 該在內文裡", abilityName, box.Name)
+		}
+	}
+}
+
+// Without a contract, or without the start of the stretch, nothing leaves — and the
+// answer names the box.
+func TestTheContractIndicatorCalculationStopsAMissingBox(t *testing.T) {
+	for _, leftOut := range []string{"symbol", "startTime"} {
+		t.Run(leftOut, func(t *testing.T) {
+			filledIn := aContractCalculation()
+			delete(filledIn, leftOut)
+
+			_, buildError := apiToolNamed(t, "trading_calculate_contract_indicator").
+				BuildRequest(domains.NewToolArgumentsDomain(filledIn))
+
+			assert.ErrorIs(t, buildError, domains.ErrRequiredArgumentMissing)
+			assert.ErrorContains(t, buildError, leftOut)
+		})
+	}
+}
+
+// What will get a contract calculation refused, said before it is sent.
+func TestTheContractIndicatorCalculationSaysWhatWillGetItRefused(t *testing.T) {
+	description := abilityNamed(t, "trading_calculate_contract_indicator").Description
+
+	assert.Contains(t, description, "會被拒絕的情況")
+	assert.Contains(t, description, "指名的那一支**吃的是 K 線**（那一支要用 trading_calculate_indicator 算）")
+	assert.Contains(t, description, "湊不出最少可算根數時整次拒絕")
+	assert.Contains(t, description, "**可用根數**與**最少可算根數**")
+	assert.Contains(t, description, "入口照現貨收 K 線")
+	assert.Contains(t, description, "與 trading_calculate_indicator 一模一樣")
+}
+
+// The spot calculation refuses a contract strategy script, and says where it goes.
+func TestTheSpotCalculationSaysAContractScriptIsRefused(t *testing.T) {
+	description := abilityNamed(t, "trading_calculate_indicator").Description
+
+	assert.Contains(t, description, "這一支只算現貨 K 線")
+	assert.Contains(t, description, "指名一支吃合約行情（marketDataKind 為 contractKCandle）的策略腳本會被拒絕")
+	assert.Contains(t, description, "那一支要用 trading_calculate_contract_indicator 算")
+}
+
+// Everything else about the spot calculation is as it was: the same address, the same
+// boxes, the same ones required.
+func TestTheSpotCalculationStillAsksWhereItAlwaysDid(t *testing.T) {
+	spot := abilityNamed(t, "trading_calculate_indicator")
+
+	requiredPerBoxNames := map[string]bool{}
+	for _, box := range spot.Parameters {
+		requiredPerBoxNames[box.Name] = box.IsRequired
+	}
+	assert.Equal(t, map[string]bool{
+		"strategyScriptId": false, "symbol": true, "startTime": true, "endTime": false,
+		"aggregationInterval": false, "script": false, "resultType": false,
+		"parameters": false, "parameterValues": false,
+	}, requiredPerBoxNames)
+
+	symbol, isDeclared := boxNamed(spot, "symbol")
+	require.True(t, isDeclared)
+	assert.Equal(t, "要算哪一個交易標的", symbol.Description)
+
+	filledIn := aContractCalculation()
+	request, buildError := apiToolNamed(t, "trading_calculate_indicator").
+		BuildRequest(domains.NewToolArgumentsDomain(filledIn))
+	require.NoError(t, buildError)
+	assert.Equal(t, vo.RequestVerbSubmit, request.Verb)
+	assert.Equal(t, "/indicator-calculations", request.Path)
+	assert.True(t, request.CarriesIdentity)
 }

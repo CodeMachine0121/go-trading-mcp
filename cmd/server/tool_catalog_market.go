@@ -155,6 +155,36 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 	}
 }
 
+// indicatorCalculationParameters are what an indicator calculation is asked with, on
+// either market — everything but the symbol. Shared, because the trading service asks
+// both calculations for the same body: a box added once is a box both get, and a
+// wording improved once reads the same on both.
+//
+// The symbol is left to each ability: the same code names two instruments on the two
+// venues, so each one says which kind of symbol it takes.
+func indicatorCalculationParameters() []vo.ToolParameterVo {
+	return []vo.ToolParameterVo{
+		bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
+			"要跑哪一支既有的策略腳本。與 script 擇一", false),
+		bodyParameter("startTime", vo.ToolParameterKindString,
+			"觀察區間的起點（RFC3339 世界標準時間）。這是唯一沒有預設值的欄位", true),
+		bodyParameter("endTime", vo.ToolParameterKindString,
+			"觀察區間的終點，也就是計算截止時間。省略即現在；指向未來視同現在，不拒絕", false),
+		bodyParameter("aggregationInterval", vo.ToolParameterKindString,
+			"彙總刻度，六選一：1m／5m／15m／1h／4h／1d。省略即 1m", false),
+		bodyParameter("script", vo.ToolParameterKindString,
+			"一段還沒存起來的算式。與 strategyScriptId 擇一", false),
+		bodyParameter("resultType", vo.ToolParameterKindString,
+			"自帶算式時它產出什麼形狀：float／floatList／bool／boolList／signal。省略即 float。"+
+				"指名既有策略腳本時這一格會被忽略", false),
+		bodyParameter("parameters", vo.ToolParameterKindArray,
+			"自帶算式時它宣告的旋鈕。指名既有策略腳本時會被忽略", false),
+		bodyParameter("parameterValues", vo.ToolParameterKindArray,
+			"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。"+
+				"沒給的用宣告的預設值；給了一個沒宣告過的名字則整次拒絕", false),
+	}
+}
+
 func indicatorApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
@@ -163,6 +193,8 @@ func indicatorApiTools() []domains.ApiToolDomain {
 				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），"+
 				"兩者只能挑一個。** 指名既有的那一支時，它已經宣告過 resultType 與 parameters，"+
 				"再送一次會被忽略。"+
+				"\n\n**這一支只算現貨 K 線。** 指名一支吃合約行情（marketDataKind 為 contractKCandle）的策略腳本會被拒絕"+
+				"——那一支要用 trading_calculate_contract_indicator 算。"+
 				"\n\n你說的是**觀察區間**（startTime 到 endTime），要拿幾根 K 線是系統算出來的"+
 				"（要看幾格 ＋ 最大回看根數 − 1），沒有地方可以填、也不需要填。"+
 				"\n\n幾條會讓你困惑的規則：只採用**走完**的刻度區間（還在走的那一格裝了一半，"+
@@ -174,25 +206,33 @@ func indicatorApiTools() []domains.ApiToolDomain {
 				"所以要把一條線畫回圖上不必自己反推是哪幾根。"+
 				"\n\n算式跑不動（讀不懂、執行失敗、越權、逾時）回 422。",
 			vo.RequestVerbSubmit, "/indicator-calculations", true,
-			bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
-				"要跑哪一支既有的策略腳本。與 script 擇一", false),
-			bodyParameter("symbol", vo.ToolParameterKindString, "要算哪一個交易標的", true),
-			bodyParameter("startTime", vo.ToolParameterKindString,
-				"觀察區間的起點（RFC3339 世界標準時間）。這是唯一沒有預設值的欄位", true),
-			bodyParameter("endTime", vo.ToolParameterKindString,
-				"觀察區間的終點，也就是計算截止時間。省略即現在；指向未來視同現在，不拒絕", false),
-			bodyParameter("aggregationInterval", vo.ToolParameterKindString,
-				"彙總刻度，六選一：1m／5m／15m／1h／4h／1d。省略即 1m", false),
-			bodyParameter("script", vo.ToolParameterKindString,
-				"一段還沒存起來的算式。與 strategyScriptId 擇一", false),
-			bodyParameter("resultType", vo.ToolParameterKindString,
-				"自帶算式時它產出什麼形狀：float／floatList／bool／boolList／signal。省略即 float。"+
-					"指名既有策略腳本時這一格會被忽略", false),
-			bodyParameter("parameters", vo.ToolParameterKindArray,
-				"自帶算式時它宣告的旋鈕。指名既有策略腳本時會被忽略", false),
-			bodyParameter("parameterValues", vo.ToolParameterKindArray,
-				"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。"+
-					"沒給的用宣告的預設值；給了一個沒宣告過的名字則整次拒絕", false),
+			append([]vo.ToolParameterVo{
+				bodyParameter("symbol", vo.ToolParameterKindString, "要算哪一個交易標的", true),
+			}, indicatorCalculationParameters()...)...,
+		),
+		// The contract calculation sits beside the spot one rather than among the
+		// contract abilities: those are the market line and need nobody signed in,
+		// while a calculation runs somebody's strategy script. Its name and address
+		// still say contract, so the contract line's guard covers it.
+		domains.NewApiToolDomain(
+			"trading_calculate_contract_indicator",
+			"在一個**永續合約**標的上用一段算式算一次指標。填的東西與 trading_calculate_indicator 一模一樣，"+
+				"規則也一字不差（觀察區間、彙總刻度、只採用走完的刻度區間、旋鈕、指標值種類、回應的形狀）；"+
+				"差別只在算式收到的是**合約行情格**而不是 K 線，而且只問合約那一條線。"+
+				"合約沒有交易時段，所以不會有「觀察區間沒有交易」這種拒絕。"+
+				"\n\n**要嘛指名一支吃合約行情的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
+				"\n\n**會被拒絕的情況**：指名的那一支**吃的是 K 線**（那一支要用 trading_calculate_indicator 算）；"+
+				"那一支不存在、不是你的也沒上架（404，三種情形同一個答案）；"+
+				"走完的格子湊不出最少可算根數時整次拒絕，並說出**可用根數**與**最少可算根數**"+
+				"（從來沒存過合約 K 線的代號，可用根數就是零——先用 trading_backfill_contract_k_candles 補）；"+
+				"parameterValues 給了一個沒宣告過的名字。"+
+				"算式跑不動（讀不懂、入口照現貨收 K 線、執行失敗、越權、逾時）回 422。"+
+				contractKCandleScriptNote,
+			vo.RequestVerbSubmit, "/contract-indicator-calculations", true,
+			append([]vo.ToolParameterVo{
+				bodyParameter("symbol", vo.ToolParameterKindString,
+					"要算哪一個合約標的，如 BTCUSDT（永續合約的代號，與現貨代號不一定對應）", true),
+			}, indicatorCalculationParameters()...)...,
 		),
 	}
 }
