@@ -114,7 +114,8 @@ func TestEveryReplayTeachesShortTermReplaying(t *testing.T) {
 			"fillTiming 用 nextOpen",
 			"只拿 inSample 調參數，只拿 validation 判斷這支策略好不好",
 			"profitFactor", "expectancy", "averageHoldingSeconds", "maximumConsecutiveLossCount", "costToGrossProfitRatio",
-			"整體的時間上限",
+			"整體的時間上限", "請縮短期間或改用粗一點的刻度",
+			"一筆都沒虧時是 null", "價差本身沒賺時是 null",
 			"equityCurvePointTotalCount", "closedTradeTotalCount",
 		} {
 			assert.Contains(t, description, taught, abilityName)
