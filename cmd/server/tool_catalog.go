@@ -107,6 +107,12 @@ func backtestParameters() []vo.ToolParameterVo {
 		bodyParameter("symbol", vo.ToolParameterKindString, "要在哪一個交易標的上重演", true),
 		bodyParameter("startTime", vo.ToolParameterKindString, "重演的起點（RFC3339 世界標準時間）", true),
 		bodyParameter("endTime", vo.ToolParameterKindString, "重演的終點（RFC3339 世界標準時間）", true),
+		bodyParameter("fillTiming", vo.ToolParameterKindString,
+			"信號在什麼價格成交：close（不給即是，說出信號那一格的收盤價）或 nextOpen（下一格的開盤價；"+
+				"最後一格的信號不成交；進場那一格起就判止損止盈）。**研發短線策略請用 nextOpen**。其他值會被拒絕", false),
+		bodyParameter("validationStartTime", vo.ToolParameterKindString,
+			"驗證起點（RFC3339 世界標準時間）：之前是調參段、之後是驗證段，兩段各自從空手重演、各回一份結果（inSample、validation）。"+
+				"**只拿調參段調參數，只拿驗證段判斷好壞**。必須落在這段期間之內、兩段都要至少一格，否則會被拒絕。不給就只有整段一份", false),
 		bodyParameter("initialCapital", vo.ToolParameterKindString, "起始資金（字串形式的精確小數）", true),
 		bodyParameter("positionSizingMode", vo.ToolParameterKindString,
 			"每次進場押多少的方式。押全部時不必給 positionSizingValue", false),
@@ -182,7 +188,7 @@ func backtestParameters() []vo.ToolParameterVo {
 // it refused*, because an assistant that cannot see the second one discovers it by
 // being refused. Second, nothing here repeats a rule the trading service enforces —
 // the descriptions explain, they do not validate.
-func apiToolCatalog(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
+func apiToolCatalog(liveUpdateWaitLimit time.Duration, replayWaitLimit time.Duration) []domains.ApiToolDomain {
 	catalog := []domains.ApiToolDomain{}
 	catalog = append(catalog, systemApiTools()...)
 	catalog = append(catalog, accountApiTools()...)
@@ -192,8 +198,8 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
 	catalog = append(catalog, indicatorApiTools()...)
 	catalog = append(catalog, strategyScriptApiTools()...)
 	catalog = append(catalog, tradingStrategyApiTools()...)
-	catalog = append(catalog, backtestApiTools()...)
-	catalog = append(catalog, contractBacktestApiTools()...)
+	catalog = append(catalog, backtestApiTools(replayWaitLimit)...)
+	catalog = append(catalog, contractBacktestApiTools(replayWaitLimit)...)
 	catalog = append(catalog, strategyBotApiTools()...)
 	catalog = append(catalog, telegramDeliveryApiTools()...)
 

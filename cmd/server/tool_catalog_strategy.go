@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
@@ -215,7 +217,23 @@ const costedReportCardNote = "\n\n**填了交易成本時，成績單多一個 t
 // to stop exactly that.
 const spotOnlyReplayNote = "\n\n**這兩件只重演現貨。** 買入時空手就開倉、已經有倉位就當作沒聽到；賣出就平倉把錢收回來、之後空手等下一個買點；空手時聽到賣出什麼都不做。\n\n**這兩件沒有交易模式可以指定，也開不了槓桿**——借錢、做空與強制平倉在合約帳戶上，所以這裡也不會有強制平倉這種出場。吃合約行情的策略腳本或交易策略拿來這裡會被拒絕。\n\n**使用者提到要放空、要開槓桿、或說他在合約帳戶上操作時，改用合約重演**（trading_backtest_contract_strategy_script、trading_backtest_contract_trading_strategy）——不要在這裡換一組設定去湊：湊出來的成績單是照他沒做的操作算的，而他不會發現。"
 
-func backtestApiTools() []domains.ApiToolDomain {
+// shortTermReplayNote is how to replay for short-term work and how to read what comes
+// back, said once for all four replays.
+//
+// One copy for the reason the other notes have one. It leads with the two habits that
+// decide whether a short-term report card means anything — filling at the next open,
+// and judging only by a part the tuning never saw — because an assistant left to
+// itself does neither, and nothing in the numbers says so.
+const shortTermReplayNote = "\n\n**研發短線策略時，fillTiming 用 nextOpen**：收盤成交（close，不給即是）是讓說出信號的那一格在它自己的收盤價成交，而收盤那一刻其實已經過去了——短線賺的常常就是那一點點，所以收盤成交的成績單必然偏樂觀。下一格開盤成交時，最後一格說出的信號不會成交。" +
+	"\n\n**樣本外：給 validationStartTime，把這段期間切成調參段（之前）與驗證段（之後）。**回來會多 inSample 與 validation 兩份結果（形狀與整段相同），兩段各自從初始資金、空手開始，算式在驗證段看得到之前的歷史。" +
+	"**只拿 inSample 調參數，只拿 validation 判斷這支策略好不好**；看過 validation 之後又回頭改參數，那一段就不再是樣本外，請換一段更晚、還沒看過的期間當驗證段。" +
+	"驗證起點必須落在期間之內、兩段都要至少一格，否則會被拒絕。" +
+	"\n\n**成績單多五格**：profitFactor（賺的那幾筆淨損益合計 ÷ 虧的那幾筆合計，一筆都沒虧時是 null——不是無限大）、expectancy（每一筆平均淨賺多少）、averageHoldingSeconds（平均持倉秒數）、maximumConsecutiveLossCount（最多連虧幾筆，打平會打斷）、costToGrossProfitRatio（手續費吃掉扣成本前價差的比例，0.25 就是吃掉四分之一；價差本身沒賺時是 null；合約的資金費用不算在內）。結束時還開著的那一注不算進這五格。" +
+	"**短線策略要看 expectancy 與 costToGrossProfitRatio**：勝率高而 expectancy 接近零、或成本吃掉大半價差，都是交易次數多、沒有真的優勢。" +
+	"\n\n**一次重演有整體的時間上限**：跑太久會整次被拒絕（不會給半張成績單），請縮短期間或改用粗一點的刻度再試。" +
+	"\n\n**長重演交到你手上之前會先精簡**：資金曲線超過兩百點時平均取兩百點（頭尾都在），並多一個 equityCurvePointTotalCount 說原本幾點；交易明細超過一百筆時只列最近一百筆，並多一個 closedTradeTotalCount 說總共幾筆；inSample 與 validation 各自照做。**成績單的每一個數字都沒有動**——筆數、勝率請讀成績單，不要數交易明細。"
+
+func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_backtest_strategy_script",
@@ -223,7 +241,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
 				"\n\n重演一律以 signal 這種指標值種類執行——它讀的就是每根一個買賣信號，"+
 				"所以這裡沒有 resultType 可填、也不需要填。"+
-				"\n\n回來的是成績單加交易明細，沒有資金曲線（每一點都從交易明細推得回來）。"+
+				"\n\n回來的是成績單、交易明細與資金曲線。"+
 				"**成績單裡的交易筆數一定要看**——一張幾乎沒有交易的漂亮成績單會被讀成「很穩」，"+
 				"而真相是這份策略根本沒有在做決定。"+
 				"\n\n模擬了出場價位時，**stopLossExitCount 也一定要看**："+
@@ -231,7 +249,8 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"報酬率可以一模一樣——而前者是停損在支撑它，"+
 				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。"+
 				costedReportCardNote+
-				spotOnlyReplayNote,
+				spotOnlyReplayNote+
+				shortTermReplayNote,
 			vo.RequestVerbSubmit, "/backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -246,7 +265,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
-		),
+		).Waiting(replayWaitLimit).CondensingReplayResults(),
 		domains.NewApiToolDomain(
 			"trading_backtest_trading_strategy",
 			"拿**一份交易策略**重演一段已經發生過的行情。"+
@@ -254,11 +273,12 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"\n\n這一支與 trading_backtest_strategy_script 的差別："+
 				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定。"+
 				costedReportCardNote+
-				spotOnlyReplayNote,
+				spotOnlyReplayNote+
+				shortTermReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
-		),
+		).Waiting(replayWaitLimit).CondensingReplayResults(),
 	}
 }
 
@@ -298,7 +318,7 @@ const contractAccountReplayNote = "\n\n**這是在逐倉合約帳戶上重演**�
 	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負或超過 100；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
 	"\n\n**多空反手一旦進場就一直在場內**，只有止損、止盈或強平能讓它回到空手——使用者想要「平掉但不反手」時，請他改用 longOnly 或 shortOnly。"
 
-func contractBacktestApiTools() []domains.ApiToolDomain {
+func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_backtest_contract_strategy_script",
@@ -309,7 +329,8 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				"\n\n**交易模式（tradingMode）由這一次說**，三選一：longShort（預設，多空反手）、longOnly（只做多）、shortOnly（只做空）；"+
 				"**沒有 spot 這一種**——現貨的事用 trading_backtest_strategy_script。"+
 				costedReportCardNote+
-				contractAccountReplayNote,
+				contractAccountReplayNote+
+				shortTermReplayNote,
 			vo.RequestVerbSubmit, "/contract-backtests", true,
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -327,7 +348,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
-		),
+		).Waiting(replayWaitLimit).CondensingReplayResults(),
 		domains.NewApiToolDomain(
 			"trading_backtest_contract_trading_strategy",
 			"拿**一份吃合約行情的交易策略**在**合約帳戶**上重演一段已經發生過的永續合約行情。"+
@@ -336,10 +357,11 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				"吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy。"+
 				"\n\n成績單多一個 conflictedCandleCount：買賣條件同時成立、當作持平的格數。"+
 				costedReportCardNote+
-				contractAccountReplayNote,
+				contractAccountReplayNote+
+				shortTermReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				contractBacktestParameters()...)...,
-		),
+		).Waiting(replayWaitLimit).CondensingReplayResults(),
 	}
 }

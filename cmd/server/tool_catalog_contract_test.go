@@ -46,7 +46,7 @@ var contractCandleFigureNames = []string{
 // every ability builds a request and none is skipped for a box left empty.
 func everyBoxFilledIn() map[string]json.RawMessage {
 	filledIn := map[string]json.RawMessage{}
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		for _, parameter := range apiTool.ToDefinitionDto().Parameters {
 			switch parameter.Kind {
 			case "integer":
@@ -77,7 +77,7 @@ func TestContractAbilitiesOnlyEverReachTheContractLine(t *testing.T) {
 	}
 
 	checkedContractAbilities := 0
-	for _, apiTool := range apiToolCatalog(10 * time.Second) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		request, buildError := apiTool.BuildRequest(domains.NewToolArgumentsDomain(everyBoxFilledIn()))
 		require.NoError(t, buildError, apiTool.Name())
 

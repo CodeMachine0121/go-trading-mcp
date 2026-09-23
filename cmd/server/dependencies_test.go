@@ -23,6 +23,7 @@ func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
 		McpPath:                      "/mcp",
 		TradingServiceBaseUrl:        "http://127.0.0.1:1",
 		TradingServiceRequestTimeout: time.Second,
+		TradingServiceReplayTimeout:  time.Second,
 		LiveUpdateWaitLimit:          time.Second,
 	}
 
@@ -68,6 +69,7 @@ func TestTheConnectorSaysItIsAliveWithoutTouchingTheTradingService(t *testing.T)
 		McpPath:                      "/mcp",
 		TradingServiceBaseUrl:        "http://127.0.0.1:1",
 		TradingServiceRequestTimeout: time.Second,
+		TradingServiceReplayTimeout:  time.Second,
 		LiveUpdateWaitLimit:          time.Second,
 	}
 

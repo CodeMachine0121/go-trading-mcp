@@ -18,8 +18,13 @@ type ApplicationConfig struct {
 	McpPath                      string
 	TradingServiceBaseUrl        string
 	TradingServiceRequestTimeout time.Duration
-	LiveUpdateWaitLimit          time.Duration
-	IdleConnectionTimeout        time.Duration
+	// TradingServiceReplayTimeout is how long the replay abilities wait for their
+	// answer. It is longer than the usual wait, and longer than the trading service's
+	// own allowance for a whole replay, so that the trading service is the one to say
+	// a replay ran out of time.
+	TradingServiceReplayTimeout time.Duration
+	LiveUpdateWaitLimit         time.Duration
+	IdleConnectionTimeout       time.Duration
 }
 
 func loadApplicationConfig() ApplicationConfig {
@@ -33,6 +38,8 @@ func loadApplicationConfig() ApplicationConfig {
 		TradingServiceBaseUrl: textWithDefault("TRADING_SERVICE_BASE_URL", "http://localhost:8080"),
 		TradingServiceRequestTimeout: time.Duration(
 			wholeNumberWithDefault("TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS", 30)) * time.Second,
+		TradingServiceReplayTimeout: time.Duration(
+			wholeNumberWithDefault("TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS", 120)) * time.Second,
 		LiveUpdateWaitLimit: time.Duration(
 			wholeNumberWithDefault("LIVE_UPDATE_WAIT_LIMIT_SECONDS", 10)) * time.Second,
 		IdleConnectionTimeout: time.Duration(

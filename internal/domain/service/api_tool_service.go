@@ -93,11 +93,11 @@ func (apiToolService *ApiToolService) CallApiTool(
 	}
 
 	if response.Outcome != vo.TradingServiceIdentityNotRecognized {
-		return response.ToToolResultDto()
+		return apiTool.Relayed(response).ToToolResultDto()
 	}
 
 	return apiToolService.retryWithRenewedIdentity(
-		ctx, request, toolCallDto, accessToken, response)
+		ctx, apiTool, request, toolCallDto, accessToken, response)
 }
 
 // identityFor settles whose identity this ask travels under.
@@ -140,6 +140,7 @@ func (apiToolService *ApiToolService) identityFor(
 // spend, so the retry would send the identical rejected proof again.
 func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 	ctx context.Context,
+	apiTool domains.ApiToolDomain,
 	request vo.TradingServiceRequestVo,
 	toolCallDto dto.ToolCallDto,
 	rejectedAccessToken string,
@@ -170,5 +171,5 @@ func (apiToolService *ApiToolService) retryWithRenewedIdentity(
 		}
 	}
 
-	return response.ToToolResultDto()
+	return apiTool.Relayed(response).ToToolResultDto()
 }

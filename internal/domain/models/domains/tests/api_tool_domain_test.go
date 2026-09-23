@@ -3,6 +3,7 @@ package domains_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
@@ -153,4 +154,34 @@ func TestToDefinitionDtoTellsTheAssistantEverythingItHasToKnowToChoose(t *testin
 	assert.Equal(t, "代號", definitionDto.Parameters[0].Description)
 	assert.True(t, definitionDto.Parameters[0].IsRequired)
 	assert.False(t, definitionDto.Parameters[1].IsRequired)
+}
+
+func TestAReplayAbilityWaitsLongerAndCondensesOnlyWhatSucceeded(t *testing.T) {
+	longContent := aReplayResultWith(500, 0, "")
+	replay := domains.NewApiToolDomain(
+		"trading_backtest_strategy_script", "重演", vo.RequestVerbSubmit, "/backtests", true,
+	).Waiting(120 * time.Second).CondensingReplayResults()
+
+	request, buildError := replay.BuildRequest(argumentsOf(t, map[string]any{}))
+	require.NoError(t, buildError)
+	assert.Equal(t, 120*time.Second, request.ResponseWaitLimit)
+
+	succeeded := replay.Relayed(vo.TradingServiceResponseVo{Outcome: vo.TradingServiceSucceeded, Content: longContent})
+	assert.NotEqual(t, longContent, succeeded.Content)
+	assert.Contains(t, succeeded.Content, `"equityCurvePointTotalCount":500`)
+
+	refused := replay.Relayed(vo.TradingServiceResponseVo{Outcome: vo.TradingServiceRefused, Content: longContent})
+	assert.Equal(t, longContent, refused.Content)
+}
+
+func TestAnOrdinaryAbilityNeitherWaitsLongerNorCondenses(t *testing.T) {
+	longContent := aReplayResultWith(500, 0, "")
+	ordinary := domains.NewApiToolDomain("trading_list_k_candles", "查 K 線", vo.RequestVerbRead, "/k-candles", false)
+
+	request, buildError := ordinary.BuildRequest(argumentsOf(t, map[string]any{}))
+	require.NoError(t, buildError)
+	assert.Zero(t, request.ResponseWaitLimit)
+
+	relayed := ordinary.Relayed(vo.TradingServiceResponseVo{Outcome: vo.TradingServiceSucceeded, Content: longContent})
+	assert.Equal(t, longContent, relayed.Content)
 }
