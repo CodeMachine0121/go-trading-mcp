@@ -242,3 +242,12 @@ func TestTheContractReplaysSayWhatTheyRefuseAndWhereItGoes(t *testing.T) {
 	strategyReplay := abilityNamed(t, "trading_backtest_contract_trading_strategy").Description
 	assert.Contains(t, strategyReplay, "吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy")
 }
+
+// A rewrite of a contract trading strategy that leaves the trading mode out puts it
+// back to long and short, and the rewrite ability says so before a rename does it.
+func TestRewritingATradingStrategySaysTheTradingModeMustBeCopied(t *testing.T) {
+	description := abilityNamed(t, "trading_update_trading_strategy").Description
+
+	assert.Contains(t, description, "不給就回到 longShort")
+	assert.Contains(t, description, "只改名字時也要照抄原本的交易模式")
+}

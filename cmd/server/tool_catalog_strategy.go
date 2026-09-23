@@ -145,7 +145,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 			"trading_update_trading_strategy",
 			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的，換成另一種會被拒絕。"+
-				"吃合約行情的那一種可以換交易模式（tradingMode），不給就是 longShort。",
+				"吃合約行情的那一種可以換交易模式（tradingMode），**但它與其他欄位一樣是整份改寫：不給就回到 longShort**——"+
+					"只改名字時也要照抄原本的交易模式，否則一份只做空的交易策略會安靜地變成多空反手。",
 			vo.RequestVerbReplace, "/trading-strategies/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
@@ -294,7 +295,7 @@ const contractAccountReplayNote = "\n\n**這是在逐倉合約帳戶上重演**�
 	"\n\n**資金費率一律計入，不能關**：帶著倉位走過的每一次結算都照數量 × 標記價格 × 費率收付（正的費率做多付、做空收），直接進出那一注的保證金，**所以付了費率強平價會往進場價靠近**。在某一格收盤才開的倉不付那一格內的結算。" +
 	"\n\n一格裡的順序是：先收付資金費率，再看止損與強平（**離進場價近的先到**），再看止盈，最後才照這一格的信號在收盤成交。同一格同時碰到兩邊一律算不利的那一側。數量照交易規格的數量步進往下取整，止損止盈價對齊價格跳動單位；低於最小下單量或最小名目的開倉被擋下。" +
 	"\n\n**讀成績單時一定要看**：liquidationExitCount（被強平幾筆，每一筆 exitReason 為 liquidation、profit 是整筆保證金加進場成本的損失）、totalFundingFee（淨付出的資金費用，負的是淨收入）、longTradeCount／longWinRate 與 shortTradeCount／shortWinRate（多空分開，沒有那一邊的勝率是 null）、blockedOpeningCount（被交易規則擋下的開倉——一張幾乎沒有交易的成績單可能是一直被擋，不是很穩）。每一筆交易帶著 direction、leverage、quantity、margin、fundingFee。" +
-	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
+	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負或超過 100；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
 	"\n\n**多空反手一旦進場就一直在場內**，只有止損、止盈或強平能讓它回到空手——使用者想要「平掉但不反手」時，請他改用 longOnly 或 shortOnly。"
 
 func contractBacktestApiTools() []domains.ApiToolDomain {
