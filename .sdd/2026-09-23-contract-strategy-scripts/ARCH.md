@@ -19,7 +19,7 @@
 | :--- | :--- | :--- |
 | `cmd/server/tool_catalog.go` | **Modify** | `strategyScriptWriteParameters()` 多一格 `marketDataKind`（body、字串、非必填）；`script` 那一格寫出兩種入口 |
 | `cmd/server/tool_catalog_strategy.go` | **Modify** | 新增常數 `contractKCandleScriptNote`；建立／修改策略腳本的說明引用它；修改的說明寫出「行情種類留白是保留、不得更換」；列出／讀一支／市集的說明寫出回來帶著 `marketDataKind` |
-| `cmd/server/tool_catalog_market.go` | **Modify** | 抽出 `indicatorCalculationParameters()`（除了 `symbol` 以外現貨與合約共用的九格）；`indicatorApiTools()` 多一件 `trading_calculate_contract_indicator`；現貨那一件的說明補「指名合約策略腳本會被拒絕」 |
+| `cmd/server/tool_catalog_market.go` | **Modify** | 抽出 `indicatorCalculationParameters()`（除了 `symbol` 以外現貨與合約共用的八格）；`indicatorApiTools()` 多一件 `trading_calculate_contract_indicator`；現貨那一件的說明補「指名合約策略腳本會被拒絕」 |
 | `cmd/server/tool_catalog_test.go` | **Modify** | `everyAbilityTheTradingServiceOffers` 多一列（`true`） |
 | `cmd/server/tool_catalog_contract_test.go` | **Modify** | `everyContractAbility` 與位址表各多一列——守衛本來就是為了這種時候 |
 | `cmd/server/tool_catalog_contract_script_test.go` | **Add** | 這一刀專屬的測試 |
@@ -32,7 +32,7 @@
 | Name | Kind | Responsibility | Satisfies |
 | :--- | :--- | :--- | :--- |
 | `contractKCandleScriptNote` | 說明常數 | 合約算式的入口、合約行情格的每一個欄位名（`indicator.ContractKCandle`／`indicator.PriceLine`）、缺值給零的三種情形、延續費率與 `FundingSettledInBar`，以及「目前只能用在合約指標計算，重演／交易策略／機器人直接說做不到」 | US-03, US-05 |
-| `indicatorCalculationParameters()` | 共用欄位清單 | 兩種指標計算共用的九格（`strategyScriptId`、`startTime`、`endTime`、`aggregationInterval`、`script`、`resultType`、`parameters`、`parameterValues`）——**`symbol` 不在其中**，因為兩邊的代號是兩種商品，各自說明 | US-04 |
+| `indicatorCalculationParameters()` | 共用欄位清單 | 兩種指標計算共用的八格（`strategyScriptId`、`startTime`、`endTime`、`aggregationInterval`、`script`、`resultType`、`parameters`、`parameterValues`）——**`symbol` 不在其中**，因為兩邊的代號是兩種商品，各自說明 | US-04 |
 | `trading_calculate_contract_indicator` | 能力 | POST `/contract-indicator-calculations`，需要身分；說明寫出拒絕條件並引用 `contractKCandleScriptNote` | US-04, US-06 |
 
 `marketDataKind` 那一格只有一份說明，同時寫出建立與修改的兩條留白規則（建立＝`kCandle`、修改＝保留），
