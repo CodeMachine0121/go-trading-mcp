@@ -8,7 +8,7 @@
 
 ## 1. Design Goal & Guiding Principle
 
-- **In one sentence:** 在能力清單補上十四件合約能力，每一件只問得到交易服務的合約位址，且沒有一件現貨能力的行為改變。
+- **In one sentence:** 在能力清單補上十五件合約能力，每一件只問得到交易服務的合約位址，且沒有一件現貨能力的行為改變。
 - **Guiding principle:** **清單就是功能。** 既有的轉達流程對每一件能力都一樣（依欄位位置組請求、必填沒填就擋、原話帶回拒絕），
   新增一件事只是在清單補一列——不加 handler、不加分支。所以這一刀**只新增一個清單檔**，並把它掛進 `apiToolCatalog`。
 
@@ -16,11 +16,11 @@
 
 | Area | Action | What / Why |
 | :--- | :--- | :--- |
-| `cmd/server/tool_catalog_contract.go` | **Add** | `contractApiTools()`：十四件合約能力，與兩組共用的欄位清單 |
+| `cmd/server/tool_catalog_contract.go` | **Add** | `contractApiTools()`：十五件合約能力，與兩組共用的欄位清單 |
 | `cmd/server/tool_catalog.go` | **Modify** | `apiToolCatalog` 多掛一行 `contractApiTools()` |
 | `cmd/server/tool_catalog_test.go` | **Modify** | `everyAbilityTheTradingServiceOffers` 多十四列——這份清單本來就是用來在服務新增能力時轉紅的 |
 | `cmd/server/tool_catalog_contract_test.go` | **Add** | 合約能力專屬的守衛測試 |
-| `README.md` | **Modify** | 能力數 51 → 65，補一段合約的說明 |
+| `README.md` | **Modify** | 能力數 51 → 66，補一段合約的說明 |
 | 轉達流程（`internal/`） | **Not touched** | 合約能力與現貨能力走同一條路；沒有新的行為要加 |
 | 現貨能力 | **Not touched** | PRD US-06 |
 
@@ -28,16 +28,17 @@
 
 | Name | Kind | Responsibility | Satisfies |
 | :--- | :--- | :--- | :--- |
-| `contractApiTools()` | 清單函式 | 十四件合約能力，名字一律帶 `contract`、路徑一律 `/contract-` 開頭、全部 `requiresSignIn=false` | US-01, US-03, US-05, US-06 |
+| `contractApiTools()` | 清單函式 | 十五件合約能力，名字一律帶 `contract`、路徑一律 `/contract-` 開頭、全部 `requiresSignIn=false` | US-01, US-03, US-05, US-06 |
 | `contractKCandleFigureParameters()` | 共用欄位清單 | 一根合約 K 線的二十一個數字欄位，**全部必填**；新增與修改共用，免得一份漏了另一份有的欄位 | US-02 |
 | `contractRangeParameters()` | 共用欄位清單 | 合約每一種資料的「合約標的＋起訖」三格，查合約 K 線、資金費率結算、持倉統計共用 | US-01, US-03 |
 
-十四件能力：
+十五件能力：
 
 | 能力 | 動作 | 位址 |
 | :--- | :--- | :--- |
 | `trading_create_contract_k_candle` | 提交 | `/contract-k-candles` |
 | `trading_list_contract_k_candles` | 讀 | `/contract-k-candles` |
+| `trading_get_contract_k_candle_series` | 讀 | `/contract-k-candles/series` |
 | `trading_get_contract_k_candle` | 讀 | `/contract-k-candles/{symbol}/{openTime}` |
 | `trading_update_contract_k_candle` | 取代 | `/contract-k-candles/{symbol}/{openTime}` |
 | `trading_delete_contract_k_candle` | 移除 | `/contract-k-candles/{symbol}/{openTime}` |
