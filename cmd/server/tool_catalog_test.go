@@ -84,6 +84,9 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	// 重演
 	"trading_backtest_strategy_script":  true,
 	"trading_backtest_trading_strategy": true,
+	// 合約重演
+	"trading_backtest_contract_strategy_script":  true,
+	"trading_backtest_contract_trading_strategy": true,
 	// 策略機器人
 	"trading_create_strategy_bot":    true,
 	"trading_list_strategy_bots":     true,
@@ -201,17 +204,16 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 	return dto.ToolParameterDto{}, false
 }
 
-// There is one set of rules this service replays, so no ability offers a box for
-// choosing one — not the two that write a trading strategy, and not either replay.
+// A spot replay has one set of rules, so neither spot replay offers a box for choosing
+// one. The trading mode lives with contract trading strategies and the contract script
+// replay, which are asserted in their own tests.
 //
-// Asserted as an absence across all four, because a box an assistant can see is a box
+// Asserted as an absence, because a box an assistant can see is a box
 // it will fill in: it would pick a mode, watch the whole call be refused, and try
 // another spelling. The refusal is the trading service's; the wasted round trip is
 // this catalogue's.
 func TestNoAbilityOffersATradingModeToChoose(t *testing.T) {
 	for _, abilityName := range []string{
-		"trading_create_trading_strategy",
-		"trading_update_trading_strategy",
 		"trading_backtest_strategy_script",
 		"trading_backtest_trading_strategy",
 	} {
@@ -226,10 +228,8 @@ func TestNoAbilityOffersATradingModeToChoose(t *testing.T) {
 			// change a setting that no longer exists — advice that reads perfectly
 			// sensibly and cannot be carried out.
 			//
-			// **Every box's description is read as well as the ability's own.** The
-			// advice lived almost entirely in box descriptions, so scanning only the
-			// ability's own text leaves this assertion true of three of these four
-			// before the change — green, and proving nothing.
+			// **Every box's description is read as well as the ability's own**, because
+			// that is where the spellings would live.
 			for _, removedSpelling := range []string{
 				"longShort", "leveragedLong", "shortOnly",
 			} {
@@ -589,13 +589,13 @@ func TestTheEntryCostIsTakenOfWhatWasPutDown(t *testing.T) {
 	assert.NotContains(t, entryCost.Description, "槓桿")
 }
 
-// Both replays say what this service actually replays — and, just as importantly,
-// what it does not. Word for word, because they replay the same thing.
+// Both spot replays say what they replay — and, just as importantly, where the rest
+// went. Word for word, because they replay the same thing.
 //
 // The second half is the part an assistant cannot work out from the boxes. A missing
 // box reads as "not supported yet, try another way", and the way it tries is bending
-// somebody's strategy into a shape that produces a report card for trades they cannot
-// place. The note ends by telling it to say so instead.
+// somebody's spot strategy into a shape that produces a report card for trades they
+// did not mean. The note ends by sending it to the contract replays instead.
 func TestBothReplaysSayTheyOnlyEverTradeSpot(t *testing.T) {
 	for _, abilityName := range []string{
 		"trading_backtest_strategy_script",
@@ -605,12 +605,17 @@ func TestBothReplaysSayTheyOnlyEverTradeSpot(t *testing.T) {
 			description := abilityNamed(t, abilityName).Description
 
 			// What it does.
-			assert.Contains(t, description, "重演只做現貨")
+			assert.Contains(t, description, "這兩件只重演現貨")
 			assert.Contains(t, description, "空手時聽到賣出什麼都不做")
 			// What it does not.
 			assert.Contains(t, description, "沒有交易模式可以指定，也開不了槓桿")
-			// And what to say to somebody who asks for it anyway.
-			assert.Contains(t, description, "不要替他換一組設定去湊")
+			// And where to send somebody who asks for it anyway — no longer "this
+			// service cannot", which from today would turn a person away wrongly.
+			assert.Contains(t, description, "改用合約重演")
+			assert.Contains(t, description, "trading_backtest_contract_strategy_script")
+			assert.Contains(t, description, "trading_backtest_contract_trading_strategy")
+			assert.NotContains(t, description, "這個服務目前不做")
+			assert.NotContains(t, description, "這個服務目前只重演現貨")
 
 			// The *same* paragraph, not a second one that happens to mention the
 			// same things. Asserting the sentences alone would let a copy drift a

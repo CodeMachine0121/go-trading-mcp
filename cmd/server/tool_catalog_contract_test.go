@@ -30,6 +30,8 @@ var everyContractAbility = []string{
 	"trading_list_contract_position_statistics",
 	"trading_get_contract_maintenance_margin_tiers",
 	"trading_calculate_contract_indicator",
+	"trading_backtest_contract_strategy_script",
+	"trading_backtest_contract_trading_strategy",
 }
 
 // contractCandleFigureNames are every figure a contract candle carries.
@@ -79,7 +81,9 @@ func TestContractAbilitiesOnlyEverReachTheContractLine(t *testing.T) {
 		request, buildError := apiTool.BuildRequest(domains.NewToolArgumentsDomain(everyBoxFilledIn()))
 		require.NoError(t, buildError, apiTool.Name())
 
-		assert.Equal(t, isContractAbility[apiTool.Name()], strings.HasPrefix(request.Path, "/contract-"),
+		// A contract trading strategy's replay hangs under the trading strategy it
+		// replays, so "contract" may be the last segment rather than the first.
+		assert.Equal(t, isContractAbility[apiTool.Name()], strings.Contains(request.Path, "/contract-"),
 			"%s 走到了 %s", apiTool.Name(), request.Path)
 		assert.Equal(t, isContractAbility[apiTool.Name()], strings.Contains(apiTool.Name(), "contract"),
 			"合約的能力名字要帶 contract，現貨的不帶：%s", apiTool.Name())
@@ -116,6 +120,8 @@ func TestEveryContractAbilityAsksTheRightWayAtTheRightAddress(t *testing.T) {
 		{"trading_list_contract_position_statistics", vo.RequestVerbRead, "/contract-position-statistics"},
 		{"trading_get_contract_maintenance_margin_tiers", vo.RequestVerbRead, "/contract-maintenance-margin-tiers"},
 		{"trading_calculate_contract_indicator", vo.RequestVerbSubmit, "/contract-indicator-calculations"},
+		{"trading_backtest_contract_strategy_script", vo.RequestVerbSubmit, "/contract-backtests"},
+		{"trading_backtest_contract_trading_strategy", vo.RequestVerbSubmit, "/trading-strategies/7/contract-backtests"},
 	}
 	require.Len(t, testCases, len(everyContractAbility))
 

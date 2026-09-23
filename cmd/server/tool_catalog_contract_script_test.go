@@ -133,11 +133,20 @@ func TestTheContractScriptNoteNamesEveryFigure(t *testing.T) {
 	}
 }
 
-// Where a contract script cannot go yet, said before the assistant takes it there.
-func TestTheContractScriptNoteSaysWhereItCannotGoYet(t *testing.T) {
-	assert.Contains(t, contractKCandleScriptNote, "目前只能用在 trading_calculate_contract_indicator")
-	assert.Contains(t, contractKCandleScriptNote, "重演、交易策略、策略機器人還不能用它")
-	assert.Contains(t, contractKCandleScriptNote, "直接告訴他目前做不到")
+// Where a contract script can go, and the one place it still cannot, said before the
+// assistant takes it there.
+func TestTheContractScriptNoteSaysWhereItCanAndCannotGo(t *testing.T) {
+	for _, phrase := range []string{
+		"trading_calculate_contract_indicator",
+		"trading_backtest_contract_strategy_script",
+		"當吃合約行情的交易策略的信號來源",
+		"策略機器人目前只跑 K 線",
+		"直接告訴他目前做不到",
+	} {
+		assert.Contains(t, contractKCandleScriptNote, phrase)
+	}
+	// The old sentence would now turn a person away from a replay that works.
+	assert.NotContains(t, contractKCandleScriptNote, "重演、交易策略、策略機器人還不能用它")
 }
 
 // Every ability that has the assistant write or run a contract script reads the note

@@ -21,7 +21,8 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 		bodyParameter("name", vo.ToolParameterKindString, "這台機器人叫什麼", true),
 		bodyParameter("symbol", vo.ToolParameterKindString, "它盯著哪一個交易標的", true),
 		bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
-			"它照哪一份交易策略做決定", true),
+			"它照哪一份交易策略做決定。**只能是吃 K 線的交易策略**——策略機器人目前只跑 K 線，"+
+				"指名一份吃合約行情的會被拒絕", true),
 		bodyParameter("triggerIntervalMinutes", vo.ToolParameterKindInteger,
 			"每幾分鐘跑一輪", true),
 		bodyParameter("positionPlan", vo.ToolParameterKindObject,

@@ -97,14 +97,11 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 // no opinion about what its owner can sit through — so they are here, and a box added
 // once is a box both abilities get.
 //
-// **Which set of rules to trade by is not here, and not anywhere.** There is one, so
-// there is nothing to ask. **Do not add it back when a replay of contracts arrives** —
-// that is a second ability with its own list, the way contract candles are their own
-// line rather than a flag on spot ones. A box here would put a choice back on the two
-// replays that cannot honour it.
-//
-// The same goes for borrowing: this list had a multiplier and a maintenance margin
-// until this service stopped lending.
+// **Which set of rules to trade by is not here, and neither is borrowing.** A spot
+// replay has one set of rules and lends nothing, so there is nothing to ask. The
+// contract replays extend this list with their own boxes (contractBacktestParameters),
+// the way contract candles are their own line rather than a flag on spot ones — a box
+// here would put a choice back on the two replays that cannot honour it.
 func backtestParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("symbol", vo.ToolParameterKindString, "要在哪一個交易標的上重演", true),
@@ -196,6 +193,7 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
 	catalog = append(catalog, strategyScriptApiTools()...)
 	catalog = append(catalog, tradingStrategyApiTools()...)
 	catalog = append(catalog, backtestApiTools()...)
+	catalog = append(catalog, contractBacktestApiTools()...)
 	catalog = append(catalog, strategyBotApiTools()...)
 	catalog = append(catalog, telegramDeliveryApiTools()...)
 
