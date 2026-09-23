@@ -162,7 +162,7 @@ func TestBothContractReplaysSayHowTheContractAccountIsReplayed(t *testing.T) {
 	}
 
 	for _, phrase := range []string{
-		"逐倉", "強制平倉看標記價格", "資金費率一律計入", "強平價會往進場價靠近", "離進場價近的先到",
+		"逐倉", "交易成本在這裡照名目收", "強制平倉看標記價格", "資金費率一律計入", "強平價會往進場價靠近", "離進場價近的先到",
 		"liquidationExitCount", "totalFundingFee", "shortWinRate", "blockedOpeningCount", "maintenanceMarginBasis",
 		"還沒有交易規格", "maintenanceMarginRate", "多空反手一旦進場就一直在場內",
 	} {
