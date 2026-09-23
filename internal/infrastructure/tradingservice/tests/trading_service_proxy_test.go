@@ -371,3 +371,39 @@ func TestAnAnswerIsReadOnlyUpToACeiling(t *testing.T) {
 	assert.LessOrEqual(t, len(response.Content), 16<<20,
 		"沒有上限的讀取會讓一個意外的大回應變成整個外掛的死亡——連帶帶走每個人的登入")
 }
+
+func TestAnAskThatWaitsLongerOutlastsTheUsualWait(t *testing.T) {
+	testCases := []struct {
+		name              string
+		responseWaitLimit time.Duration
+		wantsAnswer       bool
+	}{
+		{name: "the usual wait gives up on a slow answer", responseWaitLimit: 0, wantsAnswer: false},
+		{name: "a longer wait receives it", responseWaitLimit: 2 * time.Second, wantsAnswer: true},
+		{name: "a longer wait still gives up past its own limit", responseWaitLimit: 100 * time.Millisecond, wantsAnswer: false},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// The trading service takes 300ms; the usual wait is 150ms.
+			standIn := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				time.Sleep(300 * time.Millisecond)
+				_, _ = writer.Write([]byte(`{"summary":{}}`))
+			}))
+			t.Cleanup(standIn.Close)
+			proxy := tradingservice.NewTradingServiceProxy(standIn.URL, 150*time.Millisecond)
+
+			response, sendError := proxy.Send(context.Background(), vo.TradingServiceRequestVo{
+				Verb: vo.RequestVerbSubmit, Path: "/backtests", ResponseWaitLimit: testCase.responseWaitLimit,
+			}, "")
+
+			if testCase.wantsAnswer {
+				require.NoError(t, sendError)
+				assert.Equal(t, vo.TradingServiceSucceeded, response.Outcome)
+
+				return
+			}
+			assert.ErrorIs(t, sendError, domains.ErrTradingServiceUnreachable)
+		})
+	}
+}

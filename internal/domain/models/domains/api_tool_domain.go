@@ -38,6 +38,12 @@ type ApiToolDomain struct {
 	// liveUpdateWaitLimit is how long to stay on the line for an ability that
 	// watches. Zero for every ordinary one.
 	liveUpdateWaitLimit time.Duration
+	// responseWaitLimit is how long to wait for an answer when this ability waits
+	// longer than the connector's usual. Zero for every ordinary one.
+	responseWaitLimit time.Duration
+	// condensesReplayResults says this ability answers with a replay result, which is
+	// condensed before an assistant reads it.
+	condensesReplayResults bool
 }
 
 // NewApiToolDomain declares one ability.
@@ -72,6 +78,40 @@ func (apiToolDomain ApiToolDomain) Watching(waitLimit time.Duration) ApiToolDoma
 }
 
 // Name is what the assistant calls this ability.
+// Waiting gives this ability its own, longer wait for an answer. A replay can run for
+// as long as the trading service allows it, and waiting only the usual thirty seconds
+// would hand the assistant "cannot reach the trading service" about a replay that was
+// about to finish — or about to say itself that it ran out of time.
+func (apiToolDomain ApiToolDomain) Waiting(responseWaitLimit time.Duration) ApiToolDomain {
+	apiToolDomain.responseWaitLimit = responseWaitLimit
+
+	return apiToolDomain
+}
+
+// CondensingReplayResults marks this ability as answering with a replay result, so
+// that a long one is condensed before an assistant reads it (see ReplayResultDomain).
+func (apiToolDomain ApiToolDomain) CondensingReplayResults() ApiToolDomain {
+	apiToolDomain.condensesReplayResults = true
+
+	return apiToolDomain
+}
+
+// Relayed is the trading service's answer as this ability hands it on. Only a
+// successful answer from an ability that answers with replay results is condensed; a
+// refusal is the trading service's own sentence and always reaches the assistant
+// exactly as it was said.
+func (apiToolDomain ApiToolDomain) Relayed(
+	response vo.TradingServiceResponseVo,
+) vo.TradingServiceResponseVo {
+	if !apiToolDomain.condensesReplayResults || response.Outcome != vo.TradingServiceSucceeded {
+		return response
+	}
+
+	response.Content = NewReplayResultDomain(response.Content).ToCondensedContent()
+
+	return response
+}
+
 func (apiToolDomain ApiToolDomain) Name() string {
 	return apiToolDomain.name
 }
@@ -143,6 +183,7 @@ func (apiToolDomain ApiToolDomain) BuildRequest(
 		Body:                arguments.EncodedSubset(bodyNames),
 		CarriesIdentity:     apiToolDomain.requiresSignIn,
 		LiveUpdateWaitLimit: apiToolDomain.liveUpdateWaitLimit,
+		ResponseWaitLimit:   apiToolDomain.responseWaitLimit,
 	}, nil
 }
 

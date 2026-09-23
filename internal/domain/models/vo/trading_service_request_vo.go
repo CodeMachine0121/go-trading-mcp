@@ -21,4 +21,8 @@ type TradingServiceRequestVo struct {
 	// LiveUpdateWaitLimit is how long to stay on the line for an ability that
 	// watches rather than asks. Zero — the ordinary case — means do not stay at all.
 	LiveUpdateWaitLimit time.Duration
+	// ResponseWaitLimit is how long to wait for this ask's answer. Zero — the ordinary
+	// case — means the connector's usual wait; only the abilities that can take long
+	// on the trading service's side, like a replay, say a longer one.
+	ResponseWaitLimit time.Duration
 }

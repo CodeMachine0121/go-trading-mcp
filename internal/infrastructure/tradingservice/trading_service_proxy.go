@@ -48,15 +48,21 @@ var methodsPerVerbs = map[vo.RequestVerb]string{
 // a while to see what comes through. The domain writes a wait limit on the request and
 // knows nothing else about it — which is what stops "is this the streaming one?" from
 // becoming a branch that every future change has to remember to keep in step.
+//
+// How long an ask waits is decided per ask rather than once for the whole client: the
+// usual wait for most abilities, and a longer one for those the request says take
+// longer. A single client-wide timeout would cut every replay off at the usual wait.
 type TradingServiceProxy struct {
-	baseUrl    string
-	httpClient *http.Client
+	baseUrl        string
+	httpClient     *http.Client
+	requestTimeout time.Duration
 }
 
 func NewTradingServiceProxy(baseUrl string, requestTimeout time.Duration) *TradingServiceProxy {
 	return &TradingServiceProxy{
-		baseUrl:    strings.TrimSuffix(baseUrl, "/"),
-		httpClient: &http.Client{Timeout: requestTimeout},
+		baseUrl:        strings.TrimSuffix(baseUrl, "/"),
+		httpClient:     &http.Client{},
+		requestTimeout: requestTimeout,
 	}
 }
 
@@ -70,7 +76,16 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 		return tradingServiceProxy.peekLiveUpdates(ctx, request, accessToken)
 	}
 
-	httpResponse, sendError := tradingServiceProxy.send(ctx, request, accessToken, "application/json")
+	// The wait covers reading the answer as well as sending the ask, so it is held
+	// until this returns.
+	responseWaitLimit := tradingServiceProxy.requestTimeout
+	if request.ResponseWaitLimit > 0 {
+		responseWaitLimit = request.ResponseWaitLimit
+	}
+	askCtx, stopWaiting := context.WithTimeout(ctx, responseWaitLimit)
+	defer stopWaiting()
+
+	httpResponse, sendError := tradingServiceProxy.send(askCtx, request, accessToken, "application/json")
 	if sendError != nil {
 		return vo.TradingServiceResponseVo{}, sendError
 	}
