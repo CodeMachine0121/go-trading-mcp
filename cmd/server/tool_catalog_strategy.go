@@ -103,6 +103,18 @@ func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 				"或群組節點 {\"operator\":\"and\", \"conditions\":[…]}（operator 為 and／or）", true),
 		bodyParameter("sellCondition", vo.ToolParameterKindObject,
 			"什麼時候賣。形狀與 buyCondition 完全相同", true),
+		// Both left blank are forwarded as nothing at all, for the reason the strategy
+		// script's own kind is: a blank means the spot K candle on a create and "keep
+		// what is there" on a rewrite, and only the trading service knows which.
+		bodyParameter("marketDataKind", vo.ToolParameterKindString,
+			"這份交易策略的信號吃哪一種行情，二選一：kCandle（現貨 K 線）或 contractKCandle（永續合約的合約行情格）。"+
+				"**建立時不給就是 kCandle**；**修改時不給就是保留原本的**。**建立後不得更換**。"+
+				"**每一個信號來源指名的策略腳本都要吃同一種行情**，混進另一種會整份被拒絕，並說出是哪一個來源", false),
+		bodyParameter("tradingMode", vo.ToolParameterKindString,
+			"**只有吃合約行情的交易策略才有**：它的買賣照哪一種規則讀，三選一——"+
+				"longShort（多空反手：賣出時持多倉就平掉並同一棒反手開空）、"+
+				"longOnly（只做多：賣出只平多倉）、shortOnly（只做空：買入只平空倉）。"+
+				"不給就是 longShort；修改時可以換。**吃 K 線的交易策略沒有交易模式，給了會被拒絕**", false),
 	}
 }
 
@@ -110,7 +122,10 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_create_trading_strategy",
-			"建立一份交易策略：把幾支策略腳本當成信號來源，再用買賣條件把它們的信號組合成決定。",
+			"建立一份交易策略：把幾支策略腳本當成信號來源，再用買賣條件把它們的信號組合成決定。"+
+				"\n\n**它吃哪一種行情（marketDataKind）建立當下就定了**：吃 K 線的拿去 trading_backtest_trading_strategy 重演、"+
+				"可以掛上策略機器人；吃合約行情的拿去 trading_backtest_contract_trading_strategy 重演，"+
+				"並且記著自己的交易模式（tradingMode），但**策略機器人目前掛不上它**。",
 			vo.RequestVerbSubmit, "/trading-strategies", true,
 			tradingStrategyWriteParameters()...,
 		),
@@ -121,13 +136,17 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_get_trading_strategy",
-			"讀一份交易策略的完整內容，含信號來源與兩個條件樹。",
+			"讀一份交易策略的完整內容，含信號來源、兩個條件樹、它吃哪一種行情（marketDataKind），"+
+				"吃合約行情的另外帶著它的交易模式（tradingMode）。",
 			vo.RequestVerbRead, "/trading-strategies/{id}", true,
 			pathParameter("id", "交易策略識別碼"),
 		),
 		domains.NewApiToolDomain(
 			"trading_update_trading_strategy",
-			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。",
+			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
+				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的，換成另一種會被拒絕。"+
+				"吃合約行情的那一種可以換交易模式（tradingMode），**但它與其他欄位一樣是整份改寫：不給就回到 longShort**——"+
+					"只改名字時也要照抄原本的交易模式，否則一份只做空的交易策略會安靜地變成多空反手。",
 			vo.RequestVerbReplace, "/trading-strategies/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
@@ -150,10 +169,9 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 // name is a figure it guesses — and a wrong guess is not refused, it simply does not
 // compile, which reads as "the script is broken" about a script that is not.
 //
-// The last paragraph is the half that cannot be learnt from the boxes: the replays,
-// trading strategies and bots take any strategy script id they are handed, and a
-// contract one fails there only when it runs. When they learn contract bars, this is
-// the one sentence to change.
+// The last paragraph is the half that cannot be learnt from the boxes: where a contract
+// script can go, and the one place it still cannot — a bot. When bots learn contract
+// bars, this is the one sentence to change.
 const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 contractKCandle）的算式**，入口是 " +
 	"func Calculate(data []indicator.ContractKCandle) <依 resultType 而定>——照現貨的寫法收 []indicator.KCandle 會算不動。" +
 	"每一格是一個走完的刻度區間，**現貨 K 線有的每一項這裡都有、而且同名**" +
@@ -169,9 +187,10 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
 	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +
 	"第一次結算之前沒有費率、持倉統計只留三十天而且要夠新（沒有就整組為零）。算式要自己判斷，例如持倉量為零多半是沒錄到。" +
-	"\n\n**吃合約行情的策略腳本目前只能用在 trading_calculate_contract_indicator。** " +
-	"重演、交易策略、策略機器人還不能用它——它們會照收，然後在執行時才失敗。" +
-	"使用者要拿它去重演或掛上機器人時，直接告訴他目前做不到，不要替他改寫成一支吃 K 線的去湊。"
+	"\n\n**吃合約行情的策略腳本用在合約那一邊**：trading_calculate_contract_indicator 算指標、" +
+	"trading_backtest_contract_strategy_script 在合約帳戶上重演、當吃合約行情的交易策略的信號來源。" +
+	"現貨的指標計算、現貨重演、吃 K 線的交易策略都會拒絕它。**策略機器人目前只跑 K 線**，掛不上吃合約行情的交易策略——" +
+	"使用者要把它掛上機器人時，直接告訴他目前做不到，不要替他改寫成一支吃 K 線的去湊。"
 
 // costedReportCardNote is how to read a report card that had the fees taken out of
 // it, said once for both replays.
@@ -183,18 +202,18 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 // themselves look identical either way.
 const costedReportCardNote = "\n\n**填了交易成本時，成績單多一個 totalTransactionCost**——這次總共付掉多少。有了它才答得出「這支策略是抓價差不行，還是被手續費吃掉」，而同一個報酬率本來講得出這兩個完全不同的故事。**每一筆交易的 profit 已經是扣掉成本後的淨額，勝率也是照淨額算的**——價差賺得到、卻賺不過手續費的那一趟不算贏，別把它讀成賺錢的交易。"
 
-// spotOnlyReplayNote is what a replay here actually does, said once for both replays.
+// spotOnlyReplayNote is what the two spot replays actually do, said once for both.
 //
 // One copy for the reason the costed note has one: the two replays must never tell an
 // assistant two different things about the same replay, and two wordings are two
 // chances for only one of them to get improved.
 //
-// It says what this service does **and** what it does not, because the second half is
+// It says what these two do **and** where the rest went, because the second half is
 // the one an assistant cannot find out by reading the boxes. A missing box reads as
-// "not supported yet, try another way" — so somebody asking to short gets a strategy
-// bent into shape rather than an answer. The last sentence is there to stop exactly
-// that.
-const spotOnlyReplayNote = "\n\n**重演只做現貨，而且只有這一種。** 買入時空手就開倉、已經有倉位就當作沒聽到；賣出就平倉把錢收回來、之後空手等下一個買點；空手時聽到賣出什麼都不做。\n\n**這裡沒有交易模式可以指定，也開不了槓桿**——借錢、做空與強制平倉是合約帳戶的事，那是另外一件事，這個服務目前不做，所以也不會有強制平倉這種出場。\n\n**使用者提到要放空、要開槓桿、或說他在合約帳戶上操作時，直接告訴他這個服務目前只重演現貨**——不要替他換一組設定去湊：湊出來的成績單是照他做不到的操作算的，而他不會發現。"
+// "not supported yet, try another way" — so somebody asking to short would get a spot
+// strategy bent into shape rather than the contract replay. The last sentence is there
+// to stop exactly that.
+const spotOnlyReplayNote = "\n\n**這兩件只重演現貨。** 買入時空手就開倉、已經有倉位就當作沒聽到；賣出就平倉把錢收回來、之後空手等下一個買點；空手時聽到賣出什麼都不做。\n\n**這兩件沒有交易模式可以指定，也開不了槓桿**——借錢、做空與強制平倉在合約帳戶上，所以這裡也不會有強制平倉這種出場。吃合約行情的策略腳本或交易策略拿來這裡會被拒絕。\n\n**使用者提到要放空、要開槓桿、或說他在合約帳戶上操作時，改用合約重演**（trading_backtest_contract_strategy_script、trading_backtest_contract_trading_strategy）——不要在這裡換一組設定去湊：湊出來的成績單是照他沒做的操作算的，而他不會發現。"
 
 func backtestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
@@ -239,6 +258,88 @@ func backtestApiTools() []domains.ApiToolDomain {
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
+		),
+	}
+}
+
+// contractBacktestParameters are the account rules a contract replay trades by, shared
+// by replaying a contract strategy script and replaying a contract trading strategy.
+//
+// It is the spot list and two more boxes, not a copy of it: everything a spot replay is
+// told a contract replay is told in the same words, because the trading service reads
+// them by the same rules. The trading mode is not here — only the script replay has one
+// to give, since a contract trading strategy says its own.
+func contractBacktestParameters() []vo.ToolParameterVo {
+	return append(backtestParameters(),
+		bodyParameter("leverage", vo.ToolParameterKindString,
+			"槓桿倍數（字串形式的精確小數）：名目 ＝ 押下去的保證金 × 這個倍數。"+
+				"**不給或 0 就是一倍**——合約帳戶上的一倍仍然是一筆合約部位，做空一倍一樣會在價格翻倍時被強制平倉。"+
+				"小於一會被拒絕；超過這個標的分級允許的最高槓桿也會被拒絕（會說出上限）。"+
+				"開倉當下名目所在那一級不允許這麼高的槓桿時，那一次開倉被擋下、記在 blockedOpeningCount", false),
+		bodyParameter("slippagePercentage", vo.ToolParameterKindString,
+			"每一次成交往不利方向偏幾個百分點（0.05 就是 0.05%）：買進成交得貴一點、賣出成交得便宜一點，"+
+				"信號進出、止損、止盈都算，強制平倉不算。**不給就是不計**。負的與超過 100 會被拒絕", false),
+	)
+}
+
+// contractAccountReplayNote is how a contract account is replayed and how its report
+// card reads, said once for both contract replays.
+//
+// One copy for the reason the spot notes have one. It is long because every sentence
+// is something the assistant would otherwise read wrong off the numbers: a liquidated
+// trade looks like a large ordinary loss, a funding total looks like a fee, and a
+// strategy the venue kept refusing looks like a cautious one.
+const contractAccountReplayNote = "\n\n**這是在逐倉合約帳戶上重演**：每一注押下去的是保證金，承擔的是名目（保證金 × 槓桿），賺賠照數量 × 價差算，**一注最多賠光它自己的保證金**，可用資金不會變成負的。" +
+	"\n\n**交易成本在這裡照名目收，不是照押下去的保證金**：entryCostPercentage 那一格說的「押下去的金額」在合約帳戶上指的是名目，五倍槓桿時一趟手續費是保證金的五倍那麼多；押全部時會自己留出照名目算的進場成本。" +
+	"\n\n**強制平倉看標記價格，不是最新價**；維持保證金照開倉當下名目所在的那一級分級算，**沒有分級時退回交易規格最小那一級**（大部位的強平價會被算得太遠）。分級只有今天那一組，重演過去也用它——成績單的 maintenanceMarginBasis 會說出是哪一種、何時確認的。" +
+	"\n\n**資金費率一律計入，不能關**：帶著倉位走過的每一次結算都照數量 × 標記價格 × 費率收付（正的費率做多付、做空收），直接進出那一注的保證金，**所以付了費率強平價會往進場價靠近**。在某一格收盤才開的倉不付那一格內的結算。" +
+	"\n\n一格裡的順序是：先收付資金費率，再看止損與強平（**離進場價近的先到**），再看止盈，最後才照這一格的信號在收盤成交。同一格同時碰到兩邊一律算不利的那一側。數量照交易規格的數量步進往下取整，止損止盈價對齊價格跳動單位；低於最小下單量或最小名目的開倉被擋下。" +
+	"\n\n**讀成績單時一定要看**：liquidationExitCount（被強平幾筆，每一筆 exitReason 為 liquidation、profit 是整筆保證金加進場成本的損失）、totalFundingFee（淨付出的資金費用，負的是淨收入）、longTradeCount／longWinRate 與 shortTradeCount／shortWinRate（多空分開，沒有那一邊的勝率是 null）、blockedOpeningCount（被交易規則擋下的開倉——一張幾乎沒有交易的成績單可能是一直被擋，不是很穩）。每一筆交易帶著 direction、leverage、quantity、margin、fundingFee。" +
+	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負或超過 100；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
+	"\n\n**多空反手一旦進場就一直在場內**，只有止損、止盈或強平能讓它回到空手——使用者想要「平掉但不反手」時，請他改用 longOnly 或 shortOnly。"
+
+func contractBacktestApiTools() []domains.ApiToolDomain {
+	return []domains.ApiToolDomain{
+		domains.NewApiToolDomain(
+			"trading_backtest_contract_strategy_script",
+			"拿**一支吃合約行情的策略腳本**在**合約帳戶**上重演一段已經發生過的永續合約行情：可多可空、借得到錢、會被強制平倉、要付資金費率。"+
+				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
+				"指名的那一支必須吃合約行情（marketDataKind 為 contractKCandle），吃 K 線的會被拒絕，那一支要用 trading_backtest_strategy_script。"+
+				"重演一律以 signal 執行，算式收 []indicator.ContractKCandle、回 indicator.Signal。"+
+				"\n\n**交易模式（tradingMode）由這一次說**，三選一：longShort（預設，多空反手）、longOnly（只做多）、shortOnly（只做空）；"+
+				"**沒有 spot 這一種**——現貨的事用 trading_backtest_strategy_script。"+
+				costedReportCardNote+
+				contractAccountReplayNote,
+			vo.RequestVerbSubmit, "/contract-backtests", true,
+			append(append([]vo.ToolParameterVo{
+				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
+					"要重演哪一支既有的、吃合約行情的策略腳本。與 script 擇一", false),
+			}, contractBacktestParameters()...),
+				bodyParameter("tradingMode", vo.ToolParameterKindString,
+					"這一次照哪一種規則交易：longShort（不給即是；買入開多或把空倉反手成多、賣出開空或把多倉反手成空）、"+
+						"longOnly（只做多，賣出只平倉）、shortOnly（只做空，買入只平倉）。其他值（含 spot）會被拒絕", false),
+				bodyParameter("aggregationInterval", vo.ToolParameterKindString,
+					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d", false),
+				bodyParameter("script", vo.ToolParameterKindString,
+					"一段還沒存起來、吃合約行情的算式。與 strategyScriptId 擇一", false),
+				bodyParameter("parameters", vo.ToolParameterKindArray,
+					"自帶算式時它宣告的旋鈕", false),
+				bodyParameter("parameterValues", vo.ToolParameterKindArray,
+					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
+			)...,
+		),
+		domains.NewApiToolDomain(
+			"trading_backtest_contract_trading_strategy",
+			"拿**一份吃合約行情的交易策略**在**合約帳戶**上重演一段已經發生過的永續合約行情。"+
+				"\n\n信號來源、買賣兩個條件、**交易模式**都取自那份交易策略本身，這裡不必也不能再說一次——"+
+				"這一件**沒有 tradingMode 那一格**，要換交易模式請用 trading_update_trading_strategy 改那份交易策略。"+
+				"吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy。"+
+				"\n\n成績單多一個 conflictedCandleCount：買賣條件同時成立、當作持平的格數。"+
+				costedReportCardNote+
+				contractAccountReplayNote,
+			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests", true,
+			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
+				contractBacktestParameters()...)...,
 		),
 	}
 }
