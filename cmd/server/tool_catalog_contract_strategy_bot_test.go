@@ -147,3 +147,20 @@ func TestCreatingATradingStrategySaysAContractOneFitsAContractBot(t *testing.T) 
 	assert.Contains(t, description, "可以掛上**合約機器人**")
 	assert.NotContains(t, description, "策略機器人目前掛不上它")
 }
+
+// Reading a bot's rounds says that a contract bot's run of holds may be rounds it skipped
+// because its contract's candles stopped arriving — not a bot with no signal yet.
+func TestReadingABotsRoundsSaysAContractBotsHoldsMayBeSkippedRounds(t *testing.T) {
+	for _, abilityName := range []string{"trading_list_strategy_bot_runs", "trading_run_strategy_bot_now"} {
+		t.Run(abilityName, func(t *testing.T) {
+			description := abilityNamed(t, abilityName).Description
+
+			for _, phrase := range []string{
+				"合約機器人一連串的 hold 不一定是沒有信號", "早超過 5 分鐘",
+				"trading_list_contract_k_candles", "trading_add_to_contract_watchlist",
+			} {
+				assert.Contains(t, description, phrase)
+			}
+		})
+	}
+}

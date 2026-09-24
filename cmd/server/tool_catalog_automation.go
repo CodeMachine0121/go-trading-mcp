@@ -60,6 +60,16 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 	}
 }
 
+// contractStrategyBotSkippedRoundNote is what the two abilities that read a bot's rounds
+// say about a contract bot's quiet ones. The trading service skips a contract round whose
+// contract's newest one-minute candle is more than five minutes old, and books it as hold
+// — the same word a round that ran and concluded nothing leaves — so without this an
+// assistant reads a bot that has gone blind as a bot with no signal yet.
+const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 hold 不一定是沒有信號**：它的合約標的最新一根一分鐘合約 K 線" +
+	"比現在早超過 5 分鐘（或一根都沒有）時，那一輪會直接跳過、不送訊息，紀錄上一樣是 hold。" +
+	"把它讀成「沒有信號」之前，先用 trading_list_contract_k_candles 看那個合約標的最新的 K 線是不是還在進來；" +
+	"停了的話多半是它已不在合約追蹤名單上（trading_add_to_contract_watchlist 加回去）"
+
 func strategyBotApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
@@ -125,14 +135,14 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_list_strategy_bot_runs",
 			"看一台策略機器人跑過哪幾輪，以及每一輪做了什麼決定。"+
-				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。",
+				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}/runs", true,
 			pathParameter("id", "要看哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_run_strategy_bot_now",
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
-				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。",
+				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs", true,
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
