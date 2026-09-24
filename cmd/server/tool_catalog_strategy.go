@@ -173,8 +173,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 // compile, which reads as "the script is broken" about a script that is not.
 //
 // The last paragraph is the half that cannot be learnt from the boxes: where a contract
-// script can go, and the one place it still cannot — a bot. When bots learn contract
-// bars, this is the one sentence to change.
+// script can go — a contract bot included — and that it is never rewritten into a spot
+// one to fit a spot bot.
 const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 contractKCandle）的算式**，入口是 " +
 	"func Calculate(data []indicator.ContractKCandle) <依 resultType 而定>——照現貨的寫法收 []indicator.KCandle 會算不動。" +
 	"每一格是一個走完的刻度區間，**現貨 K 線有的每一項這裡都有、而且同名**" +
