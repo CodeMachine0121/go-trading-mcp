@@ -56,6 +56,7 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_backfill_contract_k_candles":            false,
 	"trading_sync_contract_k_candle_history":         false,
 	"trading_get_contract_k_candle_history_sync":     false,
+	"trading_peek_live_contract_k_candle":            false,
 	"trading_list_contract_trading_symbols":          false,
 	"trading_add_to_contract_watchlist":              false,
 	"trading_remove_from_contract_watchlist":         false,
@@ -148,7 +149,7 @@ func TestOnlyWatchingAnAbilityStaysOnTheLine(t *testing.T) {
 			continue
 		}
 
-		if apiTool.Name() == "trading_peek_live_k_candle" {
+		if apiTool.Name() == "trading_peek_live_k_candle" || apiTool.Name() == "trading_peek_live_contract_k_candle" {
 			assert.Equal(t, 10*time.Second, request.LiveUpdateWaitLimit)
 			continue
 		}
