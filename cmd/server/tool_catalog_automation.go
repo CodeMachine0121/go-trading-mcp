@@ -55,10 +55,28 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"超過那個合約標的最高那一級允許的槓桿會被拒絕並說出上限。"+
 				"合約機器人建議的是**保證金**（照 sizingMode 從 capital 算出來的那一筆），名目＝保證金 × 槓桿，"+
 				"止損止盈的虧賺照名目算；做空時止損在上、止盈在下。"+
-				"止損距離乘上槓桿達到 100% 時，訊息會警告還沒到止損就會先被強制平倉——那組停損等於沒設。"+
+				"\n\n**合約機器人的建議照交易所規則算**：數量＝名目 ÷ 參考價，照數量步進往下取整，"+
+				"保證金與名目照取整後的數量重算；止損止盈價照價格跳動單位取最接近的一檔。"+
+				"另附**預估強平價**（逐倉、以參考價當進場價、用名目所在那一級的維持保證金；那個標的沒有分級時用最小那一級估算，訊息會說）"+
+				"與**資金費率成本估算**（最近一次結算的費率 × 名目，標明是估算；還沒有結算紀錄就不估）。"+
+				"**止損比預估強平價還遠時**，訊息會警告還沒到止損就會先被強制平倉——那組停損等於沒設。"+
+				"\n\n**交易所不收的那一筆只說不收與原因**、不給其餘數字：取整後的數量低於最小下單量、"+
+				"名目低於最小名目、或名目落在的那一級最高槓桿低於這台機器人的槓桿。"+
+				"遇到時調整 capital、sizingMode／sizingValue 或 leverage。"+
+				"\n\n**合約標的還沒有交易規格時**照舊建議，但不取整、不估強平價，訊息會說明；"+
+				"這時強平警告退回粗略判斷（止損距離 × 槓桿達到 100%）。"+
 				"**現貨機器人給大於一倍的槓桿會被拒絕**：現貨是拿現金換東西，沒有人借錢給你", false),
 	}
 }
+
+// contractStrategyBotRunDetailsNote is what the two abilities that read a bot's rounds
+// say about the three figures a contract round's record carries beyond the spot ones.
+// Without it an assistant reading back a contract bot's history cannot tell a short
+// from a long, nor how many times its margin a suggestion carried.
+const contractStrategyBotRunDetailsNote = "\n\n**合約機器人的執行紀錄多帶三樣**：那一輪有建議部位時，" +
+	"suggestedDirection（long 做多／short 做空）、suggestedLeverage（槓桿倍數）與 suggestedNotional（名目）。" +
+	"現貨機器人的紀錄沒有這三樣，交易所不收那一筆的那一輪也沒有。" +
+	"合約機器人紀錄上的 suggestedStake 是**保證金**，它與止損價、止盈價都是照交易所規則**取整後**的數字，與當時送出的訊息一致"
 
 // contractStrategyBotSkippedRoundNote is what the two abilities that read a bot's rounds
 // say about a contract bot's quiet ones. The trading service skips a contract round whose
@@ -135,14 +153,16 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_list_strategy_bot_runs",
 			"看一台策略機器人跑過哪幾輪，以及每一輪做了什麼決定。"+
-				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+contractStrategyBotSkippedRoundNote,
+				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+
+				contractStrategyBotRunDetailsNote+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}/runs", true,
 			pathParameter("id", "要看哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_run_strategy_bot_now",
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
-				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+contractStrategyBotSkippedRoundNote,
+				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
+				contractStrategyBotRunDetailsNote+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs", true,
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
