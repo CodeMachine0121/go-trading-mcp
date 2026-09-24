@@ -57,11 +57,16 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"止損止盈的虧賺照名目算；做空時止損在上、止盈在下。"+
 				"\n\n**合約機器人的建議照交易所規則算**：數量＝名目 ÷ 參考價，照數量步進往下取整，"+
 				"保證金與名目照取整後的數量重算；止損止盈價照價格跳動單位取最接近的一檔。"+
-				"另附**預估強平價**（逐倉、以參考價當進場價、用名目所在那一級的維持保證金；那個標的沒有分級時用最小那一級估算，訊息會說）"+
-				"與**資金費率成本估算**（最近一次結算的費率 × 名目，標明是估算；還沒有結算紀錄就不估）。"+
-				"**止損比預估強平價還遠時**，訊息會警告還沒到止損就會先被強制平倉——那組停損等於沒設。"+
-				"\n\n**交易所不收的那一筆只說不收與原因**、不給其餘數字：取整後的數量低於最小下單量、"+
-				"名目低於最小名目、或名目落在的那一級最高槓桿低於這台機器人的槓桿。"+
+				"另附**預估強平價**（逐倉、以參考價當進場價、用名目所在那一級的維持保證金；那個標的沒有分級時用最小那一級估算，訊息會說），"+
+				"顯示的強平價照價格跳動單位取整；**做多的預估強平價在零以下時**（例如一倍做多）不給價格，"+
+				"改寫「這個槓桿下不會被強制平倉」，也不會有強平警告。"+
+				"還附**資金費率成本估算**（最近一次結算的費率 × 名目，標明是估算；還沒有結算紀錄就不估）。"+
+				"**止損比預估強平價還遠時**，訊息會警告還沒到止損就會先被強制平倉——那組停損等於沒設；"+
+				"比的是**未取整**的預估強平價，止損正好落在強平價上也算會先被強平，所以顯示的兩個價看起來相同時仍可能警告。"+
+				"\n\n**交易所不收的那一筆**：保證金那一行（保證金、槓桿、名目，未取整）照樣寫，"+
+				"接著只有一行不收的原因與它的數字——取整後的數量低於最小下單量、名目低於最小名目、"+
+				"或名目落在的那一級最高槓桿低於這台機器人的槓桿（說出那一級最高幾倍）；"+
+				"不給數量、止損止盈、強平價與資金費率。"+
 				"遇到時調整 capital、sizingMode／sizingValue 或 leverage。"+
 				"\n\n**合約標的還沒有交易規格時**照舊建議，但不取整、不估強平價，訊息會說明；"+
 				"這時強平警告退回粗略判斷（止損距離 × 槓桿達到 100%）。"+
@@ -73,10 +78,11 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 // say about the three figures a contract round's record carries beyond the spot ones.
 // Without it an assistant reading back a contract bot's history cannot tell a short
 // from a long, nor how many times its margin a suggestion carried.
-const contractStrategyBotRunDetailsNote = "\n\n**合約機器人的執行紀錄多帶三樣**：那一輪有建議部位時，" +
+const contractStrategyBotRunDetailsNote = "\n\n**合約機器人的執行紀錄可能多帶三樣**：這個功能上線之後、那一輪有建議部位時，" +
 	"suggestedDirection（long 做多／short 做空）、suggestedLeverage（槓桿倍數）與 suggestedNotional（名目）。" +
-	"現貨機器人的紀錄沒有這三樣，交易所不收那一筆的那一輪也沒有。" +
-	"合約機器人紀錄上的 suggestedStake 是**保證金**，它與止損價、止盈價都是照交易所規則**取整後**的數字，與當時送出的訊息一致"
+	"現貨機器人的紀錄沒有這三樣，交易所不收那一筆的那一輪也沒有，**更早以前的紀錄也沒有**——沒有不代表那一輪沒建議。" +
+	"合約機器人紀錄上的 suggestedStake 是**保證金**；它與止損價、止盈價在那個合約標的有交易規格時是照交易所規則**取整後**的數字，" +
+	"與當時送出的訊息一致；那個合約標的還沒有交易規格時、以及更早以前的紀錄，都是**未取整**的數字"
 
 // contractStrategyBotSkippedRoundNote is what the two abilities that read a bot's rounds
 // say about a contract bot's quiet ones. The trading service skips a contract round whose
@@ -162,7 +168,8 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_run_strategy_bot_now",
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
 				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
-				contractStrategyBotRunDetailsNote+contractStrategyBotSkippedRoundNote,
+				"回應是這台機器人跑完之後的樣子，不是這一輪的紀錄——跑完用 trading_list_strategy_bot_runs 讀這一輪的紀錄。"+
+				contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs", true,
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
