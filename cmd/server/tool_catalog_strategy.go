@@ -127,7 +127,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 			"建立一份交易策略：把幾支策略腳本當成信號來源，再用買賣條件把它們的信號組合成決定。"+
 				"\n\n**它吃哪一種行情（marketDataKind）建立當下就定了**：吃 K 線的拿去 trading_backtest_trading_strategy 重演、"+
 				"可以掛上策略機器人；吃合約行情的拿去 trading_backtest_contract_trading_strategy 重演，"+
-				"並且記著自己的交易模式（tradingMode），但**策略機器人目前掛不上它**。",
+				"並且記著自己的交易模式（tradingMode），可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
+				"機器人吃的行情必須與交易策略相同，兩種不混用。",
 			vo.RequestVerbSubmit, "/trading-strategies", true,
 			tradingStrategyWriteParameters()...,
 		),
@@ -191,8 +192,9 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"第一次結算之前沒有費率、持倉統計只留三十天而且要夠新（沒有就整組為零）。算式要自己判斷，例如持倉量為零多半是沒錄到。" +
 	"\n\n**吃合約行情的策略腳本用在合約那一邊**：trading_calculate_contract_indicator 算指標、" +
 	"trading_backtest_contract_strategy_script 在合約帳戶上重演、當吃合約行情的交易策略的信號來源。" +
-	"現貨的指標計算、現貨重演、吃 K 線的交易策略都會拒絕它。**策略機器人目前只跑 K 線**，掛不上吃合約行情的交易策略——" +
-	"使用者要把它掛上機器人時，直接告訴他目前做不到，不要替他改寫成一支吃 K 線的去湊。"
+	"現貨的指標計算、現貨重演、吃 K 線的交易策略都會拒絕它。" +
+	"**要讓它常駐盯盤，就把用它的合約交易策略掛上一台合約機器人**（trading_create_strategy_bot 的 marketDataKind 給 contractKCandle）——" +
+	"不要替使用者改寫成一支吃 K 線的、掛上現貨機器人去湊，那盯的是另一種商品。"
 
 // costedReportCardNote is how to read a report card that had the fees taken out of
 // it, said once for both replays.

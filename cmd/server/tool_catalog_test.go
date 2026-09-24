@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -319,20 +320,22 @@ func TestWritingAStrategyBotSaysHowToSizeAPosition(t *testing.T) {
 			assert.Contains(t, positionPlan.Description, "不給即 allIn")
 			assert.Contains(t, positionPlan.Description, "百分點")
 
-			// There is no borrowing to describe, and the description says so rather
-			// than leaving the absence to be discovered. An assistant that finds no
-			// leverage box reads it as "not supported yet" and looks for another way
-			// to express it; told there is none, it stops looking.
-			assert.Contains(t, positionPlan.Description, "沒有槓桿這一項")
+			// Borrowing belongs to contract bots only, and the description says both
+			// halves: who takes it and who is refused for sending it.
+			assert.Contains(t, positionPlan.Description, "槓桿倍數只有合約機器人收")
+			assert.Contains(t, positionPlan.Description, "不給或零即一倍")
+			assert.Contains(t, positionPlan.Description, "小於一會被拒絕")
+			assert.Contains(t, positionPlan.Description, "超過那個合約標的最高那一級允許的槓桿會被拒絕")
+			assert.Contains(t, positionPlan.Description, "現貨機器人給大於一倍的槓桿會被拒絕")
+			assert.NotContains(t, positionPlan.Description, "沒有槓桿這一項")
 			assert.NotContains(t, positionPlan.Description, "leveragedLong")
 
-			// **And the key is absent from the shape**, which is the half that
-			// matters: this plan travels as opaque JSON, so the assistant copies
-			// this example verbatim and the connector forwards whatever is in it.
-			// A sentence saying "no leverage" beside an example that still shows
-			// `"leverage":"3"` is a sentence nobody reads.
-			assert.NotContains(t, positionPlan.Description, `"leverage"`)
-			assert.NotContains(t, positionPlan.Description, `\"leverage\"`)
+			// **And the key is absent from the shape the assistant copies**: this plan
+			// travels as opaque JSON, so the example is copied verbatim for spot bots
+			// too, and a spot bot sent a multiplier is refused. The key is only shown
+			// in the sentence addressed to contract bots.
+			shapeExample := positionPlan.Description[strings.Index(positionPlan.Description, "形狀："):strings.Index(positionPlan.Description, "capital 是這一組的開關")]
+			assert.NotContains(t, shapeExample, `"leverage"`)
 
 			// And the four figures named, so the assistant knows what to put in it.
 			for _, figure := range []string{

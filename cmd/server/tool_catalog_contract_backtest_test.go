@@ -221,17 +221,6 @@ func TestWritingATradingStrategySaysItsKindAndTradingMode(t *testing.T) {
 	assert.NotContains(t, string(request.Body), "marketDataKind")
 }
 
-// A bot says it only follows K candle trading strategies, before the assistant tries.
-func TestABotSaysItOnlyFollowsKCandleTradingStrategies(t *testing.T) {
-	for _, abilityName := range []string{"trading_create_strategy_bot", "trading_update_strategy_bot"} {
-		t.Run(abilityName, func(t *testing.T) {
-			tradingStrategyID, isDeclared := boxNamed(abilityNamed(t, abilityName), "tradingStrategyId")
-			require.True(t, isDeclared)
-			assert.Contains(t, tradingStrategyID.Description, "只能是吃 K 線的交易策略")
-		})
-	}
-}
-
 // Each contract replay says which kind of script or trading strategy gets it refused,
 // and where that one goes instead.
 func TestTheContractReplaysSayWhatTheyRefuseAndWhereItGoes(t *testing.T) {
