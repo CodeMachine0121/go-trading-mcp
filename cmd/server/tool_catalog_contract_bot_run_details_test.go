@@ -68,7 +68,7 @@ func TestWritingABotSaysTheWarningComparesTheUnroundedEstimate(t *testing.T) {
 	description := positionPlanDescriptionOf(t, "trading_create_strategy_bot")
 
 	assert.Contains(t, description, "顯示的強平價照價格跳動單位取整")
-	assert.Contains(t, description, "比的是**未取整**的預估強平價，止損正好落在強平價上也算會先被強平")
+	assert.Contains(t, description, "比的是**未取整**的預估強平價，止損正好落在強平價上算止損先到、不警告")
 }
 
 // A contract with no trading specification still gets a suggestion, unrounded.
