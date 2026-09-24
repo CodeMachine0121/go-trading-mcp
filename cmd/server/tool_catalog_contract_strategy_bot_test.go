@@ -115,6 +115,7 @@ func TestListingStrategyBotsCanAskForOneKind(t *testing.T) {
 	marketDataKind, isDeclared := boxNamed(ability, "marketDataKind")
 	require.True(t, isDeclared)
 	assert.False(t, marketDataKind.IsRequired)
+	assert.Contains(t, marketDataKind.Description, "只列其中一種")
 	assert.Contains(t, marketDataKind.Description, "不給就全部列出")
 
 	narrowedRequest, narrowedError := apiToolNamed(t, "trading_list_strategy_bots").BuildRequest(
