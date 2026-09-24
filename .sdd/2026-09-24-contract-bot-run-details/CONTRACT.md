@@ -27,3 +27,18 @@ None.
 ## Summary
 
 11 clauses · ✅ 11 conforms · 🔴 0 · 🟠 0 (2 shallow assertions tightened during the audit) · 🟡 0 · ❌ 0 · ❔ 0 · ⚠️ 0 — Conformance 100%.
+
+
+## Follow-up — code review corrections
+
+A code review found five statements that were inaccurate against the trading service; the PRD, the descriptions and their tests were corrected together:
+
+| # | Correction | Pinned by |
+|---|---|---|
+| 1 | Rounded stake and stops only when the contract had a trading specification; unrounded otherwise and on older records; older records lack the three fields | `TestReadingABotsRoundsNamesTheContractRunDetails` |
+| 2 | A refused order still shows the (unrounded) margin line, then one reason line with its figures; no quantity, stops, liquidation price or funding | `TestWritingABotNamesWhenTheVenueRefusesAContractSuggestion` |
+| 3 | A long whose estimate is at or below zero shows 「這個槓桿下不會被強制平倉」 and no warning | `TestWritingABotSaysALongThatCannotBeLiquidatedGetsNoPrice` |
+| 4 | The warning compares the stop with the unrounded estimate; a stop exactly at it counts as liquidation first | `TestWritingABotSaysTheWarningComparesTheUnroundedEstimate` |
+| 5 | Run-now answers with the bot, so it points to the run history instead of describing round fields | `TestRunningABotNowPointsToTheRoundsRecord` |
+
+All clauses conform after the corrections; each correction survived a deliberate break (6 mutants, all killed).
