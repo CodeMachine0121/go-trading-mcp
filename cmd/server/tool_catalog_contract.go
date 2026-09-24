@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
@@ -59,7 +61,7 @@ func contractRangeParameters() []vo.ToolParameterVo {
 //
 // Every name carries "contract" so that an assistant choosing between a spot ability
 // and its contract twin cannot mistake one for the other by name alone.
-func contractApiTools() []domains.ApiToolDomain {
+func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_create_contract_k_candle",
@@ -156,6 +158,27 @@ func contractApiTools() []domains.ApiToolDomain {
 			vo.RequestVerbRead, "/contract-k-candles/history/{id}", false,
 			pathParameter("id", "trading_sync_contract_k_candle_history 回的那個輪次識別碼"),
 		),
+		// The contract twin of trading_peek_live_k_candle, and a separate ability rather
+		// than a box on that one: the trading service follows contracts live on a route
+		// and a stream of their own, and one ability answering for both would let an
+		// assistant quote a spot price to a question about the perpetual contract.
+		domains.NewApiToolDomain(
+			"trading_peek_live_contract_k_candle",
+			"看一眼某個**永續合約**標的現在的樣子。**只看一眼**：收到第一則即時更新就回，最多等幾秒。"+
+				"與 trading_peek_live_k_candle 是兩件事——同一個代號的現貨與合約是兩個市場，這一件只看合約那一邊。"+
+				"\n\n內容是**最新價**那一根一分鐘 K 線的開高低收與成交量，**不含標記價格**"+
+				"（標記價格、指數價格隨每分鐘那一輪存下的合約 K 線出現，用 trading_list_contract_k_candles 讀）。"+
+				"\n\n每則更新的 status 是三者之一："+
+				"forming（這一根還在走，數字還會變，系統不存它、指標計算也不用它）、"+
+				"closed（這一根走完了，但**不是由即時更新存下**——每分鐘那一輪會在一分鐘內把完整的那一根存進來）、"+
+				"stalled（即時更新斷了，系統自己在重連，**等一下就好**）。"+
+				"合約永不休市、也沒有即時名額上限，所以**不會**出現 unavailable 或 marketClosed。"+
+				"\n\n**只看得到合約追蹤名單上的合約標的**：不在名單上會被拒絕，先用 trading_add_to_contract_watchlist 加進去；"+
+				"系統不認得的代號回找不到。"+
+				"\n\n等滿沒有收到東西是正常結果，不是錯誤。要連續看請重複呼叫。",
+			vo.RequestVerbRead, "/contract-k-candles/live", false,
+			queryParameter("symbol", vo.ToolParameterKindString, "要看哪一個合約標的", true),
+		).Watching(liveUpdateWaitLimit),
 		domains.NewApiToolDomain(
 			"trading_list_contract_trading_symbols",
 			"列出系統認得的每一個**永續合約**標的：已登錄的，加上實際有合約 K 線的，去重、依名稱排序。"+
