@@ -73,10 +73,10 @@ func TestReadingABotsRoundsNamesTheContractRunDetails(t *testing.T) {
 			description := abilityNamed(t, abilityName).Description
 
 			for _, phrase := range []string{
-				"合約機器人的執行紀錄多帶三樣",
+				"合約機器人的執行紀錄多帶三樣**：那一輪有建議部位時",
 				"suggestedDirection（long 做多／short 做空）", "suggestedLeverage", "suggestedNotional（名目）",
 				"現貨機器人的紀錄沒有這三樣，交易所不收那一筆的那一輪也沒有",
-				"suggestedStake 是**保證金**", "**取整後**的數字",
+				"suggestedStake 是**保證金**", "**取整後**的數字，與當時送出的訊息一致",
 			} {
 				assert.Contains(t, description, phrase)
 			}
