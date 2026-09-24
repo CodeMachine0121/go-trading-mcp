@@ -84,8 +84,8 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"而回測只在你把那兩個距離填進去時才算它們。**"+
 				"所以一套「回測賺 25%」的規則配上一組停損，"+
 				"那兩件事**還沒有對過帳**——"+
-				"要對帳就用 trading_backtest_trading_strategy 的 stopLossPercentage "+
-				"與 takeProfitPercentage 再重演一次。"+
+				"要對帳就用 trading_backtest_trading_strategy（合約機器人用 trading_backtest_contract_trading_strategy）"+
+				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。",
 			vo.RequestVerbSubmit, "/strategy-bots", true,
 			strategyBotWriteParameters()...,

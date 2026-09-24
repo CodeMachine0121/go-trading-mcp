@@ -164,3 +164,20 @@ func TestReadingABotsRoundsSaysAContractBotsHoldsMayBeSkippedRounds(t *testing.T
 		})
 	}
 }
+
+// Taking a contract off the watchlist blinds every contract bot watching it, so the
+// ability says so before the assistant tidies a watchlist a live bot depends on.
+func TestRemovingAContractFromTheWatchlistWarnsOfTheBotsWatchingIt(t *testing.T) {
+	description := abilityNamed(t, "trading_remove_from_contract_watchlist").Description
+
+	for _, phrase := range []string{"合約機器人會就此失明", "每一輪都會跳過", "trading_list_strategy_bots", "contractKCandle"} {
+		assert.Contains(t, description, phrase)
+	}
+}
+
+// Reconciling a contract bot's stops points to the replay that takes contract rules.
+func TestCreatingABotNamesTheReplayEachKindReconcilesWith(t *testing.T) {
+	description := abilityNamed(t, "trading_create_strategy_bot").Description
+
+	assert.Contains(t, description, "trading_backtest_trading_strategy（合約機器人用 trading_backtest_contract_trading_strategy）")
+}

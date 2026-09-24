@@ -182,7 +182,10 @@ func contractApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_remove_from_contract_watchlist",
 			"把一個合約標的移出合約追蹤名單。**只停止追蹤**——已存下的合約 K 線、資金費率結算、持倉統計一筆都不刪，"+
-				"交易規格照舊每天刷新；現貨那邊完全不受影響。",
+				"交易規格照舊每天刷新；現貨那邊完全不受影響。"+
+				"\n\n**但盯這個合約標的的合約機器人會就此失明**：新的合約 K 線不再進來，它每一輪都會跳過——"+
+				"不送訊息、紀錄上是 hold——直到把它加回來為止。移除之前先用 trading_list_strategy_bots "+
+				"（marketDataKind 給 contractKCandle）看有沒有合約機器人在盯它，有的話先跟使用者確認。",
 			vo.RequestVerbRemove, "/contract-watchlist/{symbol}", false,
 			pathParameter("symbol", "要停止追蹤哪一個合約標的"),
 		),
