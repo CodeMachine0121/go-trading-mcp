@@ -14,7 +14,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 			"新增一根 K 線。一根固定涵蓋一分鐘，起始時間必須落在一分鐘刻度上、且不得指向未來。"+
 				"同一個交易標的同一個起始時間再新增一次即覆蓋，不會產生第二根。"+
 				"\n\n一般不需要用這一支——K 線由系統自己抓。它是給手動補資料與測試用的。",
-			vo.RequestVerbSubmit, "/k-candles", false,
+			vo.RequestVerbSubmit, "/k-candles", true,
 			append([]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString, "交易標的，如 BTCUSDT 或 2330", true),
 				bodyParameter("openTime", vo.ToolParameterKindString,
@@ -60,7 +60,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 			"trading_update_k_candle",
 			"改一根既有 K 線的價量數字。**要改哪一根由 symbol 與 openTime 決定**——"+
 				"內文不要再帶一次交易標的或起始時間，帶了且與這兩個不同會被拒絕。",
-			vo.RequestVerbReplace, "/k-candles/{symbol}/{openTime}", false,
+			vo.RequestVerbReplace, "/k-candles/{symbol}/{openTime}", true,
 			append([]vo.ToolParameterVo{
 				pathParameter("symbol", "要改哪一個交易標的的 K 線"),
 				pathParameter("openTime", "要改哪一根（RFC3339 世界標準時間）"),
@@ -69,7 +69,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 		domains.NewApiToolDomain(
 			"trading_delete_k_candle",
 			"刪掉一根指定的 K 線。成功沒有內容可回。",
-			vo.RequestVerbRemove, "/k-candles/{symbol}/{openTime}", false,
+			vo.RequestVerbRemove, "/k-candles/{symbol}/{openTime}", true,
 			pathParameter("symbol", "交易標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
 		),
@@ -79,7 +79,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"\n\n**補多久由系統的設定決定，不是你說了算**——所以這一支沒有回溯天數可填。"+
 				"要指定回溯多久請改用 trading_sync_k_candle_history。"+
 				"\n\n加進觀察清單時會自動補一次，所以正常情況下不必按這一支。沒登錄過的代號回 404。",
-			vo.RequestVerbSubmit, "/k-candles/backfill", false,
+			vo.RequestVerbSubmit, "/k-candles/backfill", true,
 			bodyParameter("symbol", vo.ToolParameterKindString, "要補哪一個交易標的", true),
 		),
 		domains.NewApiToolDomain(
@@ -90,7 +90,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"所以報告裡的「存了幾根」講的是這一次新增了幾根——整段本來就齊全時它是 0，而那是實話。"+
 				"\n\n回溯天數必須在 1 到系統上限之間，超過會被擋下來並告訴你上限是多少。"+
 				"沒登錄過的代號回 404。同一個標的同時只跑一趟，再按一次回 409。",
-			vo.RequestVerbSubmit, "/k-candles/history", false,
+			vo.RequestVerbSubmit, "/k-candles/history", true,
 			bodyParameter("symbol", vo.ToolParameterKindString, "要同步哪一個交易標的", true),
 			bodyParameter("lookbackDays", vo.ToolParameterKindInteger,
 				"往回抓幾天。沒有預設值，不給即拒絕", true),
@@ -101,7 +101,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"storedCount、skippedCount。"+
 				"\n\n**fetchFailureReason 與 failureReason 是兩件事**："+
 				"前者是行情來源不答話（這趟仍算 succeeded，那是查到的事），後者才是交易服務自己壞掉。",
-			vo.RequestVerbRead, "/k-candles/history/{id}", false,
+			vo.RequestVerbRead, "/k-candles/history/{id}", true,
 			pathParameter("id", "trading_sync_k_candle_history 回的那個輪次識別碼"),
 		),
 		domains.NewApiToolDomain(
@@ -139,7 +139,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 				"（補失敗不會讓加入失敗）。"+
 				"\n\n**market 一定要給，系統不從代號長相猜**：台股的 ETF、權證有英數混合的代號，"+
 				"加密貨幣的代號格式根本沒有規則。",
-			vo.RequestVerbSubmit, "/watchlist", false,
+			vo.RequestVerbSubmit, "/watchlist", true,
 			bodyParameter("symbol", vo.ToolParameterKindString, "交易標的代號", true),
 			bodyParameter("market", vo.ToolParameterKindString,
 				"所屬市場：taiwanStock（台股，台北時間 09:00–13:30、週一至週五）"+
@@ -149,7 +149,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 			"trading_remove_from_watchlist",
 			"把一個交易標的移出觀察清單。**只停止自動抓取**——已經抓回來的 K 線一根都不刪，"+
 				"這個標的仍然被系統認得、仍然選得到。",
-			vo.RequestVerbRemove, "/watchlist/{symbol}", false,
+			vo.RequestVerbRemove, "/watchlist/{symbol}", true,
 			pathParameter("symbol", "要停止追蹤哪一個交易標的"),
 		),
 	}
@@ -210,10 +210,7 @@ func indicatorApiTools() []domains.ApiToolDomain {
 				bodyParameter("symbol", vo.ToolParameterKindString, "要算哪一個交易標的", true),
 			}, indicatorCalculationParameters()...)...,
 		),
-		// The contract calculation sits beside the spot one rather than among the
-		// contract abilities: those are the market line and need nobody signed in,
-		// while a calculation runs somebody's strategy script. Its name and address
-		// still say contract, so the contract line's guard covers it.
+		// Sits beside the spot calculation because it runs somebody's strategy script, not market data.
 		domains.NewApiToolDomain(
 			"trading_calculate_contract_indicator",
 			"在一個**永續合約**標的上用一段算式算一次指標。填的東西與 trading_calculate_indicator 一模一樣，"+
