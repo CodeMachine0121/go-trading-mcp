@@ -408,3 +408,19 @@ func TestEveryContractReadSaysWhatWillGetItRefused(t *testing.T) {
 		})
 	}
 }
+
+// A contract history sync now fills in position statistics too, and asks for nothing
+// more to do it: the same two boxes, the same lookback for both.
+func TestSyncingAContractHistoryStillAsksForOnlyTheSymbolAndTheLookback(t *testing.T) {
+	ability := abilityNamed(t, "trading_sync_contract_k_candle_history")
+
+	boxes := map[string]bool{}
+	for _, parameter := range ability.Parameters {
+		boxes[parameter.Name] = parameter.IsRequired
+	}
+
+	assert.Equal(t, map[string]bool{"symbol": true, "lookbackDays": true}, boxes)
+	progressBoxes := abilityNamed(t, "trading_get_contract_k_candle_history_sync").Parameters
+	require.Len(t, progressBoxes, 1)
+	assert.Equal(t, "id", progressBoxes[0].Name)
+}
