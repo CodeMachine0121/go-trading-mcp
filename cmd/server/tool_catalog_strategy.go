@@ -189,7 +189,8 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"\n\n**資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付**——" +
 	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
 	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +
-	"第一次結算之前沒有費率、持倉統計只留三十天而且要夠新（沒有就整組為零）。算式要自己判斷，例如持倉量為零多半是沒錄到。" +
+	"第一次結算之前沒有費率、持倉統計**只有錄到或同步過的那段才有值**而且要夠新（沒有就整組為零；" +
+	"更早的用 trading_sync_contract_k_candle_history 補）。算式要自己判斷，例如持倉量為零多半是沒錄到。" +
 	"\n\n**吃合約行情的策略腳本用在合約那一邊**：trading_calculate_contract_indicator 算指標、" +
 	"trading_backtest_contract_strategy_script 在合約帳戶上重演、當吃合約行情的交易策略的信號來源。" +
 	"現貨的指標計算、現貨重演、吃 K 線的交易策略都會拒絕它。" +
