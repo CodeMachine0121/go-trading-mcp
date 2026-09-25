@@ -125,7 +125,9 @@ func TestTheContractScriptNoteNamesEveryFigure(t *testing.T) {
 		"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio",
 		// A missing value is a zero, in the three ways it happens.
 		"沒有值一律是零，分不出「沒錄到」與「真的是零」",
-		"舊資料沒有指數價格與溢價指數", "第一次結算之前沒有費率", "持倉統計只留三十天",
+		"舊資料沒有指數價格與溢價指數", "第一次結算之前沒有費率",
+		// A statistic exists wherever it was recorded or synced, not only for thirty days.
+		"持倉統計**只有錄到或同步過的那段才有值**", "trading_sync_contract_k_candle_history",
 		// A carried rate is not a payment.
 		"資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付",
 	} {
@@ -147,6 +149,7 @@ func TestTheContractScriptNoteSaysWhereItCanGo(t *testing.T) {
 		assert.Contains(t, contractKCandleScriptNote, phrase)
 	}
 	// The old sentences would now turn a person away from things that work.
+	assert.NotContains(t, contractKCandleScriptNote, "持倉統計只留三十天")
 	assert.NotContains(t, contractKCandleScriptNote, "重演、交易策略、策略機器人還不能用它")
 	assert.NotContains(t, contractKCandleScriptNote, "策略機器人目前只跑 K 線")
 	assert.NotContains(t, contractKCandleScriptNote, "直接告訴他目前做不到")

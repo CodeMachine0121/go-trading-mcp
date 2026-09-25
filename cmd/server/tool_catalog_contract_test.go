@@ -272,12 +272,28 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 	testCases := []struct {
 		abilityName string
 		mustSay     []string
+		mustNotSay  []string
 	}{
 		// Who pays whom is the one fact about a funding rate that flips every result.
 		{abilityName: "trading_list_contract_funding_rate_settlements",
 			mustSay: []string{"費率為正時做多的人付給做空的人", "不要自行取整"}},
-		// An empty past is not a fault: nobody recorded it.
-		{abilityName: "trading_list_contract_position_statistics", mustSay: []string{"只留最近三十天"}},
+		// An empty past is not a fault, and a history sync fills it in.
+		{abilityName: "trading_list_contract_position_statistics",
+			mustSay:    []string{"即時來源只留最近三十天", "更早的可以用 trading_sync_contract_k_candle_history 補"},
+			mustNotSay: []string{"從來沒有人錄"}},
+		// A history sync fills the statistics of the same stretch in after the candles,
+		// and the archive having nothing for a day is not a failure.
+		{abilityName: "trading_sync_contract_k_candle_history",
+			mustSay: []string{"同一趟也補持倉統計", "先補完合約 K 線", "同一個回溯天數", "只存沒有的",
+				"沒有那一天的檔案不算失敗", "只停下持倉統計那一份"}},
+		// The statistics' progress is a group of its own, never added to the candles'.
+		{abilityName: "trading_get_contract_k_candle_history_sync",
+			mustSay: []string{"合約自己那一串", "positionStatistic",
+				"totalDays、completedDays", "storedCount、skippedCount、fetchFailureReason",
+				"兩組分開、不加總", "這趟仍算 succeeded"}},
+		// The manual catch-up is the candles only; older statistics come from a sync.
+		{abilityName: "trading_backfill_contract_k_candles",
+			mustSay: []string{"它只補 K 線", "三十天以前**的持倉統計，用 trading_sync_contract_k_candle_history"}},
 		// An empty ladder is not a fault either: no account key.
 		{abilityName: "trading_get_contract_maintenance_margin_tiers", mustSay: []string{"帳戶金鑰", "回空陣列", "不是錯誤"}},
 		// null on an old candle is not zero, and there is a way to fill it in.
@@ -288,8 +304,6 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 			mustSay: []string{"最小那一級", "trading_get_contract_maintenance_margin_tiers"}},
 		// A slow add is not a hung one, and the two venues' codes differ.
 		{abilityName: "trading_add_to_contract_watchlist", mustSay: []string{"二十秒", "1000SHIBUSDT"}},
-		// Contract runs are numbered apart from spot ones.
-		{abilityName: "trading_get_contract_k_candle_history_sync", mustSay: []string{"合約自己那一串"}},
 		// Leaving the watchlist loses nothing.
 		{abilityName: "trading_remove_from_contract_watchlist",
 			mustSay: []string{"只停止追蹤", "一筆都不刪", "現貨那邊完全不受影響"}},
@@ -308,6 +322,9 @@ func TestTheContractAbilitiesSayWhatCannotBeDiscoveredBySending(t *testing.T) {
 
 			for _, phrase := range testCase.mustSay {
 				assert.Contains(t, described, phrase)
+			}
+			for _, phrase := range testCase.mustNotSay {
+				assert.NotContains(t, described, phrase)
 			}
 		})
 	}
@@ -390,4 +407,20 @@ func TestEveryContractReadSaysWhatWillGetItRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A contract history sync now fills in position statistics too, and asks for nothing
+// more to do it: the same two boxes, the same lookback for both.
+func TestSyncingAContractHistoryStillAsksForOnlyTheSymbolAndTheLookback(t *testing.T) {
+	ability := abilityNamed(t, "trading_sync_contract_k_candle_history")
+
+	boxes := map[string]bool{}
+	for _, parameter := range ability.Parameters {
+		boxes[parameter.Name] = parameter.IsRequired
+	}
+
+	assert.Equal(t, map[string]bool{"symbol": true, "lookbackDays": true}, boxes)
+	progressBoxes := abilityNamed(t, "trading_get_contract_k_candle_history_sync").Parameters
+	require.Len(t, progressBoxes, 1)
+	assert.Equal(t, "id", progressBoxes[0].Name)
 }
