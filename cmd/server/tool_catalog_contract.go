@@ -134,6 +134,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 			"trading_backfill_contract_k_candles",
 			"手動補齊一個合約標的的 K 線，從它最後一根補到現在。**補多久由系統的設定決定**，沒有回溯天數可填。"+
 				"\n\n它只補 K 線——資金費率與持倉統計不需要手動補，系統每一輪都從上一筆接著問。"+
+				"要補**三十天以前**的持倉統計，用 trading_sync_contract_k_candle_history。"+
 				"沒登錄過的代號回 404。",
 			vo.RequestVerbSubmit, "/contract-k-candles/backfill", false,
 			bodyParameter("symbol", vo.ToolParameterKindString, "要補哪一個合約標的", true),
@@ -145,7 +146,11 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n它問整段、只寫沒有的；**已經齊全的那幾天連問都不問**。"+
 				"指數價格與溢價指數出現之前存下的舊 K 線不算齊全，同步會**只把那兩組補上**，其他數字不動。"+
 				"\n\n永續合約的歷史比現貨短：起點比合約上市還早時，來源有幾根就存幾根，不算失敗。"+
-				"沒登錄過的代號回 404；同一個標的同時只跑一趟，再按一次回 409。",
+				"\n\n**同一趟也補持倉統計**：先補完合約 K 線，接著用同一個回溯天數，從交易所的持倉統計歷史資料庫"+
+				"一天一天補那一段的持倉統計（可回溯好幾年，不受即時來源只有三十天的限制），**只存沒有的**，"+
+				"已經有的（包括每五分鐘即時錄下的）原封不動。歷史資料庫**沒有那一天的檔案不算失敗**"+
+				"（今天、通常還有昨天、合約上市前都沒有）；歷史資料庫不答話**只停下持倉統計那一份**，這趟照樣 succeeded。"+
+				"\n\n沒登錄過的代號回 404；同一個標的同時只跑一趟，再按一次回 409。",
 			vo.RequestVerbSubmit, "/contract-k-candles/history", false,
 			bodyParameter("symbol", vo.ToolParameterKindString, "要同步哪一個合約標的", true),
 			bodyParameter("lookbackDays", vo.ToolParameterKindInteger,
@@ -154,7 +159,11 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 		domains.NewApiToolDomain(
 			"trading_get_contract_k_candle_history_sync",
 			"看一趟永續合約歷史同步走到哪。**識別碼是合約自己那一串**，拿現貨的識別碼來問會問到別的東西或查無此趟。"+
-				"\n\nfetchFailureReason（來源不答話，這趟仍算 succeeded）與 failureReason（交易服務自己壞掉）是兩件事。",
+				"\n\nfetchFailureReason（來源不答話，這趟仍算 succeeded）與 failureReason（交易服務自己壞掉）是兩件事。"+
+				"\n\n最外層那幾個數字是**合約 K 線**的；持倉統計的進度在 **positionStatistic** 裡："+
+				"totalDays、completedDays（共幾天、走到第幾天）、storedCount、skippedCount、fetchFailureReason。"+
+				"**兩組分開、不加總**，各有自己的來源原因：positionStatistic.fetchFailureReason 有值是歷史資料庫不答話，"+
+				"只停下持倉統計那一份、這趟仍算 succeeded。",
 			vo.RequestVerbRead, "/contract-k-candles/history/{id}", false,
 			pathParameter("id", "trading_sync_contract_k_candle_history 回的那個輪次識別碼"),
 		),
@@ -231,8 +240,9 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"account 開頭的三個（全體帳戶裡做多、做空各佔多少與比值）、"+
 				"topTraderPosition 開頭的三個（持倉最大那批帳戶的**部位**裡多空各佔多少與比值）。"+
 				"價漲而持倉量漲是新資金進場，價漲而持倉量跌是空方平倉。"+
-				"\n\n**來源只留最近三十天**，所以系統手上的歷史是從加入追蹤名單前三十天開始錄的；"+
-				"更早的查不到不是壞掉，是從來沒有人錄。"+
+				"\n\n**即時來源只留最近三十天**，所以每五分鐘那一輪錄下的歷史是從加入追蹤名單前三十天開始的；"+
+				"**更早的可以用 trading_sync_contract_k_candle_history 補**（它同一趟從持倉統計歷史資料庫補那一段）。"+
+				"沒同步過的那段查不到不是壞掉。"+
 				"\n\n**會被拒絕的情況**：結束早於開始；區間裡的持倉統計超過單次筆數上限"+
 				"（五分鐘一筆，一千筆約三天半，請縮小區間分段查）。",
 			vo.RequestVerbRead, "/contract-position-statistics", false,
