@@ -50,13 +50,7 @@ func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
 		assert.True(t, offeredNames[relayedName], "這件事沒有被掛上去：%s", relayedName)
 	}
 
-	for _, connectorOwnedName := range []string{
-		"trading_sign_in", "trading_sign_out", "trading_renew_session"} {
-		assert.True(t, offeredNames[connectorOwnedName],
-			"這件事沒有被掛上去：%s", connectorOwnedName)
-	}
-
-	assert.Len(t, offeredNames, len(everyAbilityTheTradingServiceOffers)+3)
+	assert.Len(t, offeredNames, len(everyAbilityTheTradingServiceOffers))
 
 	for offeredName := range offeredNames {
 		assert.NotContains(t, offeredName, "assistant",

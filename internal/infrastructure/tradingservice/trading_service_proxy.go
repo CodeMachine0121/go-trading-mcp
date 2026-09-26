@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
-	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
 
@@ -23,8 +21,7 @@ import (
 // The trading service is trusted, but "trusted" is about intent and this is about
 // accident: a query that matches far more than expected, a stuck stream, a reply
 // that is not what it claims. Reading without a ceiling turns any of those into this
-// process running out of memory — and a connector that dies takes every other
-// person's signed-in session with it.
+// process running out of memory.
 //
 // Sixteen mebibytes is far above the largest honest answer here (a thousand candles
 // is a few hundred kilobytes; a replay with its trade detail, a few megabytes).
@@ -98,80 +95,6 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 	}
 
 	return tradingServiceProxy.responseOf(httpResponse.StatusCode, string(content)), nil
-}
-
-// SignIn exchanges an account for a pair of proofs.
-func (tradingServiceProxy *TradingServiceProxy) SignIn(
-	ctx context.Context,
-	signInDto dto.SignInDto,
-) (vo.SessionGrantVo, error) {
-	credentials, _ := json.Marshal(map[string]string{
-		"email":    signInDto.Email,
-		"password": signInDto.Password,
-	})
-
-	return tradingServiceProxy.askForGrant(ctx, "/sessions", credentials)
-}
-
-// RenewSession spends a renewal proof on a fresh pair.
-func (tradingServiceProxy *TradingServiceProxy) RenewSession(
-	ctx context.Context,
-	refreshToken string,
-) (vo.SessionGrantVo, error) {
-	renewal, _ := json.Marshal(map[string]string{"refreshToken": refreshToken})
-
-	return tradingServiceProxy.askForGrant(ctx, "/sessions/renewal", renewal)
-}
-
-// RevokeSession voids a whole renewal chain.
-func (tradingServiceProxy *TradingServiceProxy) RevokeSession(
-	ctx context.Context,
-	refreshToken string,
-) (vo.TradingServiceResponseVo, error) {
-	revocation, _ := json.Marshal(map[string]string{"refreshToken": refreshToken})
-
-	return tradingServiceProxy.Send(ctx, vo.TradingServiceRequestVo{
-		Verb: vo.RequestVerbSubmit,
-		Path: "/sessions/revocation",
-		Body: revocation,
-	}, "")
-}
-
-// askForGrant is the shape shared by signing in and renewing: post a small thing,
-// and read a pair of proofs out of the answer.
-//
-// The two are one method because they differ only in where they are posted and what
-// is posted there. Written twice, the reading of the pair would be written twice too,
-// and the half that gets a field name wrong is the half nobody exercises until a
-// signing-in expires in production.
-func (tradingServiceProxy *TradingServiceProxy) askForGrant(
-	ctx context.Context,
-	path string,
-	body []byte,
-) (vo.SessionGrantVo, error) {
-	response, sendError := tradingServiceProxy.Send(ctx, vo.TradingServiceRequestVo{
-		Verb: vo.RequestVerbSubmit,
-		Path: path,
-		Body: body,
-	}, "")
-	if sendError != nil {
-		return vo.SessionGrantVo{}, sendError
-	}
-
-	if response.Outcome != vo.TradingServiceSucceeded {
-		return vo.SessionGrantVo{Outcome: response.Outcome, Content: response.Content}, nil
-	}
-
-	var grantedTokens sessionTokensWire
-	if decodeError := json.Unmarshal([]byte(response.Content), &grantedTokens); decodeError != nil {
-		return vo.SessionGrantVo{}, fmt.Errorf(
-			"%w：交易服務回了一份看不懂的憑證", domains.ErrTradingServiceUnreachable)
-	}
-
-	return vo.SessionGrantVo{
-		Outcome: vo.TradingServiceSucceeded,
-		Tokens:  grantedTokens.ToTokenPairVo(),
-	}, nil
 }
 
 // peekLiveUpdates stays on the line only as long as it is worth staying.
@@ -275,8 +198,8 @@ func (tradingServiceProxy *TradingServiceProxy) send(
 
 // responseOf turns one answered ask into the verdict the domain reads.
 //
-// Not recognised is singled out because it is the one refusal this connector can act
-// on by itself. Everything else — a rule not met, a thing not found, a database that
+// Not recognised is singled out because it is the one refusal the person answers by
+// reconnecting rather than by rewording. Everything else — a rule not met, a thing not found, a database that
 // would not read — is the trading service speaking, and is carried through in its
 // own words rather than sorted into categories it did not ask for.
 func (tradingServiceProxy *TradingServiceProxy) responseOf(

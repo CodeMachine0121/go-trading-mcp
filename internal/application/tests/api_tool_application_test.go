@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
@@ -15,255 +14,60 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func (connector *connector) signInOn(t *testing.T, sessionKey string, grant vo.SessionGrantVo) {
-	t.Helper()
-
-	connector.tradingService.EXPECT().SignIn(gomock.Any(), gomock.Any()).Return(grant, nil)
-	_, signInError := connector.authentication.SignIn(
-		context.Background(), sessionKey, jamesAccount)
-	require.NoError(t, signInError)
-}
-
-func (connector *connector) call(toolName string, sessionKey string) dto.ToolResultDto {
+func (connector *connector) call(toolName string, accessToken string) dto.ToolResultDto {
 	return connector.apiTools.CallApiTool(context.Background(), dto.ToolCallDto{
-		ToolName: toolName, Arguments: noArguments(), SessionKey: sessionKey})
+		ToolName: toolName, Arguments: noArguments(), AccessToken: accessToken})
 }
 
-func TestAnAbilityThatNeedsIdentityTravelsUnderThisConnectionsProof(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("james-token"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "james-token").
-		Return(succeededWith(`[{"id":1}]`), nil)
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-	assert.Equal(t, `[{"id":1}]`, resultDto.Content)
-}
-
-func TestAnAbilityThatNeedsIdentityIsNotEvenAttemptedWithoutOne(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSignInRequired, resultDto.Outcome)
-	assert.Equal(t, "請先登入", resultDto.Content)
-}
-
-func TestAnAbilityThatNeedsNoIdentityTravelsWithoutOne(t *testing.T) {
-	connector := newConnector(t, checkHealth())
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "").
-		Return(succeededWith(`{"status":"Healthy"}`), nil)
-
-	resultDto := connector.call("trading_health", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-}
-
-func TestAnExpiredSigningInIsRenewedWithoutTheUserNoticing(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, anExpiredGrant("stale"))
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "stale-refresh").
-		Return(aLiveGrant("fresh"), nil)
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "fresh").
-		Return(succeededWith("[]"), nil)
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-}
-
-func TestASigningInPastSavingAsksForANewOneRatherThanRetrying(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aStaleGrant("gone"))
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSignInExpired, resultDto.Outcome)
-	assert.Equal(t, "登入已失效，請重新登入", resultDto.Content)
-}
-
-func TestARefusedRenewalGivesUpTheIdentityRatherThanKeepingAUselessOne(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, anExpiredGrant("stale"))
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "stale-refresh").
-		Return(vo.SessionGrantVo{Outcome: vo.TradingServiceRefused, Content: "續用憑證已作廢"}, nil)
-
-	first := connector.call("trading_list_strategy_scripts", aConnection)
-	second := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSignInExpired, first.Outcome)
-	assert.Equal(t, dto.ToolOutcomeSignInRequired, second.Outcome,
-		"作廢的那一份不該留著被拿去換第二次")
-}
-
-func TestBeingUnableToReachTheTradingServiceWhileRenewingIsNotToldAsAnExpiry(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, anExpiredGrant("stale"))
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "stale-refresh").
-		Return(vo.SessionGrantVo{}, errors.New("connection refused"))
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeTradingServiceUnreachable, resultDto.Outcome)
-	assert.NotContains(t, resultDto.Content, "請重新登入",
-		"叫人白打一次密碼，是把「網路不通」誤診成「你過期了」的代價")
-}
-
-func TestTwoAsksHittingTheExpiryTogetherSpendTheRenewalOnlyOnce(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, anExpiredGrant("stale"))
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "stale-refresh").
-		Return(aLiveGrant("fresh"), nil).
-		Times(1)
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "fresh").
-		Return(succeededWith("[]"), nil).
-		Times(2)
-
-	resultDtos := make([]dto.ToolResultDto, 2)
-	var bothDone sync.WaitGroup
-
-	bothDone.Add(2)
-	for index := range resultDtos {
-		go func() {
-			defer bothDone.Done()
-			resultDtos[index] = connector.call("trading_list_strategy_scripts", aConnection)
-		}()
+func TestEveryAbilityTravelsUnderTheConnectorAuthorizationTheCallerBrought(t *testing.T) {
+	testCases := []struct {
+		name     string
+		apiTool  domains.ApiToolDomain
+		toolName string
+	}{
+		{"個人資源的事", listStrategyScripts(), "trading_list_strategy_scripts"},
+		{"看公開資料的事", checkHealth(), "trading_health"},
 	}
-	bothDone.Wait()
 
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[0].Outcome)
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[1].Outcome)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			connector := newConnector(t, testCase.apiTool)
+			connector.tradingService.EXPECT().
+				Send(gomock.Any(), gomock.Any(), jamesAccessToken).
+				Return(succeededWith(`[{"id":1}]`), nil)
+
+			resultDto := connector.call(testCase.toolName, jamesAccessToken)
+
+			assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
+			assert.Equal(t, `[{"id":1}]`, resultDto.Content)
+		})
+	}
 }
 
-func TestOneConnectionNeverActsAsAnother(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("james-token"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "james-token").
-		Return(succeededWith("[]"), nil)
-
-	signedIn := connector.call("trading_list_strategy_scripts", aConnection)
-	stranger := connector.call("trading_list_strategy_scripts", anotherConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, signedIn.Outcome)
-	assert.Equal(t, dto.ToolOutcomeSignInRequired, stranger.Outcome)
-}
-
-func TestEachConnectionTravelsUnderItsOwnProof(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("james-token"))
-	connector.signInOn(t, anotherConnection, aLiveGrant("somebody-token"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "james-token").Return(succeededWith("[1]"), nil)
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "somebody-token").Return(succeededWith("[2]"), nil)
-
-	assert.Equal(t, "[1]", connector.call("trading_list_strategy_scripts", aConnection).Content)
-	assert.Equal(t, "[2]", connector.call("trading_list_strategy_scripts", anotherConnection).Content)
-}
-
-func TestAProofTheCallerBroughtAlongIsUsedAsGiven(t *testing.T) {
+func TestAConnectorAuthorizationTheTradingServiceDoesNotRecognizeAsksToReconnectWithoutRetrying(t *testing.T) {
 	connector := newConnector(t, listStrategyScripts())
 	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "brought-along").
-		Return(succeededWith("[]"), nil)
-
-	resultDto := connector.apiTools.CallApiTool(context.Background(), dto.ToolCallDto{
-		ToolName:            "trading_list_strategy_scripts",
-		Arguments:           noArguments(),
-		SessionKey:          aConnection,
-		SuppliedAccessToken: "brought-along",
-	})
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-}
-
-func TestAProofTheCallerBroughtAlongWinsOverTheOneBeingHeld(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("held"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "brought-along").
-		Return(succeededWith("[]"), nil)
-
-	resultDto := connector.apiTools.CallApiTool(context.Background(), dto.ToolCallDto{
-		ToolName:            "trading_list_strategy_scripts",
-		Arguments:           noArguments(),
-		SessionKey:          aConnection,
-		SuppliedAccessToken: "brought-along",
-	})
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-}
-
-func TestAProofTheCallerBroughtAlongIsNeverRenewed(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("held"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "brought-along").
+		Send(gomock.Any(), gomock.Any(), jamesAccessToken).
 		Return(notRecognized(), nil).
 		Times(1)
 
-	resultDto := connector.apiTools.CallApiTool(context.Background(), dto.ToolCallDto{
-		ToolName:            "trading_list_strategy_scripts",
-		Arguments:           noArguments(),
-		SessionKey:          aConnection,
-		SuppliedAccessToken: "brought-along",
-	})
+	resultDto := connector.call("trading_list_strategy_scripts", jamesAccessToken)
 
-	assert.Equal(t, dto.ToolOutcomeSignInExpired, resultDto.Outcome,
-		"續用的那一半不在手上，再送一次只會送出同一份被拒絕的憑證")
-}
-
-func TestAProofTheTradingServiceRejectsIsRenewedAndTheAskMadeOnceMore(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
-	gomock.InOrder(
-		connector.tradingService.EXPECT().
-			Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").Return(notRecognized(), nil),
-		connector.tradingService.EXPECT().
-			RenewSession(gomock.Any(), "revoked-elsewhere-refresh").Return(aLiveGrant("fresh"), nil),
-		connector.tradingService.EXPECT().
-			Send(gomock.Any(), gomock.Any(), "fresh").Return(succeededWith("[]"), nil),
-	)
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-}
-
-func TestARejectionThatSurvivesARenewalIsNotAskedAThirdTime(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("no-good"))
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(notRecognized(), nil).Times(2)
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "no-good-refresh").Return(aLiveGrant("fresh"), nil).Times(1)
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeSignInExpired, resultDto.Outcome)
+	assert.Equal(t, dto.ToolOutcomeReconnectRequired, resultDto.Outcome)
+	assert.Contains(t, resultDto.Content, "/mcp")
+	assert.Contains(t, resultDto.Content, "重新連線")
 }
 
 func TestARefusalComesBackInTheTradingServicesOwnWords(t *testing.T) {
-	connector := newConnector(t, checkHealth())
+	connector := newConnector(t, listStrategyScripts())
 	connector.tradingService.EXPECT().
 		Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(refusedWith("回溯天數必須在 1 到 3650 之間"), nil)
+		Return(refusedWith("帳號尚未開通，請寄信至 admin@example.com"), nil)
 
-	resultDto := connector.call("trading_health", aConnection)
+	resultDto := connector.call("trading_list_strategy_scripts", jamesAccessToken)
 
 	assert.Equal(t, dto.ToolOutcomeRefusedByTradingService, resultDto.Outcome)
-	assert.Equal(t, "回溯天數必須在 1 到 3650 之間", resultDto.Content,
-		"一字不改——助理要靠這句話知道該把天數改成多少")
+	assert.Equal(t, "帳號尚未開通，請寄信至 admin@example.com", resultDto.Content)
 }
 
 func TestNotReachingTheTradingServiceIsNotToldAsTheCallersMistake(t *testing.T) {
@@ -272,16 +76,17 @@ func TestNotReachingTheTradingServiceIsNotToldAsTheCallersMistake(t *testing.T) 
 		Send(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(vo.TradingServiceResponseVo{}, errors.New("dial tcp: connection refused"))
 
-	resultDto := connector.call("trading_health", aConnection)
+	resultDto := connector.call("trading_health", jamesAccessToken)
 
 	assert.Equal(t, dto.ToolOutcomeTradingServiceUnreachable, resultDto.Outcome)
 	assert.Contains(t, resultDto.Content, domains.ErrTradingServiceUnreachable.Error())
+	assert.NotContains(t, resultDto.Content, "重新連線")
 }
 
 func TestAnAbilityThisConnectorDoesNotHaveIsSaidSoRatherThanAttempted(t *testing.T) {
 	connector := newConnector(t, checkHealth())
 
-	resultDto := connector.call("trading_place_an_order", aConnection)
+	resultDto := connector.call("trading_place_an_order", jamesAccessToken)
 
 	assert.Equal(t, dto.ToolOutcomeUnknownTool, resultDto.Outcome)
 	assert.Contains(t, resultDto.Content, "trading_place_an_order")
@@ -289,15 +94,15 @@ func TestAnAbilityThisConnectorDoesNotHaveIsSaidSoRatherThanAttempted(t *testing
 
 func TestAHalfFilledFormNamesTheMissingBoxAndIsNotSent(t *testing.T) {
 	connector := newConnector(t, domains.NewApiToolDomain(
-		"trading_sync_k_candle_history", "同步歷史", vo.RequestVerbSubmit, "/k-candles/history", false,
+		"trading_sync_k_candle_history", "同步歷史", vo.RequestVerbSubmit, "/k-candles/history",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "標的", true, vo.ToolParameterInBody),
 		vo.NewToolParameterVo("lookbackDays", vo.ToolParameterKindInteger, "天數", true, vo.ToolParameterInBody),
 	))
 
 	resultDto := connector.apiTools.CallApiTool(context.Background(), dto.ToolCallDto{
-		ToolName:   "trading_sync_k_candle_history",
-		Arguments:  map[string]json.RawMessage{"symbol": json.RawMessage(`"BTCUSDT"`)},
-		SessionKey: aConnection,
+		ToolName:    "trading_sync_k_candle_history",
+		Arguments:   map[string]json.RawMessage{"symbol": json.RawMessage(`"BTCUSDT"`)},
+		AccessToken: jamesAccessToken,
 	})
 
 	assert.Equal(t, dto.ToolOutcomeInvalidArguments, resultDto.Outcome)
@@ -311,79 +116,13 @@ func TestListingAbilitiesDescribesEveryOneOfThem(t *testing.T) {
 
 	require.Len(t, definitionDtos, 2)
 
-	requiresSignInPerNames := map[string]bool{}
+	describedNames := map[string]bool{}
 	for _, definitionDto := range definitionDtos {
 		assert.NotEmpty(t, definitionDto.Description, definitionDto.Name)
-		requiresSignInPerNames[definitionDto.Name] = definitionDto.RequiresSignIn
+		describedNames[definitionDto.Name] = true
 	}
 
 	assert.Equal(t,
-		map[string]bool{"trading_list_strategy_scripts": true, "trading_health": false},
-		requiresSignInPerNames)
-}
-
-func TestLosingTheTradingServiceBetweenTheRenewalAndTheRetryIsSaidAsSuch(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
-	gomock.InOrder(
-		connector.tradingService.EXPECT().
-			Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").Return(notRecognized(), nil),
-		connector.tradingService.EXPECT().
-			RenewSession(gomock.Any(), "revoked-elsewhere-refresh").Return(aLiveGrant("fresh"), nil),
-		connector.tradingService.EXPECT().
-			Send(gomock.Any(), gomock.Any(), "fresh").
-			Return(vo.TradingServiceResponseVo{}, errors.New("connection reset")),
-	)
-
-	resultDto := connector.call("trading_list_strategy_scripts", aConnection)
-
-	assert.Equal(t, dto.ToolOutcomeTradingServiceUnreachable, resultDto.Outcome)
-}
-
-func TestTwoRejectedAsksSpendTheRenewalOnceAndShareWhatItBought(t *testing.T) {
-	connector := newConnector(t, listStrategyScripts())
-	connector.signInOn(t, aConnection, aLiveGrant("revoked-elsewhere"))
-
-	// 兩件事都要先帶著同一份憑證出發、都被退回來，才談得上「同時撞上續用那道門」。
-	// 讓先到的那一件等另一件到齊再回答——否則第一件可能整輪跑完，第二件根本沒看過舊的那一份。
-	var bothSetOff sync.WaitGroup
-	bothSetOff.Add(2)
-
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "revoked-elsewhere").
-		DoAndReturn(func(context.Context, vo.TradingServiceRequestVo, string) (
-			vo.TradingServiceResponseVo, error) {
-			bothSetOff.Done()
-			bothSetOff.Wait()
-
-			return notRecognized(), nil
-		}).
-		Times(2)
-
-	// 先進門的那一件花掉續用；後進門的那一件看到手上已經換過了，就用換來的那一份。
-	// 兩件都去換的話，交易服務會把整條換發鏈作廢，把真正的使用者登出。
-	connector.tradingService.EXPECT().
-		RenewSession(gomock.Any(), "revoked-elsewhere-refresh").
-		Return(aLiveGrant("fresh"), nil).
-		Times(1)
-
-	connector.tradingService.EXPECT().
-		Send(gomock.Any(), gomock.Any(), "fresh").
-		Return(succeededWith("[]"), nil).
-		Times(2)
-
-	resultDtos := make([]dto.ToolResultDto, 2)
-	var bothDone sync.WaitGroup
-
-	bothDone.Add(2)
-	for index := range resultDtos {
-		go func() {
-			defer bothDone.Done()
-			resultDtos[index] = connector.call("trading_list_strategy_scripts", aConnection)
-		}()
-	}
-	bothDone.Wait()
-
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[0].Outcome)
-	assert.Equal(t, dto.ToolOutcomeSucceeded, resultDtos[1].Outcome)
+		map[string]bool{"trading_list_strategy_scripts": true, "trading_health": true},
+		describedNames)
 }

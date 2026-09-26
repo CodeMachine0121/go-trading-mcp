@@ -60,5 +60,5 @@ func main() {
 		log.Printf("關機時還有請求沒排空：%v", shutdownError)
 	}
 
-	log.Println("已關機。所有保管中的身分隨行程一起消失，下次啟動需要重新登入。")
+	log.Println("已關機。")
 }

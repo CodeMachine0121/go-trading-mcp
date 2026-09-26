@@ -211,7 +211,7 @@ func systemApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_health",
 			"確認交易服務活著。它只檢查行程還在，不檢查任何業務功能——資料庫壞掉時它照樣回答活著。",
-			vo.RequestVerbRead, "/health", false,
+			vo.RequestVerbRead, "/health",
 		),
 	}
 }
@@ -219,26 +219,16 @@ func systemApiTools() []domains.ApiToolDomain {
 func accountApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
-			"trading_register_user",
-			"用電子郵件與密碼建立一位使用者。不需要先登入（系統一位使用者都沒有時，關起來就沒有人建得出第一位）。"+
-				"\n\n密碼有一條上限 72 位元組的規則（中文字一個算三個），超過是拒絕而不是截短。"+
-				"回覆永遠不含密碼或由它算出來的任何東西。"+
-				"\n\n建立完成之後，請用 trading_sign_in 登入。",
-			vo.RequestVerbSubmit, "/users", false,
-			bodyParameter("email", vo.ToolParameterKindString, "當帳號用的電子郵件", true),
-			bodyParameter("password", vo.ToolParameterKindString, "密碼，上限 72 位元組", true),
-		),
-		domains.NewApiToolDomain(
 			"trading_get_current_user",
-			"問交易服務「我是誰」，回覆目前這份身分的使用者識別碼與電子郵件。"+
-				"用來確認外掛保管的身分是不是你以為的那一個。",
-			vo.RequestVerbRead, "/users/me", true,
+			"問交易服務「我是誰」，回覆目前這份外掛授權代表的使用者識別碼與電子郵件。"+
+				"用來確認在 Claude Code 授權給這個外掛的帳號是不是你以為的那一個。",
+			vo.RequestVerbRead, "/users/me",
 		),
 		domains.NewApiToolDomain(
 			"trading_change_password",
 			"更換密碼。舊密碼對不上即拒絕；新密碼一樣受 72 位元組的上限規則。"+
-				"\n\n改完之後既有的登入仍然有效——這一支不會把你登出。",
-			vo.RequestVerbSubmit, "/users/me/password", true,
+				"\n\n改完之後既有的登入與外掛授權仍然有效——這一支不會讓你要重新連線。",
+			vo.RequestVerbSubmit, "/users/me/password",
 			bodyParameter("currentPassword", vo.ToolParameterKindString, "目前的密碼", true),
 			bodyParameter("newPassword", vo.ToolParameterKindString, "要改成的新密碼", true),
 		),

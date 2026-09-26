@@ -6,8 +6,6 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/application"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/controller"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/service"
-	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/clock"
-	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/persistence"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/tradingservice"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -20,13 +18,8 @@ import (
 func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
 	tradingServiceProxy := tradingservice.NewTradingServiceProxy(
 		applicationConfig.TradingServiceBaseUrl, applicationConfig.TradingServiceRequestTimeout)
-	signedInSessionRepository := persistence.NewSignedInSessionRepository()
-
-	authenticationService := service.NewAuthenticationService(
-		tradingServiceProxy, signedInSessionRepository, clock.NewClock())
 	apiToolService := service.NewApiToolService(
 		apiToolCatalog(applicationConfig.LiveUpdateWaitLimit, applicationConfig.TradingServiceReplayTimeout),
-		authenticationService,
 		tradingServiceProxy,
 	)
 
@@ -39,14 +32,12 @@ func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
 			"重演一段行情、養策略機器人、設定通知。\n\n" +
 			"交易服務內建的行情對話助手**刻意不在這裡**——代你去問另一個 AI 是在花它的錢，" +
 			"而那個決定不該由你做。要用它請直接告訴使用者。\n\n" +
-			"大部分能力需要身分。使用者還沒登入時，請先請他提供電子郵件與密碼並呼叫 trading_sign_in；" +
-			"登入之後所有能力都會自動以他的身分進行，登入過期外掛會自己換新，不必再問他。\n\n" +
+			"每一件事都以使用者在 Claude Code 授權給這個外掛的帳號進行，**絕不要向使用者要電子郵件或密碼**。" +
+			"回覆要他重新連線時，請他到 Claude Code 的 /mcp 選單重新連線這個外掛，在瀏覽器登入並按允許。\n\n" +
 			"被拒絕時，回覆裡的是交易服務自己的說法——請照它說的改一改再試，不要重送一模一樣的東西。" +
 			"回覆說「連不到交易服務」時則相反：那不是你送錯了，晚一點再試同一件事。",
 	})
 
-	controller.NewAuthenticationController(
-		application.NewAuthenticationApplication(authenticationService)).RegisterOn(server)
 	controller.NewApiToolController(
 		application.NewApiToolApplication(apiToolService)).RegisterOn(server)
 

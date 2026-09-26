@@ -50,14 +50,11 @@ func (apiToolController *ApiToolController) handle(
 		}
 	}
 
-	caller := callerOn(request)
-
 	return replyTo(request.Params.Name,
 		apiToolController.apiToolApplication.CallApiTool(ctx, dto.ToolCallDto{
-			ToolName:            request.Params.Name,
-			Arguments:           arguments,
-			SessionKey:          caller.SessionKey(),
-			SuppliedAccessToken: caller.SuppliedAccessToken(),
+			ToolName:    request.Params.Name,
+			Arguments:   arguments,
+			AccessToken: callerOn(request).AccessToken(),
 		})), nil
 }
 
@@ -66,9 +63,7 @@ func (apiToolController *ApiToolController) handle(
 //
 // Describing and shaping are one act, not two. Both are computed from the same
 // declaration that will later place the values, so what the assistant is shown and
-// what is accepted cannot drift apart — and the note about signing in is appended
-// here rather than written out by each of the fifty declarations, because a sentence
-// written fifty times is a sentence missing from one of them.
+// what is accepted cannot drift apart.
 func (apiToolController *ApiToolController) toMcpTool(
 	definitionDto dto.ToolDefinitionDto,
 ) *mcp.Tool {
@@ -86,15 +81,9 @@ func (apiToolController *ApiToolController) toMcpTool(
 		}
 	}
 
-	description := definitionDto.Description
-	if definitionDto.RequiresSignIn {
-		description += "\n\n（需要身分：請先用 trading_sign_in 登入，" +
-			"或在請求標頭帶上自己的 Authorization: Bearer 憑證。）"
-	}
-
 	return &mcp.Tool{
 		Name:        definitionDto.Name,
-		Description: description,
+		Description: definitionDto.Description,
 		InputSchema: map[string]any{
 			"type":       "object",
 			"properties": properties,

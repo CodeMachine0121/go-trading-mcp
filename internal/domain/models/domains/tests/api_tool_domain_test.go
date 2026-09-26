@@ -27,7 +27,7 @@ func argumentsOf(t *testing.T, filledIn map[string]any) domains.ToolArgumentsDom
 func TestBuildRequestPlacesEachValueWhereItsDeclarationSays(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
 		"trading_update_k_candle", "改一根 K 線", vo.RequestVerbReplace,
-		"/k-candles/{symbol}/{openTime}", false,
+		"/k-candles/{symbol}/{openTime}",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "交易標的", true, vo.ToolParameterInPath),
 		vo.NewToolParameterVo("openTime", vo.ToolParameterKindString, "起始時間", true, vo.ToolParameterInPath),
 		vo.NewToolParameterVo("interval", vo.ToolParameterKindString, "刻度", false, vo.ToolParameterInQuery),
@@ -50,7 +50,7 @@ func TestBuildRequestPlacesEachValueWhereItsDeclarationSays(t *testing.T) {
 
 func TestBuildRequestEscapesAValueThatWouldOtherwiseNameSomethingElse(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_remove_from_watchlist", "移出觀察清單", vo.RequestVerbRemove, "/watchlist/{symbol}", false,
+		"trading_remove_from_watchlist", "移出觀察清單", vo.RequestVerbRemove, "/watchlist/{symbol}",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "代號", true, vo.ToolParameterInPath),
 	)
 
@@ -62,7 +62,7 @@ func TestBuildRequestEscapesAValueThatWouldOtherwiseNameSomethingElse(t *testing
 
 func TestBuildRequestLeavesOutBoxesThatWereNotFilledIn(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_list_k_candles", "查 K 線", vo.RequestVerbRead, "/k-candles", false,
+		"trading_list_k_candles", "查 K 線", vo.RequestVerbRead, "/k-candles",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "交易標的", true, vo.ToolParameterInQuery),
 		vo.NewToolParameterVo("interval", vo.ToolParameterKindString, "刻度", false, vo.ToolParameterInQuery),
 	)
@@ -75,7 +75,7 @@ func TestBuildRequestLeavesOutBoxesThatWereNotFilledIn(t *testing.T) {
 
 func TestBuildRequestSendsNoContentsWhenNothingBelongsInside(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_list_trading_symbols", "列出交易標的", vo.RequestVerbRead, "/trading-symbols", false,
+		"trading_list_trading_symbols", "列出交易標的", vo.RequestVerbRead, "/trading-symbols",
 	)
 
 	request, buildError := apiTool.BuildRequest(argumentsOf(t, map[string]any{}))
@@ -86,7 +86,7 @@ func TestBuildRequestSendsNoContentsWhenNothingBelongsInside(t *testing.T) {
 
 func TestBuildRequestNamesTheRequiredBoxThatWasLeftEmpty(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_sync_k_candle_history", "同步歷史", vo.RequestVerbSubmit, "/k-candles/history", false,
+		"trading_sync_k_candle_history", "同步歷史", vo.RequestVerbSubmit, "/k-candles/history",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "標的", true, vo.ToolParameterInBody),
 		vo.NewToolParameterVo("lookbackDays", vo.ToolParameterKindInteger, "天數", true, vo.ToolParameterInBody),
 	)
@@ -99,7 +99,7 @@ func TestBuildRequestNamesTheRequiredBoxThatWasLeftEmpty(t *testing.T) {
 
 func TestBuildRequestWritesNumbersAndTextIntoTheAddressTheSameWayTheyRead(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_get_strategy_script", "讀策略腳本", vo.RequestVerbRead, "/strategy-scripts/{id}", true,
+		"trading_get_strategy_script", "讀策略腳本", vo.RequestVerbRead, "/strategy-scripts/{id}",
 		vo.NewToolParameterVo("id", vo.ToolParameterKindString, "識別碼", true, vo.ToolParameterInPath),
 	)
 
@@ -110,24 +110,9 @@ func TestBuildRequestWritesNumbersAndTextIntoTheAddressTheSameWayTheyRead(t *tes
 	assert.Equal(t, "/strategy-scripts/7", fromText.Path)
 }
 
-func TestAnAbilityCarriesIdentityExactlyWhenItSaysItNeedsIt(t *testing.T) {
-	needsIdentity := domains.NewApiToolDomain(
-		"trading_list_strategy_scripts", "列出策略腳本", vo.RequestVerbRead, "/strategy-scripts", true)
-	needsNone := domains.NewApiToolDomain(
-		"trading_health", "確認活著", vo.RequestVerbRead, "/health", false)
-
-	identified, _ := needsIdentity.BuildRequest(argumentsOf(t, map[string]any{}))
-	anonymous, _ := needsNone.BuildRequest(argumentsOf(t, map[string]any{}))
-
-	assert.True(t, needsIdentity.RequiresSignIn())
-	assert.True(t, identified.CarriesIdentity)
-	assert.False(t, needsNone.RequiresSignIn())
-	assert.False(t, anonymous.CarriesIdentity)
-}
-
 func TestWatchingSetsHowLongToStayOnTheLine(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_peek_live_k_candle", "看一眼", vo.RequestVerbRead, "/k-candles/live", false,
+		"trading_peek_live_k_candle", "看一眼", vo.RequestVerbRead, "/k-candles/live",
 	).Watching(7_000_000_000)
 
 	request, buildError := apiTool.BuildRequest(argumentsOf(t, map[string]any{}))
@@ -138,7 +123,7 @@ func TestWatchingSetsHowLongToStayOnTheLine(t *testing.T) {
 
 func TestToDefinitionDtoTellsTheAssistantEverythingItHasToKnowToChoose(t *testing.T) {
 	apiTool := domains.NewApiToolDomain(
-		"trading_add_to_watchlist", "加進觀察清單", vo.RequestVerbSubmit, "/watchlist", true,
+		"trading_add_to_watchlist", "加進觀察清單", vo.RequestVerbSubmit, "/watchlist",
 		vo.NewToolParameterVo("symbol", vo.ToolParameterKindString, "代號", true, vo.ToolParameterInBody),
 		vo.NewToolParameterVo("market", vo.ToolParameterKindString, "市場", false, vo.ToolParameterInBody),
 	)
@@ -147,7 +132,6 @@ func TestToDefinitionDtoTellsTheAssistantEverythingItHasToKnowToChoose(t *testin
 
 	assert.Equal(t, "trading_add_to_watchlist", definitionDto.Name)
 	assert.Equal(t, "加進觀察清單", definitionDto.Description)
-	assert.True(t, definitionDto.RequiresSignIn)
 	assert.Len(t, definitionDto.Parameters, 2)
 	assert.Equal(t, "symbol", definitionDto.Parameters[0].Name)
 	assert.Equal(t, "string", definitionDto.Parameters[0].Kind)
@@ -159,7 +143,7 @@ func TestToDefinitionDtoTellsTheAssistantEverythingItHasToKnowToChoose(t *testin
 func TestAReplayAbilityWaitsLongerAndCondensesOnlyWhatSucceeded(t *testing.T) {
 	longContent := aReplayResultWith(500, 0, "")
 	replay := domains.NewApiToolDomain(
-		"trading_backtest_strategy_script", "重演", vo.RequestVerbSubmit, "/backtests", true,
+		"trading_backtest_strategy_script", "重演", vo.RequestVerbSubmit, "/backtests",
 	).Waiting(120 * time.Second).CondensingReplayResults()
 
 	request, buildError := replay.BuildRequest(argumentsOf(t, map[string]any{}))
@@ -176,7 +160,7 @@ func TestAReplayAbilityWaitsLongerAndCondensesOnlyWhatSucceeded(t *testing.T) {
 
 func TestAnOrdinaryAbilityNeitherWaitsLongerNorCondenses(t *testing.T) {
 	longContent := aReplayResultWith(500, 0, "")
-	ordinary := domains.NewApiToolDomain("trading_list_k_candles", "查 K 線", vo.RequestVerbRead, "/k-candles", false)
+	ordinary := domains.NewApiToolDomain("trading_list_k_candles", "查 K 線", vo.RequestVerbRead, "/k-candles")
 
 	request, buildError := ordinary.BuildRequest(argumentsOf(t, map[string]any{}))
 	require.NoError(t, buildError)

@@ -16,8 +16,6 @@ type TradingServiceRequestVo struct {
 	// inside. Empty means *no* contents, not an empty set of them: some of the
 	// trading service's rules read "left out" and "given as nothing" differently.
 	Body []byte
-	// CarriesIdentity says whether this ask must say who is making it.
-	CarriesIdentity bool
 	// LiveUpdateWaitLimit is how long to stay on the line for an ability that
 	// watches rather than asks. Zero — the ordinary case — means do not stay at all.
 	LiveUpdateWaitLimit time.Duration

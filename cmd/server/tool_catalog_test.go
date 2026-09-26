@@ -26,43 +26,42 @@ import (
 // somebody should be told.
 var everyAbilityTheTradingServiceOffers = map[string]bool{
 	// 系統
-	"trading_health": false,
-	// 帳號（登入、登出、續用是外掛自己的，不在這份轉達清單裡）
-	"trading_register_user":    false,
+	"trading_health": true,
+	// 帳號（建立帳號與登入在交易服務的網站上做）
 	"trading_get_current_user": true,
 	"trading_change_password":  true,
 	// 行情
 	"trading_create_k_candle":           true,
-	"trading_list_k_candles":            false,
-	"trading_get_k_candle_series":       false,
-	"trading_get_k_candle":              false,
+	"trading_list_k_candles":            true,
+	"trading_get_k_candle_series":       true,
+	"trading_get_k_candle":              true,
 	"trading_update_k_candle":           true,
 	"trading_delete_k_candle":           true,
 	"trading_backfill_k_candles":        true,
 	"trading_sync_k_candle_history":     true,
 	"trading_get_k_candle_history_sync": true,
-	"trading_peek_live_k_candle":        false,
+	"trading_peek_live_k_candle":        true,
 	// 交易標的
-	"trading_list_trading_symbols":  false,
+	"trading_list_trading_symbols":  true,
 	"trading_add_to_watchlist":      true,
 	"trading_remove_from_watchlist": true,
 	// 永續合約（自成一條路，與現貨互不相干）
 	"trading_create_contract_k_candle":               true,
-	"trading_list_contract_k_candles":                false,
-	"trading_get_contract_k_candle_series":           false,
-	"trading_get_contract_k_candle":                  false,
+	"trading_list_contract_k_candles":                true,
+	"trading_get_contract_k_candle_series":           true,
+	"trading_get_contract_k_candle":                  true,
 	"trading_update_contract_k_candle":               true,
 	"trading_delete_contract_k_candle":               true,
 	"trading_backfill_contract_k_candles":            true,
 	"trading_sync_contract_k_candle_history":         true,
 	"trading_get_contract_k_candle_history_sync":     true,
-	"trading_peek_live_contract_k_candle":            false,
-	"trading_list_contract_trading_symbols":          false,
+	"trading_peek_live_contract_k_candle":            true,
+	"trading_list_contract_trading_symbols":          true,
 	"trading_add_to_contract_watchlist":              true,
 	"trading_remove_from_contract_watchlist":         true,
-	"trading_list_contract_funding_rate_settlements": false,
-	"trading_list_contract_position_statistics":      false,
-	"trading_get_contract_maintenance_margin_tiers":  false,
+	"trading_list_contract_funding_rate_settlements": true,
+	"trading_list_contract_position_statistics":      true,
+	"trading_get_contract_maintenance_margin_tiers":  true,
 	// 指標
 	"trading_calculate_indicator":          true,
 	"trading_calculate_contract_indicator": true,
@@ -106,12 +105,12 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
-	requiresSignInPerNames := map[string]bool{}
+	offeredNames := map[string]bool{}
 	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
-		requiresSignInPerNames[apiTool.Name()] = apiTool.RequiresSignIn()
+		offeredNames[apiTool.Name()] = true
 	}
 
-	assert.Equal(t, everyAbilityTheTradingServiceOffers, requiresSignInPerNames)
+	assert.Equal(t, everyAbilityTheTradingServiceOffers, offeredNames)
 }
 
 func TestNoTwoAbilitiesShareAName(t *testing.T) {

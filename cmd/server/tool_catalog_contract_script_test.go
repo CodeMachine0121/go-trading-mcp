@@ -213,7 +213,6 @@ func TestTheContractIndicatorCalculationAsksTheContractLine(t *testing.T) {
 	require.NoError(t, buildError)
 	assert.Equal(t, vo.RequestVerbSubmit, request.Verb)
 	assert.Equal(t, "/contract-indicator-calculations", request.Path)
-	assert.True(t, request.CarriesIdentity, "策略腳本是某個人的，這一件要帶著身分")
 	assert.JSONEq(t, `{
 		"strategyScriptId": 7,
 		"symbol": "BTCUSDT",
@@ -351,5 +350,4 @@ func TestTheSpotCalculationStillAsksWhereItAlwaysDid(t *testing.T) {
 	require.NoError(t, buildError)
 	assert.Equal(t, vo.RequestVerbSubmit, request.Verb)
 	assert.Equal(t, "/indicator-calculations", request.Path)
-	assert.True(t, request.CarriesIdentity)
 }

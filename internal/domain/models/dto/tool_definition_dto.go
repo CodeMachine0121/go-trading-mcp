@@ -9,15 +9,9 @@ type ToolParameterDto struct {
 }
 
 // ToolDefinitionDto is one ability as the assistant is told about it: what it is
-// called, what it does, what has to be filled in, and whether it needs to know who
-// is asking.
-//
-// The last one is on here rather than left implicit because an assistant that cannot
-// see it has to discover it by being refused, and being refused is the one outcome
-// this connector exists to spare people.
+// called, what it does, and what has to be filled in.
 type ToolDefinitionDto struct {
-	Name           string
-	Description    string
-	RequiresSignIn bool
-	Parameters     []ToolParameterDto
+	Name        string
+	Description string
+	Parameters  []ToolParameterDto
 }

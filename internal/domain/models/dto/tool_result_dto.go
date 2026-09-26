@@ -2,11 +2,9 @@ package dto
 
 // ToolOutcome is how one attempt at an ability ended.
 //
-// Six words rather than a success flag and a message, because the four failures ask
-// the reader to do four different things: change what you sent, sign in, sign in
-// again, or wait and retry. One word for all of them would leave the assistant
-// guessing which, and guessing wrong is either an endless retry or a needless
-// password prompt.
+// Several words rather than a success flag and a message, because the failures ask
+// the reader to do different things: change what you sent, reconnect, or wait and
+// retry. One word for all of them would leave the assistant guessing which.
 type ToolOutcome string
 
 const (
@@ -18,12 +16,9 @@ const (
 	// ToolOutcomeTradingServiceUnreachable means this connector could not reach the
 	// trading service at all. Explicitly not the caller's fault.
 	ToolOutcomeTradingServiceUnreachable ToolOutcome = "tradingServiceUnreachable"
-	// ToolOutcomeSignInRequired means this ability needs to know who is asking and
-	// nobody has said.
-	ToolOutcomeSignInRequired ToolOutcome = "signInRequired"
-	// ToolOutcomeSignInExpired means somebody said, but that signing-in is past
-	// saving and the person has to sign in again.
-	ToolOutcomeSignInExpired ToolOutcome = "signInExpired"
+	// ToolOutcomeReconnectRequired means the trading service did not recognise the
+	// connector authorization, and the person has to reconnect from Claude Code.
+	ToolOutcomeReconnectRequired ToolOutcome = "reconnectRequired"
 	// ToolOutcomeUnknownTool means this connector does not do that.
 	ToolOutcomeUnknownTool ToolOutcome = "unknownTool"
 	// ToolOutcomeInvalidArguments means a required box was left empty, and Content
