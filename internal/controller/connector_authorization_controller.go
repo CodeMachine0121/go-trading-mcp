@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/application"
@@ -61,7 +62,9 @@ func (connectorAuthorizationController *ConnectorAuthorizationController) verify
 	}
 
 	if verificationError != nil {
-		return nil, verificationError
+		slog.Error("確認外掛授權失敗", slog.String("error", verificationError.Error()))
+
+		return nil, domains.ErrTradingServiceUnreachable
 	}
 
 	return &auth.TokenInfo{UserID: authorizationDto.Subject, Expiration: authorizationDto.ExpiresAt}, nil

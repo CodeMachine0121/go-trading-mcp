@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -135,16 +136,35 @@ func TestAValidConnectorAuthorizationReachesTheConnectorAsItsUser(t *testing.T) 
 }
 
 func TestATradingServiceThatCannotBeReachedIsNotAnsweredAsARejectedAuthorization(t *testing.T) {
-	connectorStandIn, _ := guardedConnector(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusServiceUnavailable)
-	})
+	testCases := []struct {
+		name      string
+		answering func(writer http.ResponseWriter)
+	}{
+		{"交易服務回 503", func(writer http.ResponseWriter) { writer.WriteHeader(http.StatusServiceUnavailable) }},
+		{"交易服務中途斷線", func(writer http.ResponseWriter) {
+			connection, _, _ := writer.(http.Hijacker).Hijack()
+			_ = connection.Close()
+		}},
+	}
 
-	response := callConnector(t, connectorStandIn.URL, "Bearer live")
-	body, _ := io.ReadAll(response.Body)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			tradingServiceHost := atomic.Value{}
+			connectorStandIn, _ := guardedConnector(t, func(writer http.ResponseWriter, request *http.Request) {
+				tradingServiceHost.Store(request.Host)
+				testCase.answering(writer)
+			})
 
-	assert.NotEqual(t, http.StatusUnauthorized, response.StatusCode)
-	assert.Empty(t, response.Header.Get("WWW-Authenticate"))
-	assert.Contains(t, string(body), "連不到交易服務")
+			response := callConnector(t, connectorStandIn.URL, "Bearer live")
+			body, _ := io.ReadAll(response.Body)
+
+			assert.NotEqual(t, http.StatusUnauthorized, response.StatusCode)
+			assert.Empty(t, response.Header.Get("WWW-Authenticate"))
+			assert.Contains(t, string(body), "連不到交易服務")
+			require.NotEmpty(t, tradingServiceHost.Load())
+			assert.NotContains(t, string(body), tradingServiceHost.Load().(string))
+		})
+	}
 }
 
 func TestTheMetadataSaysWhichResourceThisIsAndWhereToGetAnAuthorization(t *testing.T) {
