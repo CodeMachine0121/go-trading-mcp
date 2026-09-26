@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -61,4 +62,33 @@ func TestSavingAgainAfterOthersRanOutKeepsTheFreshOne(t *testing.T) {
 
 	assert.False(t, isStaleFound)
 	assert.True(t, isFreshFound)
+}
+
+func TestRanOutJudgementsStayUnfoundWhetherOrNotManyAreRemembered(t *testing.T) {
+	testCases := []struct {
+		name            string
+		rememberedCount int
+	}{
+		{"只記得少數幾筆", 3},
+		{"記得的多到要清理", 10_001},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			repository := persistence.NewConnectorAuthorizationVerdictRepository()
+			for index := range testCase.rememberedCount {
+				repository.Save("stale-"+strconv.Itoa(index), aLiveVerdict(), savedAt)
+			}
+			askedAt := savedAt.Add(2 * time.Minute)
+			repository.Save("fresh", aLiveVerdict(), askedAt)
+
+			_, isFirstStaleFound := repository.Find("stale-0", askedAt)
+			_, isLastStaleFound := repository.Find("stale-"+strconv.Itoa(testCase.rememberedCount-1), askedAt)
+			_, isFreshFound := repository.Find("fresh", askedAt)
+
+			assert.False(t, isFirstStaleFound)
+			assert.False(t, isLastStaleFound)
+			assert.True(t, isFreshFound)
+		})
+	}
 }

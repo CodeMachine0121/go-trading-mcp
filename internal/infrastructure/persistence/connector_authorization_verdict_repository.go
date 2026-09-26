@@ -9,6 +9,9 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 )
 
+// Sweeping only past this size keeps Save constant-time under the lock in ordinary use.
+const sweepThreshold = 10_000
+
 type rememberedVerdict struct {
 	verdict         domains.ConnectorAuthorizationDomain
 	rememberedUntil time.Time
@@ -50,9 +53,11 @@ func (connectorAuthorizationVerdictRepository *ConnectorAuthorizationVerdictRepo
 	connectorAuthorizationVerdictRepository.guard.Lock()
 	defer connectorAuthorizationVerdictRepository.guard.Unlock()
 
-	for fingerprint, remembered := range connectorAuthorizationVerdictRepository.rememberedPerFingerprints {
-		if !now.Before(remembered.rememberedUntil) {
-			delete(connectorAuthorizationVerdictRepository.rememberedPerFingerprints, fingerprint)
+	if len(connectorAuthorizationVerdictRepository.rememberedPerFingerprints) >= sweepThreshold {
+		for fingerprint, remembered := range connectorAuthorizationVerdictRepository.rememberedPerFingerprints {
+			if !now.Before(remembered.rememberedUntil) {
+				delete(connectorAuthorizationVerdictRepository.rememberedPerFingerprints, fingerprint)
+			}
 		}
 	}
 
