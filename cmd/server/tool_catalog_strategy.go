@@ -21,14 +21,14 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts",
-			"列出你用得到的每一支策略腳本：你自己的，加上你從市集採用的。"+
+			"列出你用得到的每一支策略腳本：你自己寫的，加上你從市集加入的副本（adopted，看不到算式）。"+
 				"每一支都帶著 marketDataKind——它吃 K 線還是合約行情，決定它能拿去哪一種指標計算。",
 			vo.RequestVerbRead, "/strategy-scripts", true,
 		),
 		domains.NewApiToolDomain(
 			"trading_get_strategy_script",
 			"讀一支策略腳本的完整內容，含算式本身、它宣告的旋鈕，以及它吃哪一種行情（marketDataKind）。"+
-				"\n\n讀得到的是你自己的、你採用過的、以及上架在市集的。別人的且沒上架的會被拒絕。",
+				"\n\n讀得到的是你自己的。從市集加入的副本也是你的，但它的算式是作者的，所以讀回來沒有算式。",
 			vo.RequestVerbRead, "/strategy-scripts/{id}", true,
 			pathParameter("id", "策略腳本識別碼"),
 		),
@@ -37,7 +37,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 			"改一支**你自己的**策略腳本。這是整份改寫：沒帶到的欄位會變成空的，不是保留原值。"+
 				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的行情種類，照抄原本的也可以；"+
 				"要換成另一種會被拒絕（行情種類建立後不得更換），要吃另一種請另建一支。"+
-				"\n\n採用自市集的那些改不動——它們是別人的。"+
+				"\n\n從市集加入的副本改不動——算式是作者的。"+
 				contractKCandleScriptNote,
 			vo.RequestVerbReplace, "/strategy-scripts/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一支")},
@@ -51,35 +51,31 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_publish_strategy_script",
-			"把一支你自己的策略腳本上架到市集，讓別人看得到、採用得了。",
+			"把一支你自己寫的策略腳本上架到市集，讓別人看得到、加入得了。從市集加入的副本不能再上架。",
 			vo.RequestVerbSubmit, "/strategy-scripts/{id}/publication", true,
 			pathParameter("id", "要上架哪一支"),
 		),
 		domains.NewApiToolDomain(
 			"trading_withdraw_strategy_script",
-			"把一支策略腳本從市集下架。已經採用它的人不受影響。",
+			"把一支策略腳本從市集下架。已經加入的人手上的是自己的副本，不受影響。",
 			vo.RequestVerbRemove, "/strategy-scripts/{id}/publication", true,
 			pathParameter("id", "要下架哪一支"),
 		),
 		domains.NewApiToolDomain(
 			"trading_browse_marketplace",
 			"瀏覽市集上每一支上架中的策略腳本。列表給的是名字與說明——"+
-				"說明是讀者唯一看得到的東西，算式本身要採用或讀取才看得到。"+
+				"說明是讀者唯一看得到的東西，算式本身誰都看不到，加入之後也一樣。"+
 				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情。",
 			vo.RequestVerbRead, "/marketplace/strategy-scripts", true,
 		),
 		domains.NewApiToolDomain(
 			"trading_adopt_strategy_script",
-			"採用市集上的一支策略腳本，之後它就出現在你用得到的清單裡，可以拿去計算與回測。"+
-				"\n\n採用不是複製：它仍然是作者的，作者改了你就跟著改，而你改不動它。",
+			"加入市集上的一支策略腳本：交易服務**複製一份給你**，出現在你用得到的清單裡（adopted），"+
+				"可以拿去計算、回測、組交易策略與機器人。"+
+				"\n\n副本是你的，但看不到算式、改不動、不能再上架；之後作者改寫、下架或刪除原本那一支都**不會影響它**。"+
+				"你已經有同名的策略腳本（包括再加入同一支）時會被拒絕。不要了就用 trading_delete_strategy_script 刪掉副本。",
 			vo.RequestVerbSubmit, "/marketplace/strategy-scripts/{id}/adoption", true,
 			pathParameter("id", "要採用哪一支"),
-		),
-		domains.NewApiToolDomain(
-			"trading_abandon_strategy_script",
-			"放棄一支採用過的策略腳本，它就從你用得到的清單裡消失。你自己的腳本不受影響。",
-			vo.RequestVerbRemove, "/marketplace/strategy-scripts/{id}/adoption", true,
-			pathParameter("id", "要放棄哪一支"),
 		),
 	}
 }
@@ -128,7 +124,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 				"\n\n**它吃哪一種行情（marketDataKind）建立當下就定了**：吃 K 線的拿去 trading_backtest_trading_strategy 重演、"+
 				"可以掛上策略機器人；吃合約行情的拿去 trading_backtest_contract_trading_strategy 重演，"+
 				"並且記著自己的交易模式（tradingMode），可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
-				"機器人吃的行情必須與交易策略相同，兩種不混用。",
+				"機器人吃的行情必須與交易策略相同，兩種不混用。"+
+				ownStrategyScriptsOnlyNote,
 			vo.RequestVerbSubmit, "/trading-strategies", true,
 			tradingStrategyWriteParameters()...,
 		),
@@ -149,7 +146,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"\n\n**例外是 marketDataKind 與 tradingMode**：不給就是保留原本的。"+
 				"marketDataKind 換成另一種會被拒絕；吃合約行情的那一種可以換交易模式（tradingMode），"+
-				"只改名字或條件時不必重帶它。",
+				"只改名字或條件時不必重帶它。"+
+				ownStrategyScriptsOnlyNote,
 			vo.RequestVerbReplace, "/trading-strategies/{id}", true,
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
@@ -175,6 +173,11 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 // The last paragraph is the half that cannot be learnt from the boxes: where a contract
 // script can go — a contract bot included — and that it is never rewritten into a spot
 // one to fit a spot bot.
+// ownStrategyScriptsOnlyNote is said on both trading strategy writes, since a signal source naming someone else's
+// script is refused on either.
+const ownStrategyScriptsOnlyNote = "\n\n**信號來源只能指名你自己的策略腳本**（含從市集加入的副本）。" +
+	"指名別人的——即使在市集上——會被拒絕，要先用 trading_adopt_strategy_script 加入，再指名那份副本。"
+
 const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 contractKCandle）的算式**，入口是 " +
 	"func Calculate(data []indicator.ContractKCandle) <依 resultType 而定>——照現貨的寫法收 []indicator.KCandle 會算不動。" +
 	"每一格是一個走完的刻度區間，**現貨 K 線有的每一項這裡都有、而且同名**" +

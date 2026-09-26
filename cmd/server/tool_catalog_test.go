@@ -76,7 +76,6 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_withdraw_strategy_script": true,
 	"trading_browse_marketplace":       true,
 	"trading_adopt_strategy_script":    true,
-	"trading_abandon_strategy_script":  true,
 	// 交易策略
 	"trading_create_trading_strategy": true,
 	"trading_list_trading_strategies": true,
@@ -653,6 +652,27 @@ func TestNoReplayPromisesAWipeOutCount(t *testing.T) {
 			// is not passing because the description lost its report-card paragraph
 			// altogether.
 			assert.Contains(t, description, "totalTransactionCost")
+		})
+	}
+}
+
+func TestAdoptingSaysItHandsOverACopyThatTheAuthorCanNoLongerChange(t *testing.T) {
+	description := abilityNamed(t, "trading_adopt_strategy_script").Description
+
+	assert.Contains(t, description, "複製一份給你")
+	assert.Contains(t, description, "看不到算式、改不動、不能再上架")
+	assert.Contains(t, description, "不會影響它")
+	assert.Contains(t, description, "同名的策略腳本（包括再加入同一支）時會被拒絕")
+	assert.Contains(t, description, "trading_delete_strategy_script")
+}
+
+func TestBothTradingStrategyWritesSayOnlyOnesOwnScriptsMayBeNamed(t *testing.T) {
+	for _, name := range []string{"trading_create_trading_strategy", "trading_update_trading_strategy"} {
+		t.Run(name, func(t *testing.T) {
+			description := abilityNamed(t, name).Description
+
+			assert.Contains(t, description, "信號來源只能指名你自己的策略腳本")
+			assert.Contains(t, description, "要先用 trading_adopt_strategy_script 加入")
 		})
 	}
 }
