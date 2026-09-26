@@ -23,4 +23,11 @@ type ITradingServiceProxy interface {
 		request vo.TradingServiceRequestVo,
 		accessToken string,
 	) (vo.TradingServiceResponseVo, error)
+
+	// InspectConnectorAuthorization asks the trading service how it judges one
+	// connector authorization. The error is reserved for not getting a judgement at all.
+	InspectConnectorAuthorization(
+		ctx context.Context,
+		accessToken string,
+	) (vo.ConnectorAuthorizationInspectionVo, error)
 }

@@ -310,3 +310,74 @@ func TestAnAskThatWaitsLongerOutlastsTheUsualWait(t *testing.T) {
 		})
 	}
 }
+
+func TestInspectingAConnectorAuthorizationPostsTheTokenAsAFormAndReadsTheJudgement(t *testing.T) {
+	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
+		_, _ = writer.Write([]byte(
+			`{"active":true,"sub":"42","aud":"https://trading-mcp.example.com/mcp","exp":1790000000}`))
+	})
+
+	inspection, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+	require.NoError(t, inspectionError)
+	assert.Equal(t, http.MethodPost, seen.method)
+	assert.Equal(t, "/oauth/introspection", seen.path)
+	assert.Equal(t, "token=a-token", seen.body)
+	assert.Empty(t, seen.authorization)
+	assert.True(t, inspection.IsActive)
+	assert.Equal(t, "42", inspection.Subject)
+	assert.Equal(t, "https://trading-mcp.example.com/mcp", inspection.Audience)
+	assert.Equal(t, time.Unix(1790000000, 0), inspection.ExpiresAt)
+}
+
+func TestAnInactiveJudgementIsAJudgementRatherThanAFailure(t *testing.T) {
+	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
+		_, _ = writer.Write([]byte(`{"active":false}`))
+	})
+
+	inspection, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+	require.NoError(t, inspectionError)
+	assert.False(t, inspection.IsActive)
+	assert.True(t, inspection.ExpiresAt.IsZero())
+}
+
+func TestNotGettingAJudgementIsBeingUnableToReachTheTradingService(t *testing.T) {
+	testCases := []struct {
+		name   string
+		answer func(http.ResponseWriter)
+	}{
+		{"被限流", func(writer http.ResponseWriter) { writer.WriteHeader(http.StatusTooManyRequests) }},
+		{"看不懂的回覆", func(writer http.ResponseWriter) { _, _ = writer.Write([]byte(`not json`)) }},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			proxy, _ := standingInFor(t, testCase.answer)
+
+			_, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+			assert.ErrorIs(t, inspectionError, domains.ErrTradingServiceUnreachable)
+		})
+	}
+}
+
+func TestInspectingWhenTheTradingServiceIsNotThereIsNotAJudgement(t *testing.T) {
+	testCases := []struct {
+		name    string
+		baseUrl string
+	}{
+		{"沒有人在聽", "http://127.0.0.1:1"},
+		{"位址組不出來", "://not-an-address"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			proxy := tradingservice.NewTradingServiceProxy(testCase.baseUrl, time.Second)
+
+			_, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+			assert.ErrorIs(t, inspectionError, domains.ErrTradingServiceUnreachable)
+		})
+	}
+}

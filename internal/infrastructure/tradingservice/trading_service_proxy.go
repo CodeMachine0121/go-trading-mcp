@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -95,6 +96,48 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 	}
 
 	return tradingServiceProxy.responseOf(httpResponse.StatusCode, string(content)), nil
+}
+
+// InspectConnectorAuthorization asks the trading service's introspection endpoint
+// how it judges one connector authorization.
+func (tradingServiceProxy *TradingServiceProxy) InspectConnectorAuthorization(
+	ctx context.Context,
+	accessToken string,
+) (vo.ConnectorAuthorizationInspectionVo, error) {
+	askCtx, stopWaiting := context.WithTimeout(ctx, tradingServiceProxy.requestTimeout)
+	defer stopWaiting()
+
+	httpRequest, buildError := http.NewRequestWithContext(
+		askCtx, http.MethodPost, tradingServiceProxy.baseUrl+"/oauth/introspection",
+		strings.NewReader(url.Values{"token": {accessToken}}.Encode()))
+	if buildError != nil {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：%s", domains.ErrTradingServiceUnreachable, buildError.Error())
+	}
+
+	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	httpRequest.Header.Set("Accept", "application/json")
+
+	httpResponse, sendError := tradingServiceProxy.httpClient.Do(httpRequest)
+	if sendError != nil {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：%s", domains.ErrTradingServiceUnreachable, sendError.Error())
+	}
+	defer httpResponse.Body.Close()
+
+	if httpResponse.StatusCode != http.StatusOK {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：確認外掛授權時交易服務回了 %d", domains.ErrTradingServiceUnreachable, httpResponse.StatusCode)
+	}
+
+	var inspection connectorAuthorizationInspectionWire
+	if decodeError := json.NewDecoder(
+		io.LimitReader(httpResponse.Body, answerSizeCeiling)).Decode(&inspection); decodeError != nil {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：交易服務回了一份看不懂的外掛授權確認", domains.ErrTradingServiceUnreachable)
+	}
+
+	return inspection.ToConnectorAuthorizationInspectionVo(), nil
 }
 
 // peekLiveUpdates stays on the line only as long as it is worth staying.

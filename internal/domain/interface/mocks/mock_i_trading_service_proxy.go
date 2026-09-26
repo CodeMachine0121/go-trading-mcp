@@ -41,6 +41,21 @@ func (m *MockITradingServiceProxy) EXPECT() *MockITradingServiceProxyMockRecorde
 	return m.recorder
 }
 
+// InspectConnectorAuthorization mocks base method.
+func (m *MockITradingServiceProxy) InspectConnectorAuthorization(ctx context.Context, accessToken string) (vo.ConnectorAuthorizationInspectionVo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InspectConnectorAuthorization", ctx, accessToken)
+	ret0, _ := ret[0].(vo.ConnectorAuthorizationInspectionVo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InspectConnectorAuthorization indicates an expected call of InspectConnectorAuthorization.
+func (mr *MockITradingServiceProxyMockRecorder) InspectConnectorAuthorization(ctx, accessToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectConnectorAuthorization", reflect.TypeOf((*MockITradingServiceProxy)(nil).InspectConnectorAuthorization), ctx, accessToken)
+}
+
 // Send mocks base method.
 func (m *MockITradingServiceProxy) Send(ctx context.Context, request vo.TradingServiceRequestVo, accessToken string) (vo.TradingServiceResponseVo, error) {
 	m.ctrl.T.Helper()
