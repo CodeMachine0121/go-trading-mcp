@@ -14,8 +14,7 @@ type rememberedVerdict struct {
 	rememberedUntil time.Time
 }
 
-// ConnectorAuthorizationVerdictRepository keeps judgements in memory under the
-// token's SHA-256 fingerprint, so no connector authorization itself is ever held.
+// Keyed by SHA-256 so the token itself is never held.
 type ConnectorAuthorizationVerdictRepository struct {
 	guard                     sync.Mutex
 	rememberedPerFingerprints map[string]rememberedVerdict
@@ -43,7 +42,6 @@ func (connectorAuthorizationVerdictRepository *ConnectorAuthorizationVerdictRepo
 	return remembered.verdict, true
 }
 
-// Save also forgets every judgement already past its time, so the store never only grows.
 func (connectorAuthorizationVerdictRepository *ConnectorAuthorizationVerdictRepository) Save(
 	accessToken string,
 	verdict domains.ConnectorAuthorizationDomain,

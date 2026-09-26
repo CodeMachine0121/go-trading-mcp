@@ -52,9 +52,7 @@ func loadApplicationConfig() ApplicationConfig {
 	}
 }
 
-// ProtectedResourceUrl is the address connector authorizations must be issued for.
-// It comes from configuration, never from the request: the proxies in front rewrite
-// the scheme, so a derived address would never match.
+// Configured rather than derived: Traefik rewrites the scheme.
 func (applicationConfig ApplicationConfig) ProtectedResourceUrl() string {
 	return applicationConfig.PublicBaseUrl + applicationConfig.McpPath
 }

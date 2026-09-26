@@ -12,8 +12,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// buildHttpHandler is the only place that knows any concrete type: it wires the
-// connector together and puts the MCP endpoint behind the connector authorization guard.
 func buildHttpHandler(applicationConfig ApplicationConfig) http.Handler {
 	tradingServiceProxy := tradingservice.NewTradingServiceProxy(
 		applicationConfig.TradingServiceBaseUrl, applicationConfig.TradingServiceRequestTimeout)

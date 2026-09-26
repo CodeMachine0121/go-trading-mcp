@@ -8,9 +8,6 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 )
 
-// ConnectorAuthorizationService decides whether a connector authorization lets its
-// bearer use this connector, asking the trading service only when no recent
-// judgement is remembered.
 type ConnectorAuthorizationService struct {
 	tradingServiceProxy                     _interface.ITradingServiceProxy
 	connectorAuthorizationVerdictRepository _interface.IConnectorAuthorizationVerdictRepository
@@ -32,9 +29,6 @@ func NewConnectorAuthorizationService(
 	}
 }
 
-// VerifyConnectorAuthorization answers ErrConnectorAuthorizationRejected for one that
-// does not count here, and ErrTradingServiceUnreachable, never remembered, when no
-// judgement could be had.
 func (connectorAuthorizationService *ConnectorAuthorizationService) VerifyConnectorAuthorization(
 	ctx context.Context,
 	accessToken string,

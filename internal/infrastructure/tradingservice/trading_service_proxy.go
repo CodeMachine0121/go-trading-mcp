@@ -98,8 +98,6 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 	return tradingServiceProxy.responseOf(httpResponse.StatusCode, string(content)), nil
 }
 
-// InspectConnectorAuthorization asks the trading service's introspection endpoint
-// how it judges one connector authorization.
 func (tradingServiceProxy *TradingServiceProxy) InspectConnectorAuthorization(
 	ctx context.Context,
 	accessToken string,

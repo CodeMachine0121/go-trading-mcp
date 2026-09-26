@@ -12,9 +12,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 )
 
-// ConnectorAuthorizationController is this connector's face as an OAuth protected
-// resource: the metadata that points Claude Code at the authorization server, and the
-// guard that turns away every call without a connector authorization that counts here.
 type ConnectorAuthorizationController struct {
 	connectorAuthorizationApplication *application.ConnectorAuthorizationApplication
 	protectedResourceUrl              string
@@ -51,8 +48,7 @@ func (connectorAuthorizationController *ConnectorAuthorizationController) Metada
 	})
 }
 
-// verify leaves an unreachable trading service as a plain error, so it is not answered
-// as a rejected authorization that would send the person through signing in again.
+// Unreachable must not read as a rejection, or the person is sent to sign in again.
 func (connectorAuthorizationController *ConnectorAuthorizationController) verify(
 	ctx context.Context,
 	accessToken string,

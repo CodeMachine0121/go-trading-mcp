@@ -10,8 +10,6 @@ import (
 
 const connectorAuthorizationVerdictMemoryLimit = time.Minute
 
-// ConnectorAuthorizationDomain is one connector authorization as the trading service
-// judged it, and whether that judgement lets it act on this connector.
 type ConnectorAuthorizationDomain struct {
 	isActive  bool
 	subject   string
@@ -30,8 +28,6 @@ func NewConnectorAuthorizationDomain(
 	}
 }
 
-// IsGrantedTo reports whether this authorization is live and was issued for exactly
-// this protected resource; a trailing slash does not make it a different one.
 func (connectorAuthorizationDomain ConnectorAuthorizationDomain) IsGrantedTo(
 	protectedResourceUrl string,
 ) bool {
@@ -39,8 +35,6 @@ func (connectorAuthorizationDomain ConnectorAuthorizationDomain) IsGrantedTo(
 		connectorAuthorizationDomain.audience == strings.TrimSuffix(protectedResourceUrl, "/")
 }
 
-// RememberedUntil is how long this judgement may be reused without asking again:
-// at most a minute, and never past the authorization's own expiry.
 func (connectorAuthorizationDomain ConnectorAuthorizationDomain) RememberedUntil(now time.Time) time.Time {
 	memoryLimit := now.Add(connectorAuthorizationVerdictMemoryLimit)
 	if connectorAuthorizationDomain.isActive &&

@@ -8,8 +8,6 @@ import (
 
 const bearerScheme = "bearer "
 
-// mcpCaller is who is on the other end of one call, read only from the call's own
-// envelope and never from the form the assistant filled in.
 type mcpCaller struct {
 	request *mcp.CallToolRequest
 }
@@ -18,8 +16,6 @@ func callerOn(request *mcp.CallToolRequest) mcpCaller {
 	return mcpCaller{request: request}
 }
 
-// AccessToken is the connector authorization this call arrived under, forwarded to the
-// trading service as is.
 func (mcpCaller mcpCaller) AccessToken() string {
 	extra := mcpCaller.request.GetExtra()
 	if extra == nil || extra.Header == nil {

@@ -6,8 +6,6 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 )
 
-// FailureReasonDomain is one thing that went wrong, and which thing it asks the reader
-// to do about it: reconnect, or wait and send the same thing again.
 type FailureReasonDomain struct {
 	cause error
 }

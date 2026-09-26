@@ -10,8 +10,6 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
 
-// ApiToolService carries out one ability under the caller's own connector
-// authorization, and owns no rule about market data.
 type ApiToolService struct {
 	apiToolsPerNames    map[string]domains.ApiToolDomain
 	tradingServiceProxy _interface.ITradingServiceProxy
@@ -41,8 +39,6 @@ func (apiToolService *ApiToolService) ListApiTools() []dto.ToolDefinitionDto {
 	return definitionDtos
 }
 
-// CallApiTool carries out one ability and says how it went. A refusal is a result,
-// not an error; only failing to reach the trading service comes back as one.
 func (apiToolService *ApiToolService) CallApiTool(
 	ctx context.Context,
 	toolCallDto dto.ToolCallDto,
