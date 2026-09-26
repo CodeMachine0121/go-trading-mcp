@@ -64,7 +64,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_browse_marketplace",
 			"瀏覽市集上每一支上架中的策略腳本。列表給的是名字與說明——"+
-				"說明是讀者唯一看得到的東西，算式本身誰都看不到，加入之後也一樣。"+
+				"說明是讀者唯一看得到的東西，算式除了作者，誰都看不到，加入之後也一樣。"+
 				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情。",
 			vo.RequestVerbRead, "/marketplace/strategy-scripts", true,
 		),
@@ -75,7 +75,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"\n\n副本是你的，但看不到算式、改不動、不能再上架；之後作者改寫、下架或刪除原本那一支都**不會影響它**。"+
 				"你已經有同名的策略腳本（包括再加入同一支）時會被拒絕。不要了就用 trading_delete_strategy_script 刪掉副本。",
 			vo.RequestVerbSubmit, "/marketplace/strategy-scripts/{id}/adoption", true,
-			pathParameter("id", "要採用哪一支"),
+			pathParameter("id", "要加入哪一支"),
 		),
 	}
 }
@@ -161,6 +161,11 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 	}
 }
 
+// ownStrategyScriptsOnlyNote is said on both trading strategy writes, since a signal source naming someone else's
+// script is refused on either.
+const ownStrategyScriptsOnlyNote = "\n\n**信號來源只能指名你自己的策略腳本**（含從市集加入的副本）。" +
+	"指名別人的——即使在市集上——會被拒絕，要先用 trading_adopt_strategy_script 加入，再指名那份副本。"
+
 // contractKCandleScriptNote is how to write a strategy script that eats the perpetual
 // contract, said once for every ability that has the assistant write or run one.
 //
@@ -173,10 +178,6 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 // The last paragraph is the half that cannot be learnt from the boxes: where a contract
 // script can go — a contract bot included — and that it is never rewritten into a spot
 // one to fit a spot bot.
-// ownStrategyScriptsOnlyNote is said on both trading strategy writes, since a signal source naming someone else's
-// script is refused on either.
-const ownStrategyScriptsOnlyNote = "\n\n**信號來源只能指名你自己的策略腳本**（含從市集加入的副本）。" +
-	"指名別人的——即使在市集上——會被拒絕，要先用 trading_adopt_strategy_script 加入，再指名那份副本。"
 
 const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 contractKCandle）的算式**，入口是 " +
 	"func Calculate(data []indicator.ContractKCandle) <依 resultType 而定>——照現貨的寫法收 []indicator.KCandle 會算不動。" +
