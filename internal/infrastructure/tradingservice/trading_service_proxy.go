@@ -237,12 +237,7 @@ func (tradingServiceProxy *TradingServiceProxy) send(
 	return httpResponse, nil
 }
 
-// responseOf turns one answered ask into the verdict the domain reads.
-//
-// Not recognised is singled out because it is the one refusal the person answers by
-// reconnecting rather than by rewording. Everything else — a rule not met, a thing not found, a database that
-// would not read — is the trading service speaking, and is carried through in its
-// own words rather than sorted into categories it did not ask for.
+// Unauthorized is singled out because it is answered by reconnecting, not rewording.
 func (tradingServiceProxy *TradingServiceProxy) responseOf(
 	statusCode int,
 	content string,
