@@ -29,7 +29,6 @@ func TestTheContractScriptReplayForwardsTheContractConditions(t *testing.T) {
 	require.NoError(t, buildError)
 	assert.Equal(t, vo.RequestVerbSubmit, request.Verb)
 	assert.Equal(t, "/contract-backtests", request.Path)
-	assert.True(t, request.CarriesIdentity)
 	body := string(request.Body)
 	for _, sent := range []string{
 		`"leverage":"5"`, `"tradingMode":"shortOnly"`, `"slippagePercentage":"0.05"`,

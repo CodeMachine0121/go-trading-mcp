@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
-	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/tradingservice"
 	"github.com/stretchr/testify/assert"
@@ -162,80 +161,6 @@ func TestATradingServiceThatIsNotThereIsNotARefusal(t *testing.T) {
 	assert.ErrorIs(t, sendError, domains.ErrTradingServiceUnreachable)
 }
 
-func TestSigningInReadsBothProofsAndBothExpiriesOutOfTheAnswer(t *testing.T) {
-	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
-		_, _ = writer.Write([]byte(`{
-			"accessToken":"a-token","expiresAt":"2026-09-17T12:15:00Z",
-			"refreshToken":"r-token","refreshTokenExpiresAt":"2026-10-17T12:00:00Z"}`))
-	})
-
-	sessionGrant, signInError := proxy.SignIn(context.Background(),
-		dto.SignInDto{Email: "james@example.com", Password: "correct horse"})
-
-	require.NoError(t, signInError)
-	assert.Equal(t, vo.TradingServiceSucceeded, sessionGrant.Outcome)
-	assert.Equal(t, "/sessions", seen.path)
-	assert.JSONEq(t, `{"email":"james@example.com","password":"correct horse"}`, seen.body)
-	assert.Equal(t, "a-token", sessionGrant.Tokens.AccessToken)
-	assert.Equal(t, "r-token", sessionGrant.Tokens.RefreshToken)
-	assert.Equal(t,
-		time.Date(2026, 9, 17, 12, 15, 0, 0, time.UTC), sessionGrant.Tokens.AccessTokenExpiresAt)
-	assert.Equal(t,
-		time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC), sessionGrant.Tokens.RefreshTokenExpiresAt)
-}
-
-func TestARefusedSigningInComesBackInTheTradingServicesWords(t *testing.T) {
-	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
-		writer.WriteHeader(http.StatusUnauthorized)
-		_, _ = writer.Write([]byte(`{"message":"電子郵件或密碼不正確"}`))
-	})
-
-	sessionGrant, signInError := proxy.SignIn(context.Background(),
-		dto.SignInDto{Email: "james@example.com", Password: "wrong"})
-
-	require.NoError(t, signInError)
-	assert.NotEqual(t, vo.TradingServiceSucceeded, sessionGrant.Outcome)
-	assert.Contains(t, sessionGrant.Content, "電子郵件或密碼不正確")
-}
-
-func TestRenewingSpendsTheRenewalProofAndReadsBackAFreshPair(t *testing.T) {
-	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
-		_, _ = writer.Write([]byte(`{
-			"accessToken":"fresh","expiresAt":"2026-09-17T12:15:00Z",
-			"refreshToken":"fresh-r","refreshTokenExpiresAt":"2026-10-17T12:00:00Z"}`))
-	})
-
-	sessionGrant, renewalError := proxy.RenewSession(context.Background(), "old-r")
-
-	require.NoError(t, renewalError)
-	assert.Equal(t, "/sessions/renewal", seen.path)
-	assert.JSONEq(t, `{"refreshToken":"old-r"}`, seen.body)
-	assert.Equal(t, "fresh", sessionGrant.Tokens.AccessToken)
-}
-
-func TestRevokingVoidsTheChain(t *testing.T) {
-	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
-		writer.WriteHeader(http.StatusNoContent)
-	})
-
-	response, revokeError := proxy.RevokeSession(context.Background(), "r-token")
-
-	require.NoError(t, revokeError)
-	assert.Equal(t, "/sessions/revocation", seen.path)
-	assert.JSONEq(t, `{"refreshToken":"r-token"}`, seen.body)
-	assert.Equal(t, vo.TradingServiceSucceeded, response.Outcome)
-}
-
-func TestAnAnswerWithProofsThatCannotBeReadIsNotTreatedAsASigningIn(t *testing.T) {
-	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
-		_, _ = writer.Write([]byte(`not json at all`))
-	})
-
-	_, signInError := proxy.SignIn(context.Background(), dto.SignInDto{Email: "a", Password: "b"})
-
-	assert.ErrorIs(t, signInError, domains.ErrTradingServiceUnreachable)
-}
-
 func TestWatchingStopsAtTheFirstUpdate(t *testing.T) {
 	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
 		writer.Header().Set("Content-Type", "text/event-stream")
@@ -289,28 +214,6 @@ func TestWatchingSomethingTheTradingServiceRefusesIsStillARefusal(t *testing.T) 
 	require.NoError(t, sendError)
 	assert.Equal(t, vo.TradingServiceRefused, response.Outcome)
 	assert.Contains(t, response.Content, "symbol 不得為空")
-}
-
-func TestARefusedRenewalIsAnAnswerRatherThanAnAbsenceOfOne(t *testing.T) {
-	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
-		writer.WriteHeader(http.StatusUnauthorized)
-		_, _ = writer.Write([]byte(`{"message":"請重新登入"}`))
-	})
-
-	sessionGrant, renewalError := proxy.RenewSession(context.Background(), "spent-r")
-
-	require.NoError(t, renewalError)
-	assert.NotEqual(t, vo.TradingServiceSucceeded, sessionGrant.Outcome)
-	assert.Contains(t, sessionGrant.Content, "請重新登入")
-}
-
-func TestASigningInThatNeverArrivesIsNotARefusal(t *testing.T) {
-	proxy := tradingservice.NewTradingServiceProxy("http://127.0.0.1:1", time.Second)
-
-	_, signInError := proxy.SignIn(context.Background(),
-		dto.SignInDto{Email: "james@example.com", Password: "correct horse"})
-
-	assert.ErrorIs(t, signInError, domains.ErrTradingServiceUnreachable)
 }
 
 func TestWatchingSomethingThatIsNotThereIsNotARefusalEither(t *testing.T) {
@@ -404,6 +307,77 @@ func TestAnAskThatWaitsLongerOutlastsTheUsualWait(t *testing.T) {
 				return
 			}
 			assert.ErrorIs(t, sendError, domains.ErrTradingServiceUnreachable)
+		})
+	}
+}
+
+func TestInspectingAConnectorAuthorizationPostsTheTokenAsAFormAndReadsTheJudgement(t *testing.T) {
+	proxy, seen := standingInFor(t, func(writer http.ResponseWriter) {
+		_, _ = writer.Write([]byte(
+			`{"active":true,"sub":"42","aud":"https://trading-mcp.example.com/mcp","exp":1790000000}`))
+	})
+
+	inspection, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+	require.NoError(t, inspectionError)
+	assert.Equal(t, http.MethodPost, seen.method)
+	assert.Equal(t, "/oauth/introspection", seen.path)
+	assert.Equal(t, "token=a-token", seen.body)
+	assert.Empty(t, seen.authorization)
+	assert.True(t, inspection.IsActive)
+	assert.Equal(t, "42", inspection.Subject)
+	assert.Equal(t, "https://trading-mcp.example.com/mcp", inspection.Audience)
+	assert.Equal(t, time.Unix(1790000000, 0), inspection.ExpiresAt)
+}
+
+func TestAnInactiveJudgementIsAJudgementRatherThanAFailure(t *testing.T) {
+	proxy, _ := standingInFor(t, func(writer http.ResponseWriter) {
+		_, _ = writer.Write([]byte(`{"active":false}`))
+	})
+
+	inspection, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+	require.NoError(t, inspectionError)
+	assert.False(t, inspection.IsActive)
+	assert.True(t, inspection.ExpiresAt.IsZero())
+}
+
+func TestNotGettingAJudgementIsBeingUnableToReachTheTradingService(t *testing.T) {
+	testCases := []struct {
+		name   string
+		answer func(http.ResponseWriter)
+	}{
+		{"被限流", func(writer http.ResponseWriter) { writer.WriteHeader(http.StatusTooManyRequests) }},
+		{"看不懂的回覆", func(writer http.ResponseWriter) { _, _ = writer.Write([]byte(`not json`)) }},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			proxy, _ := standingInFor(t, testCase.answer)
+
+			_, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+			assert.ErrorIs(t, inspectionError, domains.ErrTradingServiceUnreachable)
+		})
+	}
+}
+
+func TestInspectingWhenTheTradingServiceIsNotThereIsNotAJudgement(t *testing.T) {
+	testCases := []struct {
+		name    string
+		baseUrl string
+	}{
+		{"沒有人在聽", "http://127.0.0.1:1"},
+		{"位址組不出來", "://not-an-address"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			proxy := tradingservice.NewTradingServiceProxy(testCase.baseUrl, time.Second)
+
+			_, inspectionError := proxy.InspectConnectorAuthorization(context.Background(), "a-token")
+
+			assert.ErrorIs(t, inspectionError, domains.ErrTradingServiceUnreachable)
 		})
 	}
 }

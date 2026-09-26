@@ -111,14 +111,14 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"要對帳就用 trading_backtest_trading_strategy（合約機器人用 trading_backtest_contract_trading_strategy）"+
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。",
-			vo.RequestVerbSubmit, "/strategy-bots", true,
+			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_bots",
 			"列出你的每一台策略機器人，含它現在是不是在跑。"+
 				"每一台都帶著 marketDataKind，看得出它是現貨機器人（kCandle）還是合約機器人（contractKCandle）。",
-			vo.RequestVerbRead, "/strategy-bots", true,
+			vo.RequestVerbRead, "/strategy-bots",
 			queryParameter("marketDataKind", vo.ToolParameterKindString,
 				"只列其中一種：kCandle（現貨機器人）或 contractKCandle（合約機器人）。不給就全部列出；其他值會被拒絕", false),
 		),
@@ -126,7 +126,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_get_strategy_bot",
 			"讀一台策略機器人的設定與目前狀態，含它吃哪一種行情（marketDataKind）；"+
 				"合約機器人的 positionPlan 另帶著它的槓桿倍數（leverage）。",
-			vo.RequestVerbRead, "/strategy-bots/{id}", true,
+			vo.RequestVerbRead, "/strategy-bots/{id}",
 			pathParameter("id", "策略機器人識別碼"),
 		),
 		domains.NewApiToolDomain(
@@ -134,26 +134,26 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"改一台你自己的策略機器人。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"\n\n**例外是 marketDataKind**：不給就是保留原本的種類，只改名字或間隔時不必重帶它；"+
 				"換成另一種會被拒絕。合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。",
-			vo.RequestVerbReplace, "/strategy-bots/{id}", true,
+			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
 				strategyBotWriteParameters()...)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_delete_strategy_bot",
 			"刪掉一台你自己的策略機器人。",
-			vo.RequestVerbRemove, "/strategy-bots/{id}", true,
+			vo.RequestVerbRemove, "/strategy-bots/{id}",
 			pathParameter("id", "要刪哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_start_strategy_bot",
 			"啟動一台策略機器人，它開始按自己的間隔一輪一輪跑。",
-			vo.RequestVerbSubmit, "/strategy-bots/{id}/power", true,
+			vo.RequestVerbSubmit, "/strategy-bots/{id}/power",
 			pathParameter("id", "要啟動哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_stop_strategy_bot",
 			"停掉一台策略機器人。已經跑過的那些輪次紀錄一筆都不刪。",
-			vo.RequestVerbRemove, "/strategy-bots/{id}/power", true,
+			vo.RequestVerbRemove, "/strategy-bots/{id}/power",
 			pathParameter("id", "要停哪一台"),
 		),
 		domains.NewApiToolDomain(
@@ -161,7 +161,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"看一台策略機器人跑過哪幾輪，以及每一輪做了什麼決定。"+
 				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+
 				contractStrategyBotRunDetailsNote+contractStrategyBotSkippedRoundNote,
-			vo.RequestVerbRead, "/strategy-bots/{id}/runs", true,
+			vo.RequestVerbRead, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要看哪一台"),
 		),
 		domains.NewApiToolDomain(
@@ -170,7 +170,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
 				"回應是這台機器人跑完之後的樣子，不是這一輪的紀錄——跑完用 trading_list_strategy_bot_runs 讀這一輪的紀錄。"+
 				contractStrategyBotSkippedRoundNote,
-			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs", true,
+			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
 	}
@@ -181,26 +181,26 @@ func telegramDeliveryApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_get_telegram_delivery",
 			"讀你目前的電報通知設定。",
-			vo.RequestVerbRead, "/users/me/telegram-delivery", true,
+			vo.RequestVerbRead, "/users/me/telegram-delivery",
 		),
 		domains.NewApiToolDomain(
 			"trading_save_telegram_delivery",
 			"設定用哪一台電報機器人、送到哪個對話。設過了再設一次即覆蓋。"+
 				"\n\n設定之後建議用 trading_send_telegram_test_message 送一則測試，"+
 				"確認真的收得到——填錯的 chatId 不會有任何錯誤，只是安靜地送不到。",
-			vo.RequestVerbReplace, "/users/me/telegram-delivery", true,
+			vo.RequestVerbReplace, "/users/me/telegram-delivery",
 			bodyParameter("botToken", vo.ToolParameterKindString, "電報機器人的憑證", true),
 			bodyParameter("chatId", vo.ToolParameterKindString, "要送到哪個對話", true),
 		),
 		domains.NewApiToolDomain(
 			"trading_remove_telegram_delivery",
 			"移除電報通知設定，之後不再送任何通知。",
-			vo.RequestVerbRemove, "/users/me/telegram-delivery", true,
+			vo.RequestVerbRemove, "/users/me/telegram-delivery",
 		),
 		domains.NewApiToolDomain(
 			"trading_send_telegram_test_message",
 			"用目前的設定送一則測試訊息，確認真的收得到。",
-			vo.RequestVerbSubmit, "/users/me/telegram-delivery/test-message", true,
+			vo.RequestVerbSubmit, "/users/me/telegram-delivery/test-message",
 			bodyParameter("message", vo.ToolParameterKindString, "要送什麼內容", true),
 		),
 	}

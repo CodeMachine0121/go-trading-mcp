@@ -29,12 +29,11 @@ var ErrRequiredArgumentMissing = errors.New("必填欄位沒有填")
 // strategy script is yours — all of it belongs to the trading service, and a copy
 // kept here is a copy that will one day disagree with the original.
 type ApiToolDomain struct {
-	name           string
-	description    string
-	verb           vo.RequestVerb
-	pathTemplate   string
-	parameters     []vo.ToolParameterVo
-	requiresSignIn bool
+	name         string
+	description  string
+	verb         vo.RequestVerb
+	pathTemplate string
+	parameters   []vo.ToolParameterVo
 	// liveUpdateWaitLimit is how long to stay on the line for an ability that
 	// watches. Zero for every ordinary one.
 	liveUpdateWaitLimit time.Duration
@@ -52,16 +51,14 @@ func NewApiToolDomain(
 	description string,
 	verb vo.RequestVerb,
 	pathTemplate string,
-	requiresSignIn bool,
 	parameters ...vo.ToolParameterVo,
 ) ApiToolDomain {
 	return ApiToolDomain{
-		name:           name,
-		description:    description,
-		verb:           verb,
-		pathTemplate:   pathTemplate,
-		parameters:     parameters,
-		requiresSignIn: requiresSignIn,
+		name:         name,
+		description:  description,
+		verb:         verb,
+		pathTemplate: pathTemplate,
+		parameters:   parameters,
 	}
 }
 
@@ -116,11 +113,6 @@ func (apiToolDomain ApiToolDomain) Name() string {
 	return apiToolDomain.name
 }
 
-// RequiresSignIn reports whether this ability has to know who is asking.
-func (apiToolDomain ApiToolDomain) RequiresSignIn() bool {
-	return apiToolDomain.requiresSignIn
-}
-
 // ToDefinitionDto is this ability as the assistant is told about it.
 func (apiToolDomain ApiToolDomain) ToDefinitionDto() dto.ToolDefinitionDto {
 	parameterDtos := make([]dto.ToolParameterDto, 0, len(apiToolDomain.parameters))
@@ -134,10 +126,9 @@ func (apiToolDomain ApiToolDomain) ToDefinitionDto() dto.ToolDefinitionDto {
 	}
 
 	return dto.ToolDefinitionDto{
-		Name:           apiToolDomain.name,
-		Description:    apiToolDomain.description,
-		RequiresSignIn: apiToolDomain.requiresSignIn,
-		Parameters:     parameterDtos,
+		Name:        apiToolDomain.name,
+		Description: apiToolDomain.description,
+		Parameters:  parameterDtos,
 	}
 }
 
@@ -181,7 +172,6 @@ func (apiToolDomain ApiToolDomain) BuildRequest(
 		Path:                path,
 		Query:               query,
 		Body:                arguments.EncodedSubset(bodyNames),
-		CarriesIdentity:     apiToolDomain.requiresSignIn,
 		LiveUpdateWaitLimit: apiToolDomain.liveUpdateWaitLimit,
 		ResponseWaitLimit:   apiToolDomain.responseWaitLimit,
 	}, nil

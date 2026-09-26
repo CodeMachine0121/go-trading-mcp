@@ -22,7 +22,6 @@ func TestPeekingAtAContractAsksItsOwnLiveLineForTheFirstUpdate(t *testing.T) {
 	assert.Equal(t, vo.RequestVerbRead, request.Verb)
 	assert.Equal(t, "/contract-k-candles/live", request.Path)
 	assert.Equal(t, "BTCUSDT", request.Query["symbol"])
-	assert.False(t, request.CarriesIdentity, "看一眼即時更新不需要登入，與現貨相同")
 	assert.Equal(t, 10*time.Second, request.LiveUpdateWaitLimit)
 
 	spotRequest, spotBuildError := apiToolNamed(t, "trading_peek_live_k_candle").BuildRequest(

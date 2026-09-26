@@ -14,12 +14,7 @@ const (
 	TradingServiceSucceeded TradingServiceOutcome = "succeeded"
 	// TradingServiceRefused means it declined, and Content says why in its own words.
 	TradingServiceRefused TradingServiceOutcome = "refused"
-	// TradingServiceIdentityNotRecognized means it did not accept who we said we were.
-	//
-	// It is separate from a plain refusal because it is the one refusal this
-	// connector can do something about by itself: renew and ask again. Folded in
-	// with the others it would become "tell the user to sign in again", which is
-	// exactly the interruption the renewal exists to prevent.
+	// TradingServiceIdentityNotRecognized is the one refusal the person fixes by reconnecting, not by rewording.
 	TradingServiceIdentityNotRecognized TradingServiceOutcome = "identityNotRecognized"
 )
 
@@ -35,10 +30,6 @@ type TradingServiceResponseVo struct {
 
 // ToToolResultDto is this answer in the shape the caller is given it, in the trading
 // service's own words either way.
-//
-// Being unrecognised is not converted here. It is the one answer this connector acts
-// on rather than reports, so turning it into a result at this point would throw away
-// the chance to renew and ask again.
 func (tradingServiceResponseVo TradingServiceResponseVo) ToToolResultDto() dto.ToolResultDto {
 	if tradingServiceResponseVo.Outcome == TradingServiceSucceeded {
 		return dto.ToolResultDto{

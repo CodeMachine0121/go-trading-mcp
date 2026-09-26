@@ -16,20 +16,20 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"所以同一支「二十根均線」可以在一小時的刻度上看一次、再在一分鐘的刻度上看一次，不必存成兩支。"+
 				"\n\n**吃哪一種行情（marketDataKind）才是記在它身上的**，而且建立當下就定了、之後不能換。"+
 				contractKCandleScriptNote,
-			vo.RequestVerbSubmit, "/strategy-scripts", true,
+			vo.RequestVerbSubmit, "/strategy-scripts",
 			strategyScriptWriteParameters()...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts",
 			"列出你用得到的每一支策略腳本：你自己寫的，加上你從市集加入的副本（adopted，看不到算式）。"+
 				"每一支都帶著 marketDataKind——它吃 K 線還是合約行情，決定它能拿去哪一種指標計算。",
-			vo.RequestVerbRead, "/strategy-scripts", true,
+			vo.RequestVerbRead, "/strategy-scripts",
 		),
 		domains.NewApiToolDomain(
 			"trading_get_strategy_script",
 			"讀一支策略腳本的完整內容，含算式本身、它宣告的旋鈕，以及它吃哪一種行情（marketDataKind）。"+
 				"\n\n讀得到的是你自己的。從市集加入的副本也是你的，但它的算式是作者的，所以讀回來沒有算式。",
-			vo.RequestVerbRead, "/strategy-scripts/{id}", true,
+			vo.RequestVerbRead, "/strategy-scripts/{id}",
 			pathParameter("id", "策略腳本識別碼"),
 		),
 		domains.NewApiToolDomain(
@@ -39,26 +39,26 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"要換成另一種會被拒絕（行情種類建立後不得更換），要吃另一種請另建一支。"+
 				"\n\n從市集加入的副本改不動——算式是作者的。"+
 				contractKCandleScriptNote,
-			vo.RequestVerbReplace, "/strategy-scripts/{id}", true,
+			vo.RequestVerbReplace, "/strategy-scripts/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一支")},
 				strategyScriptWriteParameters()...)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_delete_strategy_script",
 			"刪掉一支你自己的策略腳本。",
-			vo.RequestVerbRemove, "/strategy-scripts/{id}", true,
+			vo.RequestVerbRemove, "/strategy-scripts/{id}",
 			pathParameter("id", "要刪哪一支"),
 		),
 		domains.NewApiToolDomain(
 			"trading_publish_strategy_script",
 			"把一支你自己寫的策略腳本上架到市集，讓別人看得到、加入得了。從市集加入的副本不能再上架。",
-			vo.RequestVerbSubmit, "/strategy-scripts/{id}/publication", true,
+			vo.RequestVerbSubmit, "/strategy-scripts/{id}/publication",
 			pathParameter("id", "要上架哪一支"),
 		),
 		domains.NewApiToolDomain(
 			"trading_withdraw_strategy_script",
 			"把一支策略腳本從市集下架。已經加入的人手上的是自己的副本，不受影響。",
-			vo.RequestVerbRemove, "/strategy-scripts/{id}/publication", true,
+			vo.RequestVerbRemove, "/strategy-scripts/{id}/publication",
 			pathParameter("id", "要下架哪一支"),
 		),
 		domains.NewApiToolDomain(
@@ -66,7 +66,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 			"瀏覽市集上每一支上架中的策略腳本。列表給的是名字與說明——"+
 				"說明是讀者唯一看得到的東西，算式除了作者，誰都看不到，加入之後也一樣。"+
 				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情。",
-			vo.RequestVerbRead, "/marketplace/strategy-scripts", true,
+			vo.RequestVerbRead, "/marketplace/strategy-scripts",
 		),
 		domains.NewApiToolDomain(
 			"trading_adopt_strategy_script",
@@ -74,7 +74,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"可以拿去計算、回測、組交易策略與機器人。"+
 				"\n\n副本是你的，但看不到算式、改不動、不能再上架；之後作者改寫、下架或刪除原本那一支都**不會影響它**。"+
 				"你已經有同名的策略腳本（包括再加入同一支）時會被拒絕。不要了就用 trading_delete_strategy_script 刪掉副本。",
-			vo.RequestVerbSubmit, "/marketplace/strategy-scripts/{id}/adoption", true,
+			vo.RequestVerbSubmit, "/marketplace/strategy-scripts/{id}/adoption",
 			pathParameter("id", "要加入哪一支"),
 		),
 	}
@@ -126,19 +126,19 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 				"並且記著自己的交易模式（tradingMode），可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
 				"機器人吃的行情必須與交易策略相同，兩種不混用。"+
 				ownStrategyScriptsOnlyNote,
-			vo.RequestVerbSubmit, "/trading-strategies", true,
+			vo.RequestVerbSubmit, "/trading-strategies",
 			tradingStrategyWriteParameters()...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_trading_strategies",
 			"列出你的每一份交易策略。",
-			vo.RequestVerbRead, "/trading-strategies", true,
+			vo.RequestVerbRead, "/trading-strategies",
 		),
 		domains.NewApiToolDomain(
 			"trading_get_trading_strategy",
 			"讀一份交易策略的完整內容，含信號來源、兩個條件樹、它吃哪一種行情（marketDataKind），"+
 				"吃合約行情的另外帶著它的交易模式（tradingMode）。",
-			vo.RequestVerbRead, "/trading-strategies/{id}", true,
+			vo.RequestVerbRead, "/trading-strategies/{id}",
 			pathParameter("id", "交易策略識別碼"),
 		),
 		domains.NewApiToolDomain(
@@ -148,14 +148,14 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 				"marketDataKind 換成另一種會被拒絕；吃合約行情的那一種可以換交易模式（tradingMode），"+
 				"只改名字或條件時不必重帶它。"+
 				ownStrategyScriptsOnlyNote,
-			vo.RequestVerbReplace, "/trading-strategies/{id}", true,
+			vo.RequestVerbReplace, "/trading-strategies/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
 		),
 		domains.NewApiToolDomain(
 			"trading_delete_trading_strategy",
 			"刪掉一份你自己的交易策略。掛在它上面的策略機器人會受影響，刪之前先確認。",
-			vo.RequestVerbRemove, "/trading-strategies/{id}", true,
+			vo.RequestVerbRemove, "/trading-strategies/{id}",
 			pathParameter("id", "要刪哪一份"),
 		),
 	}
@@ -258,7 +258,7 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				costedReportCardNote+
 				spotOnlyReplayNote+
 				shortTermReplayNote,
-			vo.RequestVerbSubmit, "/backtests", true,
+			vo.RequestVerbSubmit, "/backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
 					"要重演哪一支既有的策略腳本。與 script 擇一", false),
@@ -282,7 +282,7 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				costedReportCardNote+
 				spotOnlyReplayNote+
 				shortTermReplayNote,
-			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests", true,
+			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
 		).Waiting(replayWaitLimit).CondensingReplayResults(),
@@ -338,7 +338,7 @@ func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote,
-			vo.RequestVerbSubmit, "/contract-backtests", true,
+			vo.RequestVerbSubmit, "/contract-backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
 					"要重演哪一支既有的、吃合約行情的策略腳本。與 script 擇一", false),
@@ -366,7 +366,7 @@ func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote,
-			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests", true,
+			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				contractBacktestParameters()...)...,
 		).Waiting(replayWaitLimit).CondensingReplayResults(),

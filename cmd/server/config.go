@@ -3,8 +3,11 @@ package main
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
+
+const resourceMetadataPath = "/.well-known/oauth-protected-resource"
 
 // ApplicationConfig is everything about this connector that differs between one
 // machine and another.
@@ -16,7 +19,9 @@ type ApplicationConfig struct {
 	ServerBindAddress            string
 	ServerPort                   string
 	McpPath                      string
+	PublicBaseUrl                string
 	TradingServiceBaseUrl        string
+	TradingServicePublicUrl      string
 	TradingServiceRequestTimeout time.Duration
 	// TradingServiceReplayTimeout is how long the replay abilities wait for their
 	// answer. It is longer than the usual wait, and longer than the trading service's
@@ -29,13 +34,13 @@ type ApplicationConfig struct {
 
 func loadApplicationConfig() ApplicationConfig {
 	return ApplicationConfig{
-		// 預設只聽 loopback。這個外掛的 MCP 端點**沒有任何門鎖**——連得到的人就開得了
-		// 一段連線並以自己的帳號登入。聽在每一張網卡上，等於在咖啡廳的 wifi 上開一扇
-		// 沒有鎖的門，而且沒有任何跡象顯示它開著。要對外開放請是個明確的動作。
 		ServerBindAddress:     textWithDefault("SERVER_BIND_ADDRESS", "127.0.0.1"),
 		ServerPort:            textWithDefault("SERVER_PORT", "8090"),
 		McpPath:               textWithDefault("MCP_PATH", "/mcp"),
+		PublicBaseUrl:         strings.TrimSuffix(textWithDefault("PUBLIC_BASE_URL", "http://localhost:8090"), "/"),
 		TradingServiceBaseUrl: textWithDefault("TRADING_SERVICE_BASE_URL", "http://localhost:8080"),
+		TradingServicePublicUrl: strings.TrimSuffix(
+			textWithDefault("TRADING_SERVICE_PUBLIC_URL", "http://localhost:8080"), "/"),
 		TradingServiceRequestTimeout: time.Duration(
 			wholeNumberWithDefault("TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS", 30)) * time.Second,
 		TradingServiceReplayTimeout: time.Duration(
@@ -45,6 +50,15 @@ func loadApplicationConfig() ApplicationConfig {
 		IdleConnectionTimeout: time.Duration(
 			wholeNumberWithDefault("IDLE_CONNECTION_TIMEOUT_MINUTES", 60)) * time.Minute,
 	}
+}
+
+// Configured rather than derived: Traefik rewrites the scheme.
+func (applicationConfig ApplicationConfig) ProtectedResourceUrl() string {
+	return applicationConfig.PublicBaseUrl + applicationConfig.McpPath
+}
+
+func (applicationConfig ApplicationConfig) ResourceMetadataUrl() string {
+	return applicationConfig.PublicBaseUrl + resourceMetadataPath + applicationConfig.McpPath
 }
 
 func textWithDefault(name string, fallback string) string {

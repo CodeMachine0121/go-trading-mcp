@@ -68,7 +68,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 			"新增一根**永續合約** K 線。與現貨 K 線是兩種東西：同一個代號同一個起始時間兩邊各存一根、互不覆蓋。"+
 				"\n\n一根合約 K 線**每一項都必填**——價量、成交筆數、標記價格、指數價格、溢價指數，缺任何一項即拒絕。"+
 				"同代號同起始時間再新增一次即覆蓋。一般不需要用這一支，合約 K 線由系統自己抓。",
-			vo.RequestVerbSubmit, "/contract-k-candles", true,
+			vo.RequestVerbSubmit, "/contract-k-candles",
 			append([]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString, "合約標的，如 BTCUSDT", true),
 				bodyParameter("openTime", vo.ToolParameterKindString,
@@ -84,7 +84,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"用 trading_sync_contract_k_candle_history 同步那一段就會補上。"+
 				"單次筆數有上限，超過即拒絕；要看長區間請改用 trading_get_contract_k_candle_series。"+
 				"結束早於開始也會被拒絕。",
-			vo.RequestVerbRead, "/contract-k-candles", false,
+			vo.RequestVerbRead, "/contract-k-candles",
 			contractRangeParameters()...,
 		),
 		domains.NewApiToolDomain(
@@ -97,7 +97,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**interval 與 displayableCandleCount 兩者只能給一個**，兩個都給即整次拒絕；兩個都不給時由系統挑一種刻度，"+
 				"回應一律說出實際用的是哪一種，請照抄不要自行推算。區間依刻度切出的格數超過單次上限會被拒絕，"+
 				"可縮小區間或改用更長的刻度。",
-			vo.RequestVerbRead, "/contract-k-candles/series", false,
+			vo.RequestVerbRead, "/contract-k-candles/series",
 			append(contractRangeParameters(),
 				queryParameter("interval", vo.ToolParameterKindString,
 					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d。與 displayableCandleCount 互斥", false),
@@ -108,7 +108,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 		domains.NewApiToolDomain(
 			"trading_get_contract_k_candle",
 			"讀一根指定的永續合約 K 線。不存在時回 404。",
-			vo.RequestVerbRead, "/contract-k-candles/{symbol}/{openTime}", false,
+			vo.RequestVerbRead, "/contract-k-candles/{symbol}/{openTime}",
 			pathParameter("symbol", "合約標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
 		),
@@ -116,7 +116,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 			"trading_update_contract_k_candle",
 			"改一根既有永續合約 K 線的數字。**要改哪一根由 symbol 與 openTime 決定**——"+
 				"內文不要再帶交易標的或起始時間。所有數字一樣必填。",
-			vo.RequestVerbReplace, "/contract-k-candles/{symbol}/{openTime}", true,
+			vo.RequestVerbReplace, "/contract-k-candles/{symbol}/{openTime}",
 			append([]vo.ToolParameterVo{
 				pathParameter("symbol", "要改哪一個合約標的的 K 線"),
 				pathParameter("openTime", "要改哪一根（RFC3339 世界標準時間）"),
@@ -126,7 +126,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 			"trading_delete_contract_k_candle",
 			"刪掉一根指定的永續合約 K 線。現貨同代號同時間那根完全不受影響。成功沒有內容可回；"+
 				"指名的那一根不存在時回 404。",
-			vo.RequestVerbRemove, "/contract-k-candles/{symbol}/{openTime}", true,
+			vo.RequestVerbRemove, "/contract-k-candles/{symbol}/{openTime}",
 			pathParameter("symbol", "合約標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
 		),
@@ -136,7 +136,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n它只補 K 線——資金費率與持倉統計不需要手動補，系統每一輪都從上一筆接著問。"+
 				"要補**三十天以前**的持倉統計，用 trading_sync_contract_k_candle_history。"+
 				"沒登錄過的代號回 404。",
-			vo.RequestVerbSubmit, "/contract-k-candles/backfill", true,
+			vo.RequestVerbSubmit, "/contract-k-candles/backfill",
 			bodyParameter("symbol", vo.ToolParameterKindString, "要補哪一個合約標的", true),
 		),
 		domains.NewApiToolDomain(
@@ -151,7 +151,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"已經有的（包括每五分鐘即時錄下的）原封不動。歷史資料庫**沒有那一天的檔案不算失敗**"+
 				"（今天、通常還有昨天、合約上市前都沒有）；歷史資料庫不答話**只停下持倉統計那一份**，這趟照樣 succeeded。"+
 				"\n\n沒登錄過的代號回 404；同一個標的同時只跑一趟，再按一次回 409。",
-			vo.RequestVerbSubmit, "/contract-k-candles/history", true,
+			vo.RequestVerbSubmit, "/contract-k-candles/history",
 			bodyParameter("symbol", vo.ToolParameterKindString, "要同步哪一個合約標的", true),
 			bodyParameter("lookbackDays", vo.ToolParameterKindInteger,
 				"往回抓幾天。沒有預設值；超過上限會被拒絕並說出上限", true),
@@ -164,7 +164,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"totalDays、completedDays（共幾天、走到第幾天）、storedCount、skippedCount、fetchFailureReason。"+
 				"**兩組分開、不加總**，各有自己的來源原因：positionStatistic.fetchFailureReason 有值是歷史資料庫不答話，"+
 				"只停下持倉統計那一份、這趟仍算 succeeded。",
-			vo.RequestVerbRead, "/contract-k-candles/history/{id}", true,
+			vo.RequestVerbRead, "/contract-k-candles/history/{id}",
 			pathParameter("id", "trading_sync_contract_k_candle_history 回的那個輪次識別碼"),
 		),
 		// The contract twin of trading_peek_live_k_candle, and a separate ability rather
@@ -185,7 +185,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**只看得到合約追蹤名單上的合約標的**：不在名單上會被拒絕，先用 trading_add_to_contract_watchlist 加進去；"+
 				"系統不認得的代號回找不到。"+
 				"\n\n等滿沒有收到東西是正常結果，不是錯誤。要連續看請重複呼叫。",
-			vo.RequestVerbRead, "/contract-k-candles/live", false,
+			vo.RequestVerbRead, "/contract-k-candles/live",
 			queryParameter("symbol", vo.ToolParameterKindString, "要看哪一個合約標的", true),
 		).Watching(liveUpdateWaitLimit),
 		domains.NewApiToolDomain(
@@ -197,7 +197,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"tradingSpecification 為 null 代表還沒記下，不是規格為零。"+
 				"**這裡的維持保證金率只是最小那一級**；部位越大比例越高，完整的每一級請用 "+
 				"trading_get_contract_maintenance_margin_tiers。",
-			vo.RequestVerbRead, "/contract-trading-symbols", false,
+			vo.RequestVerbRead, "/contract-trading-symbols",
 		),
 		domains.NewApiToolDomain(
 			"trading_add_to_contract_watchlist",
@@ -207,7 +207,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**加完當場補齊四樣東西**：合約 K 線、從上市第一天起的完整資金費率、最近三十天的持倉統計、"+
 				"交易規格（有設定帳戶金鑰時還有完整的維持保證金分級）。**所以這一支要等二十秒左右**，那是正常的。"+
 				"任何一樣補失敗都不會讓加入失敗。",
-			vo.RequestVerbSubmit, "/contract-watchlist", true,
+			vo.RequestVerbSubmit, "/contract-watchlist",
 			bodyParameter("symbol", vo.ToolParameterKindString,
 				"合約代號。注意合約與現貨的代號不一定對應：現貨 SHIBUSDT 在合約叫 1000SHIBUSDT，價格差一千倍", true),
 		),
@@ -218,7 +218,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**但盯這個合約標的的合約機器人會就此失明**：新的合約 K 線不再進來，它每一輪都會跳過——"+
 				"不送訊息、紀錄上是 hold——直到把它加回來為止。移除之前先用 trading_list_strategy_bots "+
 				"（marketDataKind 給 contractKCandle）看有沒有合約機器人在盯它，有的話先跟使用者確認。",
-			vo.RequestVerbRemove, "/contract-watchlist/{symbol}", true,
+			vo.RequestVerbRemove, "/contract-watchlist/{symbol}",
 			pathParameter("symbol", "要停止追蹤哪一個合約標的"),
 		),
 		domains.NewApiToolDomain(
@@ -230,7 +230,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n結算時間照來源原樣記下，可能帶一毫秒的尾數，**不要自行取整**。"+
 				"markPrice 為 null 的是來源早年沒記下的結算，不是零。區間內沒有結算回空陣列。"+
 				"\n\n**會被拒絕的情況**：結束早於開始；區間裡的結算超過單次筆數上限（請縮小區間，分段查）。",
-			vo.RequestVerbRead, "/contract-funding-rate-settlements", false,
+			vo.RequestVerbRead, "/contract-funding-rate-settlements",
 			contractRangeParameters()...,
 		),
 		domains.NewApiToolDomain(
@@ -245,7 +245,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"沒同步過的那段查不到不是壞掉。"+
 				"\n\n**會被拒絕的情況**：結束早於開始；區間裡的持倉統計超過單次筆數上限"+
 				"（五分鐘一筆，一千筆約三天半，請縮小區間分段查）。",
-			vo.RequestVerbRead, "/contract-position-statistics", false,
+			vo.RequestVerbRead, "/contract-position-statistics",
 			contractRangeParameters()...,
 		),
 		domains.NewApiToolDomain(
@@ -257,7 +257,7 @@ func contractApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**這份資料要交易服務設定了幣安帳戶金鑰才會有**；沒設定時回空陣列，那不是錯誤，"+
 				"而是只能用交易規格裡最小那一級的維持保證金率。"+
 				"還沒抓過分級的合約標的一樣回空陣列；代號留白會被拒絕。",
-			vo.RequestVerbRead, "/contract-maintenance-margin-tiers", false,
+			vo.RequestVerbRead, "/contract-maintenance-margin-tiers",
 			queryParameter("symbol", vo.ToolParameterKindString, "合約標的", true),
 		),
 	}

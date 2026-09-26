@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
-	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 )
 
@@ -23,8 +22,7 @@ import (
 // The trading service is trusted, but "trusted" is about intent and this is about
 // accident: a query that matches far more than expected, a stuck stream, a reply
 // that is not what it claims. Reading without a ceiling turns any of those into this
-// process running out of memory — and a connector that dies takes every other
-// person's signed-in session with it.
+// process running out of memory.
 //
 // Sixteen mebibytes is far above the largest honest answer here (a thousand candles
 // is a few hundred kilobytes; a replay with its trade detail, a few megabytes).
@@ -100,78 +98,44 @@ func (tradingServiceProxy *TradingServiceProxy) Send(
 	return tradingServiceProxy.responseOf(httpResponse.StatusCode, string(content)), nil
 }
 
-// SignIn exchanges an account for a pair of proofs.
-func (tradingServiceProxy *TradingServiceProxy) SignIn(
+func (tradingServiceProxy *TradingServiceProxy) InspectConnectorAuthorization(
 	ctx context.Context,
-	signInDto dto.SignInDto,
-) (vo.SessionGrantVo, error) {
-	credentials, _ := json.Marshal(map[string]string{
-		"email":    signInDto.Email,
-		"password": signInDto.Password,
-	})
+	accessToken string,
+) (vo.ConnectorAuthorizationInspectionVo, error) {
+	askCtx, stopWaiting := context.WithTimeout(ctx, tradingServiceProxy.requestTimeout)
+	defer stopWaiting()
 
-	return tradingServiceProxy.askForGrant(ctx, "/sessions", credentials)
-}
+	httpRequest, buildError := http.NewRequestWithContext(
+		askCtx, http.MethodPost, tradingServiceProxy.baseUrl+"/oauth/introspection",
+		strings.NewReader(url.Values{"token": {accessToken}}.Encode()))
+	if buildError != nil {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：%s", domains.ErrTradingServiceUnreachable, buildError.Error())
+	}
 
-// RenewSession spends a renewal proof on a fresh pair.
-func (tradingServiceProxy *TradingServiceProxy) RenewSession(
-	ctx context.Context,
-	refreshToken string,
-) (vo.SessionGrantVo, error) {
-	renewal, _ := json.Marshal(map[string]string{"refreshToken": refreshToken})
+	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	httpRequest.Header.Set("Accept", "application/json")
 
-	return tradingServiceProxy.askForGrant(ctx, "/sessions/renewal", renewal)
-}
-
-// RevokeSession voids a whole renewal chain.
-func (tradingServiceProxy *TradingServiceProxy) RevokeSession(
-	ctx context.Context,
-	refreshToken string,
-) (vo.TradingServiceResponseVo, error) {
-	revocation, _ := json.Marshal(map[string]string{"refreshToken": refreshToken})
-
-	return tradingServiceProxy.Send(ctx, vo.TradingServiceRequestVo{
-		Verb: vo.RequestVerbSubmit,
-		Path: "/sessions/revocation",
-		Body: revocation,
-	}, "")
-}
-
-// askForGrant is the shape shared by signing in and renewing: post a small thing,
-// and read a pair of proofs out of the answer.
-//
-// The two are one method because they differ only in where they are posted and what
-// is posted there. Written twice, the reading of the pair would be written twice too,
-// and the half that gets a field name wrong is the half nobody exercises until a
-// signing-in expires in production.
-func (tradingServiceProxy *TradingServiceProxy) askForGrant(
-	ctx context.Context,
-	path string,
-	body []byte,
-) (vo.SessionGrantVo, error) {
-	response, sendError := tradingServiceProxy.Send(ctx, vo.TradingServiceRequestVo{
-		Verb: vo.RequestVerbSubmit,
-		Path: path,
-		Body: body,
-	}, "")
+	httpResponse, sendError := tradingServiceProxy.httpClient.Do(httpRequest)
 	if sendError != nil {
-		return vo.SessionGrantVo{}, sendError
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：%s", domains.ErrTradingServiceUnreachable, sendError.Error())
+	}
+	defer httpResponse.Body.Close()
+
+	if httpResponse.StatusCode != http.StatusOK {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：確認外掛授權時交易服務回了 %d", domains.ErrTradingServiceUnreachable, httpResponse.StatusCode)
 	}
 
-	if response.Outcome != vo.TradingServiceSucceeded {
-		return vo.SessionGrantVo{Outcome: response.Outcome, Content: response.Content}, nil
+	var inspection connectorAuthorizationInspectionWire
+	if decodeError := json.NewDecoder(
+		io.LimitReader(httpResponse.Body, answerSizeCeiling)).Decode(&inspection); decodeError != nil {
+		return vo.ConnectorAuthorizationInspectionVo{}, fmt.Errorf(
+			"%w：交易服務回了一份看不懂的外掛授權確認", domains.ErrTradingServiceUnreachable)
 	}
 
-	var grantedTokens sessionTokensWire
-	if decodeError := json.Unmarshal([]byte(response.Content), &grantedTokens); decodeError != nil {
-		return vo.SessionGrantVo{}, fmt.Errorf(
-			"%w：交易服務回了一份看不懂的憑證", domains.ErrTradingServiceUnreachable)
-	}
-
-	return vo.SessionGrantVo{
-		Outcome: vo.TradingServiceSucceeded,
-		Tokens:  grantedTokens.ToTokenPairVo(),
-	}, nil
+	return inspection.ToConnectorAuthorizationInspectionVo(), nil
 }
 
 // peekLiveUpdates stays on the line only as long as it is worth staying.
@@ -273,12 +237,7 @@ func (tradingServiceProxy *TradingServiceProxy) send(
 	return httpResponse, nil
 }
 
-// responseOf turns one answered ask into the verdict the domain reads.
-//
-// Not recognised is singled out because it is the one refusal this connector can act
-// on by itself. Everything else — a rule not met, a thing not found, a database that
-// would not read — is the trading service speaking, and is carried through in its
-// own words rather than sorted into categories it did not ask for.
+// Unauthorized is singled out because it is answered by reconnecting, not rewording.
 func (tradingServiceProxy *TradingServiceProxy) responseOf(
 	statusCode int,
 	content string,

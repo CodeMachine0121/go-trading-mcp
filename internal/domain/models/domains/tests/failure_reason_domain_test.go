@@ -17,8 +17,7 @@ func TestEachWayOfFailingAsksTheReaderForSomethingDifferent(t *testing.T) {
 		cause           error
 		expectedOutcome dto.ToolOutcome
 	}{
-		{"從來沒登入過", domains.ErrSignInRequired, dto.ToolOutcomeSignInRequired},
-		{"登入過但救不回來", domains.ErrSignInExpired, dto.ToolOutcomeSignInExpired},
+		{"交易服務不認得這份外掛授權", domains.ErrReconnectRequired, dto.ToolOutcomeReconnectRequired},
 		{"交易服務不在", domains.ErrTradingServiceUnreachable, dto.ToolOutcomeTradingServiceUnreachable},
 		{"其他沒見過的狀況", errors.New("something else"), dto.ToolOutcomeTradingServiceUnreachable},
 	}
@@ -35,18 +34,17 @@ func TestEachWayOfFailingAsksTheReaderForSomethingDifferent(t *testing.T) {
 }
 
 func TestAFailureWrappedInContextIsStillRecognisedForWhatItIs(t *testing.T) {
-	wrapped := fmt.Errorf("換新登入時：%w", domains.ErrSignInExpired)
+	wrapped := fmt.Errorf("代辦時：%w", domains.ErrReconnectRequired)
 
 	resultDto := domains.NewFailureReasonDomain(wrapped).ToToolResultDto()
 
-	assert.Equal(t, dto.ToolOutcomeSignInExpired, resultDto.Outcome)
+	assert.Equal(t, dto.ToolOutcomeReconnectRequired, resultDto.Outcome)
 }
 
-func TestNotBeingAbleToReachTheTradingServiceNeverReadsAsAnExpiry(t *testing.T) {
+func TestNotBeingAbleToReachTheTradingServiceNeverReadsAsReconnecting(t *testing.T) {
 	resultDto := domains.NewFailureReasonDomain(errors.New("dial tcp: i/o timeout")).ToToolResultDto()
 
-	assert.NotContains(t, resultDto.Content, "請重新登入",
-		"叫人白打一次密碼，是把「網路不通」誤診成「你過期了」的代價")
+	assert.NotContains(t, resultDto.Content, "重新連線")
 	assert.Contains(t, resultDto.Content, "連不到交易服務")
 }
 

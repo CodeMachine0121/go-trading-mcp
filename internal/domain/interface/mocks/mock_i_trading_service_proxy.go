@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	dto "github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/dto"
 	vo "github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,34 +41,19 @@ func (m *MockITradingServiceProxy) EXPECT() *MockITradingServiceProxyMockRecorde
 	return m.recorder
 }
 
-// RenewSession mocks base method.
-func (m *MockITradingServiceProxy) RenewSession(ctx context.Context, refreshToken string) (vo.SessionGrantVo, error) {
+// InspectConnectorAuthorization mocks base method.
+func (m *MockITradingServiceProxy) InspectConnectorAuthorization(ctx context.Context, accessToken string) (vo.ConnectorAuthorizationInspectionVo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenewSession", ctx, refreshToken)
-	ret0, _ := ret[0].(vo.SessionGrantVo)
+	ret := m.ctrl.Call(m, "InspectConnectorAuthorization", ctx, accessToken)
+	ret0, _ := ret[0].(vo.ConnectorAuthorizationInspectionVo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RenewSession indicates an expected call of RenewSession.
-func (mr *MockITradingServiceProxyMockRecorder) RenewSession(ctx, refreshToken any) *gomock.Call {
+// InspectConnectorAuthorization indicates an expected call of InspectConnectorAuthorization.
+func (mr *MockITradingServiceProxyMockRecorder) InspectConnectorAuthorization(ctx, accessToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenewSession", reflect.TypeOf((*MockITradingServiceProxy)(nil).RenewSession), ctx, refreshToken)
-}
-
-// RevokeSession mocks base method.
-func (m *MockITradingServiceProxy) RevokeSession(ctx context.Context, refreshToken string) (vo.TradingServiceResponseVo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSession", ctx, refreshToken)
-	ret0, _ := ret[0].(vo.TradingServiceResponseVo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RevokeSession indicates an expected call of RevokeSession.
-func (mr *MockITradingServiceProxyMockRecorder) RevokeSession(ctx, refreshToken any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSession", reflect.TypeOf((*MockITradingServiceProxy)(nil).RevokeSession), ctx, refreshToken)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectConnectorAuthorization", reflect.TypeOf((*MockITradingServiceProxy)(nil).InspectConnectorAuthorization), ctx, accessToken)
 }
 
 // Send mocks base method.
@@ -85,19 +69,4 @@ func (m *MockITradingServiceProxy) Send(ctx context.Context, request vo.TradingS
 func (mr *MockITradingServiceProxyMockRecorder) Send(ctx, request, accessToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockITradingServiceProxy)(nil).Send), ctx, request, accessToken)
-}
-
-// SignIn mocks base method.
-func (m *MockITradingServiceProxy) SignIn(ctx context.Context, signInDto dto.SignInDto) (vo.SessionGrantVo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SignIn", ctx, signInDto)
-	ret0, _ := ret[0].(vo.SessionGrantVo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SignIn indicates an expected call of SignIn.
-func (mr *MockITradingServiceProxyMockRecorder) SignIn(ctx, signInDto any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockITradingServiceProxy)(nil).SignIn), ctx, signInDto)
 }

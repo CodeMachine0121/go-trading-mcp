@@ -18,7 +18,7 @@ import (
 // replayStrategyScript is a replay ability, which waits longer and condenses.
 func replayStrategyScript() domains.ApiToolDomain {
 	return domains.NewApiToolDomain(
-		"trading_backtest_strategy_script", "重演", vo.RequestVerbSubmit, "/backtests", true,
+		"trading_backtest_strategy_script", "重演", vo.RequestVerbSubmit, "/backtests",
 	).Waiting(120 * time.Second).CondensingReplayResults()
 }
 
@@ -33,7 +33,6 @@ func aLongReplayResult() string {
 
 func TestAReplayWaitsLongerAndReachesTheAssistantCondensed(t *testing.T) {
 	connector := newConnector(t, replayStrategyScript())
-	connector.signInOn(t, aConnection, aLiveGrant("james-token"))
 	connector.tradingService.EXPECT().
 		Send(gomock.Any(), gomock.Any(), "james-token").
 		DoAndReturn(func(_ context.Context, request vo.TradingServiceRequestVo, _ string) (vo.TradingServiceResponseVo, error) {
@@ -42,36 +41,20 @@ func TestAReplayWaitsLongerAndReachesTheAssistantCondensed(t *testing.T) {
 			return succeededWith(aLongReplayResult()), nil
 		})
 
-	resultDto := connector.call("trading_backtest_strategy_script", aConnection)
+	resultDto := connector.call("trading_backtest_strategy_script", jamesAccessToken)
 
 	require.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
 	assert.Contains(t, resultDto.Content, `"equityCurvePointTotalCount":1000`)
 	assert.Contains(t, resultDto.Content, `"summary":{"finalEquity":"1"}`)
 }
 
-func TestAReplayAnsweredAfterARenewedSigningInIsCondensedToo(t *testing.T) {
-	connector := newConnector(t, replayStrategyScript())
-	connector.signInOn(t, aConnection, aLiveGrant("stale"))
-	gomock.InOrder(
-		connector.tradingService.EXPECT().Send(gomock.Any(), gomock.Any(), "stale").Return(notRecognized(), nil),
-		connector.tradingService.EXPECT().RenewSession(gomock.Any(), "stale-refresh").Return(aLiveGrant("fresh"), nil),
-		connector.tradingService.EXPECT().Send(gomock.Any(), gomock.Any(), "fresh").Return(succeededWith(aLongReplayResult()), nil),
-	)
-
-	resultDto := connector.call("trading_backtest_strategy_script", aConnection)
-
-	require.Equal(t, dto.ToolOutcomeSucceeded, resultDto.Outcome)
-	assert.Contains(t, resultDto.Content, `"equityCurvePointTotalCount":1000`)
-}
-
 func TestARefusedReplayReachesTheAssistantInTheTradingServicesWords(t *testing.T) {
 	connector := newConnector(t, replayStrategyScript())
-	connector.signInOn(t, aConnection, aLiveGrant("james-token"))
 	connector.tradingService.EXPECT().
 		Send(gomock.Any(), gomock.Any(), "james-token").
 		Return(refusedWith(`{"message":"驗證起點必須落在期間之內","field":"validationStartTime"}`), nil)
 
-	resultDto := connector.call("trading_backtest_strategy_script", aConnection)
+	resultDto := connector.call("trading_backtest_strategy_script", jamesAccessToken)
 
 	assert.Equal(t, dto.ToolOutcomeRefusedByTradingService, resultDto.Outcome)
 	assert.Equal(t, `{"message":"驗證起點必須落在期間之內","field":"validationStartTime"}`, resultDto.Content)

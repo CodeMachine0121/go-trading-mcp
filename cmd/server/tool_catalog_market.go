@@ -14,7 +14,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 			"新增一根 K 線。一根固定涵蓋一分鐘，起始時間必須落在一分鐘刻度上、且不得指向未來。"+
 				"同一個交易標的同一個起始時間再新增一次即覆蓋，不會產生第二根。"+
 				"\n\n一般不需要用這一支——K 線由系統自己抓。它是給手動補資料與測試用的。",
-			vo.RequestVerbSubmit, "/k-candles", true,
+			vo.RequestVerbSubmit, "/k-candles",
 			append([]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString, "交易標的，如 BTCUSDT 或 2330", true),
 				bodyParameter("openTime", vo.ToolParameterKindString,
@@ -26,7 +26,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 			"查一段區間的原始 K 線（一根一分鐘），起訖兩端都包含，依起始時間由早到晚。"+
 				"\n\n單次筆數有上限，超過即拒絕；要看長區間請改用 trading_get_k_candle_series，"+
 				"它會把區間彙總成比較粗的刻度。區間內沒有資料是正常結果，回空陣列而不是錯誤。",
-			vo.RequestVerbRead, "/k-candles", false,
+			vo.RequestVerbRead, "/k-candles",
 			queryParameter("symbol", vo.ToolParameterKindString, "交易標的", true),
 			queryParameter("startTime", vo.ToolParameterKindString,
 				"起（RFC3339 世界標準時間，含）", true),
@@ -40,7 +40,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"\n\n**interval 與 displayableCandleCount 兩者只能給一個。**"+
 				"兩個都給即整次拒絕（兩者矛盾時沒有正確的取捨）；兩個都不給時由系統挑一種刻度，"+
 				"回應一律說出實際用的是哪一種，請照抄不要自行推算。",
-			vo.RequestVerbRead, "/k-candles/series", false,
+			vo.RequestVerbRead, "/k-candles/series",
 			queryParameter("symbol", vo.ToolParameterKindString, "交易標的", true),
 			queryParameter("startTime", vo.ToolParameterKindString, "起（RFC3339 世界標準時間，含）", true),
 			queryParameter("endTime", vo.ToolParameterKindString, "訖（RFC3339 世界標準時間，含）", true),
@@ -52,7 +52,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 		domains.NewApiToolDomain(
 			"trading_get_k_candle",
 			"讀一根指定的 K 線。指名的那一根不存在時回 404。",
-			vo.RequestVerbRead, "/k-candles/{symbol}/{openTime}", false,
+			vo.RequestVerbRead, "/k-candles/{symbol}/{openTime}",
 			pathParameter("symbol", "交易標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
 		),
@@ -60,7 +60,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 			"trading_update_k_candle",
 			"改一根既有 K 線的價量數字。**要改哪一根由 symbol 與 openTime 決定**——"+
 				"內文不要再帶一次交易標的或起始時間，帶了且與這兩個不同會被拒絕。",
-			vo.RequestVerbReplace, "/k-candles/{symbol}/{openTime}", true,
+			vo.RequestVerbReplace, "/k-candles/{symbol}/{openTime}",
 			append([]vo.ToolParameterVo{
 				pathParameter("symbol", "要改哪一個交易標的的 K 線"),
 				pathParameter("openTime", "要改哪一根（RFC3339 世界標準時間）"),
@@ -69,7 +69,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 		domains.NewApiToolDomain(
 			"trading_delete_k_candle",
 			"刪掉一根指定的 K 線。成功沒有內容可回。",
-			vo.RequestVerbRemove, "/k-candles/{symbol}/{openTime}", true,
+			vo.RequestVerbRemove, "/k-candles/{symbol}/{openTime}",
 			pathParameter("symbol", "交易標的"),
 			pathParameter("openTime", "起始時間（RFC3339 世界標準時間）"),
 		),
@@ -79,7 +79,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"\n\n**補多久由系統的設定決定，不是你說了算**——所以這一支沒有回溯天數可填。"+
 				"要指定回溯多久請改用 trading_sync_k_candle_history。"+
 				"\n\n加進觀察清單時會自動補一次，所以正常情況下不必按這一支。沒登錄過的代號回 404。",
-			vo.RequestVerbSubmit, "/k-candles/backfill", true,
+			vo.RequestVerbSubmit, "/k-candles/backfill",
 			bodyParameter("symbol", vo.ToolParameterKindString, "要補哪一個交易標的", true),
 		),
 		domains.NewApiToolDomain(
@@ -90,7 +90,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"所以報告裡的「存了幾根」講的是這一次新增了幾根——整段本來就齊全時它是 0，而那是實話。"+
 				"\n\n回溯天數必須在 1 到系統上限之間，超過會被擋下來並告訴你上限是多少。"+
 				"沒登錄過的代號回 404。同一個標的同時只跑一趟，再按一次回 409。",
-			vo.RequestVerbSubmit, "/k-candles/history", true,
+			vo.RequestVerbSubmit, "/k-candles/history",
 			bodyParameter("symbol", vo.ToolParameterKindString, "要同步哪一個交易標的", true),
 			bodyParameter("lookbackDays", vo.ToolParameterKindInteger,
 				"往回抓幾天。沒有預設值，不給即拒絕", true),
@@ -101,7 +101,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"storedCount、skippedCount。"+
 				"\n\n**fetchFailureReason 與 failureReason 是兩件事**："+
 				"前者是行情來源不答話（這趟仍算 succeeded，那是查到的事），後者才是交易服務自己壞掉。",
-			vo.RequestVerbRead, "/k-candles/history/{id}", true,
+			vo.RequestVerbRead, "/k-candles/history/{id}",
 			pathParameter("id", "trading_sync_k_candle_history 回的那個輪次識別碼"),
 		),
 		domains.NewApiToolDomain(
@@ -114,7 +114,7 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"unavailable（這一檔分不到這個市場的即時名額，**不會自己好**，要改觀察清單）、"+
 				"marketClosed（這個市場現在休市，**什麼都別做**）。"+
 				"\n\n等滿沒有收到東西是正常結果，不是錯誤。要連續看請重複呼叫。",
-			vo.RequestVerbRead, "/k-candles/live", false,
+			vo.RequestVerbRead, "/k-candles/live",
 			queryParameter("symbol", vo.ToolParameterKindString, "要看哪一個交易標的", true),
 		).Watching(liveUpdateWaitLimit),
 	}
@@ -130,7 +130,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 				"isWithinTradingSession（現在開著嗎）、hasTradingSession（這個市場會不會收盤）、"+
 				"hasLiveUpdates（現在有沒有即時名額）。"+
 				"\n\n後三件只有交易服務答得出來，請不要自行推算——休市日不是算得出來的。",
-			vo.RequestVerbRead, "/trading-symbols", false,
+			vo.RequestVerbRead, "/trading-symbols",
 		),
 		domains.NewApiToolDomain(
 			"trading_add_to_watchlist",
@@ -139,7 +139,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 				"（補失敗不會讓加入失敗）。"+
 				"\n\n**market 一定要給，系統不從代號長相猜**：台股的 ETF、權證有英數混合的代號，"+
 				"加密貨幣的代號格式根本沒有規則。",
-			vo.RequestVerbSubmit, "/watchlist", true,
+			vo.RequestVerbSubmit, "/watchlist",
 			bodyParameter("symbol", vo.ToolParameterKindString, "交易標的代號", true),
 			bodyParameter("market", vo.ToolParameterKindString,
 				"所屬市場：taiwanStock（台股，台北時間 09:00–13:30、週一至週五）"+
@@ -149,7 +149,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 			"trading_remove_from_watchlist",
 			"把一個交易標的移出觀察清單。**只停止自動抓取**——已經抓回來的 K 線一根都不刪，"+
 				"這個標的仍然被系統認得、仍然選得到。",
-			vo.RequestVerbRemove, "/watchlist/{symbol}", true,
+			vo.RequestVerbRemove, "/watchlist/{symbol}",
 			pathParameter("symbol", "要停止追蹤哪一個交易標的"),
 		),
 	}
@@ -205,7 +205,7 @@ func indicatorApiTools() []domains.ApiToolDomain {
 				"（餵給算式的每一根從哪裡開始，由早到晚），"+
 				"所以要把一條線畫回圖上不必自己反推是哪幾根。"+
 				"\n\n算式跑不動（讀不懂、執行失敗、越權、逾時）回 422。",
-			vo.RequestVerbSubmit, "/indicator-calculations", true,
+			vo.RequestVerbSubmit, "/indicator-calculations",
 			append([]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString, "要算哪一個交易標的", true),
 			}, indicatorCalculationParameters()...)...,
@@ -225,7 +225,7 @@ func indicatorApiTools() []domains.ApiToolDomain {
 				"parameterValues 給了一個沒宣告過的名字。"+
 				"算式跑不動（讀不懂、入口照現貨收 K 線、執行失敗、越權、逾時）回 422。"+
 				contractKCandleScriptNote,
-			vo.RequestVerbSubmit, "/contract-indicator-calculations", true,
+			vo.RequestVerbSubmit, "/contract-indicator-calculations",
 			append([]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString,
 					"要算哪一個合約標的，如 BTCUSDT（永續合約的代號，與現貨代號不一定對應）", true),
