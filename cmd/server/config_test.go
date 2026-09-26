@@ -19,6 +19,10 @@ func TestTheConnectorRunsWithNoSettingsAtAll(t *testing.T) {
 	assert.Equal(t, "8090", applicationConfig.ServerPort)
 	assert.Equal(t, "/mcp", applicationConfig.McpPath)
 	assert.Equal(t, "http://localhost:8080", applicationConfig.TradingServiceBaseUrl)
+	assert.Equal(t, "http://localhost:8080", applicationConfig.TradingServicePublicUrl)
+	assert.Equal(t, "http://localhost:8090/mcp", applicationConfig.ProtectedResourceUrl())
+	assert.Equal(t, "http://localhost:8090/.well-known/oauth-protected-resource/mcp",
+		applicationConfig.ResourceMetadataUrl())
 	assert.Equal(t, 30*time.Second, applicationConfig.TradingServiceRequestTimeout)
 	assert.Equal(t, 120*time.Second, applicationConfig.TradingServiceReplayTimeout)
 	assert.Equal(t, 10*time.Second, applicationConfig.LiveUpdateWaitLimit)
@@ -59,8 +63,20 @@ func TestATimingThatMakesNoSenseFallsBackRatherThanStoppingTheConnector(t *testi
 }
 
 func TestTheConnectorOnlyListensOnLoopbackUnlessTheOperatorSaysOtherwise(t *testing.T) {
-	assert.Equal(t, "127.0.0.1", loadApplicationConfig().ServerBindAddress,
-		"這個端點沒有門鎖，所以聽在每一張網卡上必須是個明確的動作，不是預設值")
+	assert.Equal(t, "127.0.0.1", loadApplicationConfig().ServerBindAddress)
+}
+
+func TestThePublicAddressesComeFromConfigurationWithoutATrailingSlash(t *testing.T) {
+	t.Setenv("PUBLIC_BASE_URL", "https://trading-mcp.example.com/")
+	t.Setenv("TRADING_SERVICE_PUBLIC_URL", "https://trading-api.example.com/")
+	t.Setenv("MCP_PATH", "/connector")
+
+	applicationConfig := loadApplicationConfig()
+
+	assert.Equal(t, "https://trading-mcp.example.com/connector", applicationConfig.ProtectedResourceUrl())
+	assert.Equal(t, "https://trading-mcp.example.com/.well-known/oauth-protected-resource/connector",
+		applicationConfig.ResourceMetadataUrl())
+	assert.Equal(t, "https://trading-api.example.com", applicationConfig.TradingServicePublicUrl)
 }
 
 func TestOpeningItUpIsPossibleButHasToBeSaidOutLoud(t *testing.T) {

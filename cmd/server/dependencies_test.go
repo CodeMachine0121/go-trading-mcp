@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,29 +14,60 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTheAssembledConnectorOffersEveryAbilityOverTheWire is the one test that proves
-// the wiring itself, rather than any one piece of it.
-//
-// Everything below is already covered by its own tests; what only this can catch is a
-// controller that was built but never registered, or a catalogue that was built and
-// handed to nobody — both of which compile perfectly and do nothing.
-func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
-	applicationConfig := ApplicationConfig{
+const connectorPublicBaseUrl = "https://trading-mcp.example.com"
+
+func assembledConnector(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	tradingServiceStandIn := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if request.URL.Path != "/oauth/introspection" {
+				writer.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			_ = request.ParseForm()
+			if request.PostForm.Get("token") != "live" {
+				_, _ = writer.Write([]byte(`{"active":false}`))
+				return
+			}
+
+			_, _ = writer.Write([]byte(`{"active":true,"sub":"42","aud":"` + connectorPublicBaseUrl +
+				`/mcp","exp":` + strconv.FormatInt(time.Now().Add(15*time.Minute).Unix(), 10) + `}`))
+		}))
+	t.Cleanup(tradingServiceStandIn.Close)
+
+	connectorStandIn := httptest.NewServer(buildHttpHandler(ApplicationConfig{
 		McpPath:                      "/mcp",
-		TradingServiceBaseUrl:        "http://127.0.0.1:1",
+		PublicBaseUrl:                connectorPublicBaseUrl,
+		TradingServiceBaseUrl:        tradingServiceStandIn.URL,
+		TradingServicePublicUrl:      "https://trading-api.example.com",
 		TradingServiceRequestTimeout: time.Second,
 		TradingServiceReplayTimeout:  time.Second,
 		LiveUpdateWaitLimit:          time.Second,
-	}
-
-	connectorStandIn := httptest.NewServer(
-		buildHttpHandler(applicationConfig, buildMcpServer(applicationConfig)))
+	}))
 	t.Cleanup(connectorStandIn.Close)
+
+	return connectorStandIn
+}
+
+type bearerAdding struct{}
+
+func (bearerAdding) RoundTrip(request *http.Request) (*http.Response, error) {
+	request.Header.Set("Authorization", "Bearer live")
+
+	return http.DefaultTransport.RoundTrip(request)
+}
+
+func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
 
 	assistantSession, connectError := mcp.NewClient(
 		&mcp.Implementation{Name: "assistant", Version: "test"}, nil).
-		Connect(context.Background(),
-			&mcp.StreamableClientTransport{Endpoint: connectorStandIn.URL + "/mcp"}, nil)
+		Connect(context.Background(), &mcp.StreamableClientTransport{
+			Endpoint:   connectorStandIn.URL + "/mcp",
+			HTTPClient: &http.Client{Transport: bearerAdding{}},
+		}, nil)
 	require.NoError(t, connectError)
 	t.Cleanup(func() { _ = assistantSession.Close() })
 
@@ -46,30 +79,46 @@ func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
 		offeredNames[tool.Name] = true
 	}
 
-	for relayedName := range everyAbilityTheTradingServiceOffers {
-		assert.True(t, offeredNames[relayedName], "這件事沒有被掛上去：%s", relayedName)
-	}
+	assert.Equal(t, everyAbilityTheTradingServiceOffers, offeredNames)
+	assert.Contains(t, assistantSession.InitializeResult().Instructions, "/mcp")
+	assert.NotContains(t, assistantSession.InitializeResult().Instructions, "trading_sign_in")
+}
 
-	assert.Len(t, offeredNames, len(everyAbilityTheTradingServiceOffers))
+func TestTheAssembledConnectorTurnsAwayACallWithoutAConnectorAuthorization(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
 
-	for offeredName := range offeredNames {
-		assert.NotContains(t, offeredName, "assistant",
-			"掛上去的東西裡也不該有「代 AI 問另一個 AI」這種能力：%s", offeredName)
+	answer, requestError := http.Post(connectorStandIn.URL+"/mcp", "application/json", nil)
+	require.NoError(t, requestError)
+	t.Cleanup(func() { _ = answer.Body.Close() })
+
+	assert.Equal(t, http.StatusUnauthorized, answer.StatusCode)
+	assert.Equal(t,
+		`Bearer resource_metadata="`+connectorPublicBaseUrl+`/.well-known/oauth-protected-resource/mcp"`,
+		answer.Header.Get("WWW-Authenticate"))
+}
+
+func TestTheAssembledConnectorServesTheSameMetadataAtBothAddresses(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
+
+	for _, path := range []string{
+		"/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"} {
+		t.Run(path, func(t *testing.T) {
+			answer, requestError := http.Get(connectorStandIn.URL + path)
+			require.NoError(t, requestError)
+			t.Cleanup(func() { _ = answer.Body.Close() })
+			body, _ := io.ReadAll(answer.Body)
+
+			assert.Equal(t, http.StatusOK, answer.StatusCode)
+			assert.JSONEq(t, `{
+				"resource": "`+connectorPublicBaseUrl+`/mcp",
+				"authorization_servers": ["https://trading-api.example.com"],
+				"bearer_methods_supported": ["header"]}`, string(body))
+		})
 	}
 }
 
-func TestTheConnectorSaysItIsAliveWithoutTouchingTheTradingService(t *testing.T) {
-	applicationConfig := ApplicationConfig{
-		McpPath:                      "/mcp",
-		TradingServiceBaseUrl:        "http://127.0.0.1:1",
-		TradingServiceRequestTimeout: time.Second,
-		TradingServiceReplayTimeout:  time.Second,
-		LiveUpdateWaitLimit:          time.Second,
-	}
-
-	connectorStandIn := httptest.NewServer(
-		buildHttpHandler(applicationConfig, buildMcpServer(applicationConfig)))
-	t.Cleanup(connectorStandIn.Close)
+func TestTheConnectorSaysItIsAliveWithoutAnAuthorizationOrTheTradingService(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
 
 	answer, requestError := http.Get(connectorStandIn.URL + "/health")
 	require.NoError(t, requestError)

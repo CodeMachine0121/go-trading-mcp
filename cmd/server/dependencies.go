@@ -6,18 +6,50 @@ import (
 	"github.com/CodeMachine0121/go-trading-mcp/internal/application"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/controller"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/service"
+	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/clock"
+	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/persistence"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/infrastructure/tradingservice"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// buildMcpServer wires everything together and puts every ability on one server.
-//
-// This is the only place that knows any concrete type. Everything above it works
-// through interfaces, which is what lets the whole connector be tested without an HTTP
-// server, a clock, or a trading service anywhere near it.
-func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
+// buildHttpHandler is the only place that knows any concrete type: it wires the
+// connector together and puts the MCP endpoint behind the connector authorization guard.
+func buildHttpHandler(applicationConfig ApplicationConfig) http.Handler {
 	tradingServiceProxy := tradingservice.NewTradingServiceProxy(
 		applicationConfig.TradingServiceBaseUrl, applicationConfig.TradingServiceRequestTimeout)
+	connectorAuthorizationController := controller.NewConnectorAuthorizationController(
+		application.NewConnectorAuthorizationApplication(service.NewConnectorAuthorizationService(
+			tradingServiceProxy,
+			persistence.NewConnectorAuthorizationVerdictRepository(),
+			clock.NewClock(),
+			applicationConfig.ProtectedResourceUrl(),
+		)),
+		applicationConfig.ProtectedResourceUrl(),
+		applicationConfig.ResourceMetadataUrl(),
+		applicationConfig.TradingServicePublicUrl,
+	)
+
+	server := buildMcpServer(applicationConfig, tradingServiceProxy)
+	mcpHandler := mcp.NewStreamableHTTPHandler(
+		func(*http.Request) *mcp.Server { return server },
+		&mcp.StreamableHTTPOptions{SessionTimeout: applicationConfig.IdleConnectionTimeout})
+
+	router := http.NewServeMux()
+	router.Handle(applicationConfig.McpPath, connectorAuthorizationController.Guard(mcpHandler))
+	router.Handle(resourceMetadataPath, connectorAuthorizationController.MetadataHandler())
+	router.Handle(resourceMetadataPath+applicationConfig.McpPath, connectorAuthorizationController.MetadataHandler())
+	router.HandleFunc("/health", func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"status":"Healthy"}`))
+	})
+
+	return router
+}
+
+func buildMcpServer(
+	applicationConfig ApplicationConfig,
+	tradingServiceProxy *tradingservice.TradingServiceProxy,
+) *mcp.Server {
 	apiToolService := service.NewApiToolService(
 		apiToolCatalog(applicationConfig.LiveUpdateWaitLimit, applicationConfig.TradingServiceReplayTimeout),
 		tradingServiceProxy,
@@ -42,29 +74,4 @@ func buildMcpServer(applicationConfig ApplicationConfig) *mcp.Server {
 		application.NewApiToolApplication(apiToolService)).RegisterOn(server)
 
 	return server
-}
-
-// buildHttpHandler puts the MCP server behind one address.
-//
-// Every connection gets the same server instance and its own session, which is what
-// makes one person's identity unreachable from another's connection: the identity is
-// filed under the session, and the session is the transport's own idea of who is on
-// the other end.
-func buildHttpHandler(applicationConfig ApplicationConfig, server *mcp.Server) http.Handler {
-	mcpHandler := mcp.NewStreamableHTTPHandler(
-		func(*http.Request) *mcp.Server { return server },
-		&mcp.StreamableHTTPOptions{
-			// 沒有這一行，每一段連過的連線都會被留著，直到行程結束為止——
-			// 一個只會長大、永遠不會縮小的表。閒置到期的代價只是重新登入一次。
-			SessionTimeout: applicationConfig.IdleConnectionTimeout,
-		})
-
-	router := http.NewServeMux()
-	router.Handle(applicationConfig.McpPath, mcpHandler)
-	router.HandleFunc("/health", func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"status":"Healthy"}`))
-	})
-
-	return router
 }
