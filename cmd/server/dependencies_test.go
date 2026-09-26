@@ -82,6 +82,7 @@ func TestTheAssembledConnectorOffersEveryAbilityOverTheWire(t *testing.T) {
 	assert.Equal(t, everyAbilityTheTradingServiceOffers, offeredNames)
 	assert.Contains(t, assistantSession.InitializeResult().Instructions, "/mcp")
 	assert.NotContains(t, assistantSession.InitializeResult().Instructions, "trading_sign_in")
+	assert.Contains(t, assistantSession.InitializeResult().Instructions, "絕不要向使用者要電子郵件或密碼")
 }
 
 func TestTheAssembledConnectorTurnsAwayACallWithoutAConnectorAuthorization(t *testing.T) {
