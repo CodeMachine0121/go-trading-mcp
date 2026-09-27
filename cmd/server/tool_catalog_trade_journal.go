@@ -99,7 +99,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		),
 		domains.NewApiToolDomain(
 			"trading_update_contract_trade_plan",
-			"修改進場計畫（止損、止盈、理由、信心）。**平倉後計畫已鎖定**，被拒時建議改用 trading_add_contract_trade_note 加附註。",
+			"修改進場計畫（止損、止盈、理由、信心）。**整份取代，沒給的項目會被清空**——只改其中一項時，先用 trading_get_contract_trade 讀出現在的計畫，其餘原樣帶上。"+
+				"**平倉後計畫已鎖定**，被拒時建議改用 trading_add_contract_trade_note 加附註。",
 			vo.RequestVerbReplace, "/contract-trade-records/{id}/plan",
 			append([]vo.ToolParameterVo{contractTradeIdentifierParameter()}, contractTradePlanParameters()...)...,
 		),
@@ -112,7 +113,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		),
 		domains.NewApiToolDomain(
 			"trading_write_contract_trade_review",
-			"寫或修改一筆交易的檢討。**只能在平倉後寫**，持倉中會被拒絕；寫完即已檢討，之後還能改。",
+			"寫或修改一筆交易的檢討。**只能在平倉後寫**，持倉中會被拒絕；寫完即已檢討，之後還能改。"+
+				"**整份取代，沒給的項目會被清空**（含失誤標籤）——修改時先用 trading_get_contract_trade 讀出現在的檢討，其餘原樣帶上。",
 			vo.RequestVerbReplace, "/contract-trade-records/{id}/review",
 			contractTradeIdentifierParameter(),
 			bodyParameter("wentWell", vo.ToolParameterKindString, "哪裡做對", false),
@@ -175,7 +177,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		),
 		domains.NewApiToolDomain(
 			"trading_save_trade_journal_settings",
-			"設定或修正掛單與吃單手續費率。**不得為負**；改了只影響之後記的成交，舊成交的手續費不變。",
+			"設定或修正掛單與吃單手續費率。**不得為負**；改了只影響之後記的成交，舊成交的手續費不變。"+
+				"**兩個費率整組取代，沒給的那一個會被清空**——只改其中一個時，先用 trading_get_trade_journal_settings 讀出另一個並原樣帶上。",
 			vo.RequestVerbReplace, "/users/me/trade-journal-settings",
 			bodyParameter("makerFeeRate", vo.ToolParameterKindString, "掛單費率，百分比（0.02 就是 0.02%，字串形式的精確小數）", false),
 			bodyParameter("takerFeeRate", vo.ToolParameterKindString, "吃單費率，百分比（0.05 就是 0.05%，字串形式的精確小數）", false),
