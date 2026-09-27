@@ -139,6 +139,7 @@ func TestEverySpotAbilitySaysWhatWillGetItRefusedAndWhatToDo(t *testing.T) {
 		{"trading_record_spot_trade", []string{
 			"只有先買後賣", "沒有做空、沒有槓桿", "不要送出", "先問現貨還是合約", "參考價不是成交價",
 			"同一標的已有持有中會被拒絕", "trading_add_spot_trade_fill", "沒有欄位可以指定擁有者", "編號", "股數說出來請使用者確認",
+			"多筆買進", "依序", "中途被拒就停下",
 		}},
 		{"trading_add_spot_trade_fill", []string{"賣出超過目前持有會被拒絕", "已平倉", "報酬率", "可以寫檢討", "已平倉的交易不能再加買賣", "中途被拒就停下"}},
 		{"trading_update_spot_trade_fill", []string{"沒給的項目不會保留", "trading_get_spot_trade", "只有持有中的交易可以修正", "平倉後已鎖定", "刪除整筆重記"}},
@@ -186,8 +187,17 @@ func TestSpotQuantitiesPricesAndFeesSayWhatTheAssistantMustKnow(t *testing.T) {
 }
 
 func TestASpotPlanSaysWhichSideTheStopBelongsOn(t *testing.T) {
-	assert.Contains(t, boxDescription(t, "trading_update_spot_trade_plan", "plannedStopLossPrice"), "止損必須低於第一筆買進價")
-	assert.Contains(t, boxDescription(t, "trading_record_spot_trade", "plan"), "止損必須低於第一筆買進價")
+	testCases := []struct {
+		abilityName string
+		boxName     string
+	}{
+		{"trading_update_spot_trade_plan", "plannedStopLossPrice"},
+		{"trading_record_spot_trade", "plan"},
+	}
+
+	for _, testCase := range testCases {
+		assert.Contains(t, boxDescription(t, testCase.abilityName, testCase.boxName), "止損必須低於第一筆買進價", testCase.abilityName)
+	}
 }
 
 func TestASpotTradeFollowsOnlyASpotStrategy(t *testing.T) {
@@ -198,33 +208,51 @@ func TestASpotTradeFollowsOnlyASpotStrategy(t *testing.T) {
 	})
 
 	assert.Contains(t, string(request.Body), `"tradingStrategyId":5`)
+}
+
+func TestASpotStrategyBoxSaysOnlyASpotStrategyFits(t *testing.T) {
 	for _, phrase := range []string{"只能是使用者自己的 K 線（現貨）交易策略", "合約交易策略會被拒絕", "不給即自行判斷"} {
 		assert.Contains(t, boxDescription(t, "trading_record_spot_trade", "tradingStrategyId"), phrase)
 	}
 }
 
 func TestSpotDefaultsAreLeftToTheTradingService(t *testing.T) {
-	listRequest := buildTradeJournalRequest(t, "trading_list_spot_trades", map[string]json.RawMessage{})
-	assert.Empty(t, listRequest.Query)
+	testCases := []struct {
+		name           string
+		abilityName    string
+		givenBoxes     map[string]json.RawMessage
+		expectedQuery  map[string]string
+		absentFromBody []string
+	}{
+		{"listing sends no query of its own", "trading_list_spot_trades", map[string]json.RawMessage{}, map[string]string{}, nil},
+		{"listing forwards only what was given", "trading_list_spot_trades", map[string]json.RawMessage{
+			"market": json.RawMessage(`"taiwanStock"`),
+			"status": json.RawMessage(`"closed"`),
+		}, map[string]string{"market": "taiwanStock", "status": "closed"}, nil},
+		{"statistics leave the period to the service", "trading_get_spot_trade_statistics", map[string]json.RawMessage{}, map[string]string{}, nil},
+		{"a sell without fee or time leaves both to the service", "trading_add_spot_trade_fill", map[string]json.RawMessage{
+			"id":       json.RawMessage(`"41"`),
+			"kind":     json.RawMessage(`"sell"`),
+			"price":    json.RawMessage(`"1120"`),
+			"quantity": json.RawMessage(`"600"`),
+		}, map[string]string{}, []string{"fee", "filledAt"}},
+	}
 
-	narrowed := buildTradeJournalRequest(t, "trading_list_spot_trades", map[string]json.RawMessage{
-		"market": json.RawMessage(`"taiwanStock"`),
-		"status": json.RawMessage(`"closed"`),
-	})
-	assert.Equal(t, map[string]string{"market": "taiwanStock", "status": "closed"}, narrowed.Query)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := buildTradeJournalRequest(t, testCase.abilityName, testCase.givenBoxes)
 
-	statisticsRequest := buildTradeJournalRequest(t, "trading_get_spot_trade_statistics", map[string]json.RawMessage{})
-	assert.Empty(t, statisticsRequest.Query)
+			if len(testCase.expectedQuery) == 0 {
+				assert.Empty(t, request.Query)
+			} else {
+				assert.Equal(t, testCase.expectedQuery, request.Query)
+			}
+			for _, absentKey := range testCase.absentFromBody {
+				assert.NotContains(t, string(request.Body), absentKey)
+			}
+		})
+	}
 	assert.Contains(t, boxDescription(t, "trading_get_spot_trade_statistics", "period"), "省略即最近 30 天")
-
-	fillRequest := buildTradeJournalRequest(t, "trading_add_spot_trade_fill", map[string]json.RawMessage{
-		"id":       json.RawMessage(`"41"`),
-		"kind":     json.RawMessage(`"sell"`),
-		"price":    json.RawMessage(`"1120"`),
-		"quantity": json.RawMessage(`"600"`),
-	})
-	assert.NotContains(t, string(fillRequest.Body), "fee")
-	assert.NotContains(t, string(fillRequest.Body), "filledAt")
 }
 
 func TestNoSpotAbilityLetsTheAssistantNameAnOwner(t *testing.T) {
