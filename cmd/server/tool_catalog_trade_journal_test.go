@@ -142,7 +142,7 @@ func TestEachAbilityRequiresOnlyWhatTheTradingServiceRequires(t *testing.T) {
 func TestRecordingATradeTellsTheAssistantWhatToReportBack(t *testing.T) {
 	description := abilityNamed(t, "trading_record_contract_trade").Description
 
-	for _, phrase := range []string{"編號", "進場均價", "計畫風險", "記下的成交時間"} {
+	for _, phrase := range []string{"編號", "開倉均價", "計畫風險", "記下的時間"} {
 		assert.Contains(t, description, phrase)
 	}
 }
@@ -198,13 +198,13 @@ func TestTheFillTimeSaysNowIsTheDefaultAndHowToReportIt(t *testing.T) {
 	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "省略即交易服務以現在記下")
 }
 
-func TestTheFillPriceWarnsThatAReferencePriceIsNotAFill(t *testing.T) {
+func TestTheOpeningPriceWarnsThatAReferencePriceIsNotOne(t *testing.T) {
 	for _, abilityName := range []string{"trading_add_contract_trade_fill", "trading_update_contract_trade_fill"} {
-		assert.Contains(t, boxDescription(t, abilityName, "price"), "參考價不是成交價", abilityName)
+		assert.Contains(t, boxDescription(t, abilityName, "price"), "參考價不是開倉價", abilityName)
 		assert.Contains(t, boxDescription(t, abilityName, "price"), "先問他", abilityName)
 	}
-	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "參考價不是成交價")
-	assert.Contains(t, abilityNamed(t, "trading_record_contract_trade").Description, "參考價不是成交價")
+	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "參考價不是開倉價")
+	assert.Contains(t, abilityNamed(t, "trading_record_contract_trade").Description, "參考價不是開倉價")
 }
 
 func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {
@@ -216,9 +216,9 @@ func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {
 			"同一標的、同一方向已有持倉中會被拒絕", "trading_add_contract_trade_fill", "沒有欄位可以指定擁有者",
 			"依序", "中途被拒就停下",
 		}},
-		{"trading_add_contract_trade_fill", []string{"出場超過目前持倉會被拒絕", "先平倉", "可以寫檢討", "已平倉的交易不能再加成交"}},
-		{"trading_update_contract_trade_fill", []string{"只有持倉中的交易可以修正", "平倉後成交已鎖定", "加附註", "刪除整筆重記", "沒給的項目不會保留", "trading_get_contract_trade"}},
-		{"trading_remove_contract_trade_fill", []string{"持倉中才可刪", "不能刪到沒有進場成交", "trading_delete_contract_trade"}},
+		{"trading_add_contract_trade_fill", []string{"加倉（entry）", "減倉或平倉（exit）", "減倉超過目前持倉會被拒絕", "先平倉", "可以寫檢討", "已平倉的交易不能再加倉或減倉"}},
+		{"trading_update_contract_trade_fill", []string{"只有持倉中的交易可以修正", "平倉後紀錄已鎖定", "加附註", "刪除整筆重記", "沒給的項目不會保留", "trading_get_contract_trade"}},
+		{"trading_remove_contract_trade_fill", []string{"持倉中才可刪", "不能刪到沒有開倉紀錄", "trading_delete_contract_trade"}},
 		{"trading_update_contract_trade_plan", []string{"平倉後計畫已鎖定", "trading_add_contract_trade_note", "沒給的項目會被清空", "trading_get_contract_trade"}},
 		{"trading_add_contract_trade_note", []string{"任何狀態都能加", "附註不會改動原本的計畫"}},
 		{"trading_write_contract_trade_review", []string{"只能在平倉後寫", "持倉中會被拒絕", "之後還能改", "沒給的項目會被清空", "trading_get_contract_trade"}},
@@ -229,11 +229,11 @@ func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {
 		{"trading_get_contract_trade_statistics", []string{"只計期間內平倉", "不是 0%", "沒設止損的交易不計入 R"}},
 		{"trading_compare_contract_trades_with_backtest", []string{"需要時間", "實盤照常", "策略已刪除時說無法重演", "不要立刻重送"}},
 		{"trading_get_trade_journal_settings", []string{"未設定"}},
-		{"trading_save_trade_journal_settings", []string{"不得為負", "舊成交的手續費不變", "沒給的那一個會被清空", "trading_get_trade_journal_settings"}},
-		{"trading_list_trade_tags", []string{"五個預設失誤標籤"}},
+		{"trading_save_trade_journal_settings", []string{"不得為負", "只用於合約日誌", "舊紀錄的手續費不變", "沒給的那一個會被清空", "trading_get_trade_journal_settings"}},
+		{"trading_list_trade_tags", []string{"五個預設失誤標籤", "兩本日誌共用同一組"}},
 		{"trading_create_trade_tag", []string{"同一類不能重名", "不同類可以"}},
 		{"trading_rename_trade_tag", []string{"跟著改名"}},
-		{"trading_delete_trade_tag", []string{"還貼在交易上的標籤不能刪", "說出還有幾筆"}},
+		{"trading_delete_trade_tag", []string{"還貼在交易上的標籤不能刪", "現貨與合約的交易一起算", "說出還有幾筆"}},
 	}
 	require.Len(t, testCases, len(everyTradeJournalAbility))
 
@@ -295,11 +295,29 @@ func boxDescription(t *testing.T, abilityName string, boxName string) string {
 	return box.Description
 }
 
-func TestRecordingATradeSaysTheFirstFillMustBeAnEntry(t *testing.T) {
+func TestRecordingATradeSaysAnUnlabelledFirstRecordOpensThePosition(t *testing.T) {
 	description := boxDescription(t, "trading_record_contract_trade", "firstEntryFill")
 
 	assert.Contains(t, description, `"kind":"entry"`)
-	assert.Contains(t, description, "少了 kind 會被拒絕")
+	assert.Contains(t, description, "kind 省略即開倉")
+}
+
+func TestNoContractJournalAbilitySpeaksOfFills(t *testing.T) {
+	for _, abilityName := range everyTradeJournalAbility {
+		definition := abilityNamed(t, abilityName)
+		assert.NotContains(t, definition.Description, "成交", abilityName)
+		for _, parameter := range definition.Parameters {
+			assert.NotContains(t, parameter.Description, "成交", "%s 的 %s", abilityName, parameter.Name)
+		}
+	}
+}
+
+func TestContractRecordsAreCalledByTheirPositionNames(t *testing.T) {
+	kind := boxDescription(t, "trading_add_contract_trade_fill", "kind")
+	for _, phrase := range []string{"開倉", "加倉", "減倉", "平倉"} {
+		assert.Contains(t, kind, phrase)
+	}
+	assert.Contains(t, boxDescription(t, "trading_add_contract_trade_fill", "price"), "開倉價或平倉價")
 }
 
 func TestLeavingLiquidityOutIsSaidToMeanTaker(t *testing.T) {
