@@ -198,13 +198,32 @@ func TestTheFillTimeSaysNowIsTheDefaultAndHowToReportIt(t *testing.T) {
 	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "省略即交易服務以現在記下")
 }
 
-func TestTheOpeningPriceWarnsThatAReferencePriceIsNotOne(t *testing.T) {
-	for _, abilityName := range []string{"trading_add_contract_trade_fill", "trading_update_contract_trade_fill"} {
-		assert.Contains(t, boxDescription(t, abilityName, "price"), "參考價不是開倉價", abilityName)
-		assert.Contains(t, boxDescription(t, abilityName, "price"), "先問他", abilityName)
+func TestEveryPriceBoxWarnsThatAReferencePriceIsNotTheRecordedPrice(t *testing.T) {
+	testCases := []struct {
+		abilityName     string
+		boxName         string
+		requiredPhrases []string
+	}{
+		{"trading_add_contract_trade_fill", "price", []string{"參考價既不是開倉價也不是平倉價", "先問他"}},
+		{"trading_update_contract_trade_fill", "price", []string{"參考價既不是開倉價也不是平倉價", "先問他"}},
+		{"trading_record_contract_trade", "firstEntryFill", []string{"參考價不是開倉價", "先問他"}},
 	}
-	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "參考價不是開倉價")
+
+	for _, testCase := range testCases {
+		for _, phrase := range testCase.requiredPhrases {
+			assert.Contains(t, boxDescription(t, testCase.abilityName, testCase.boxName), phrase, testCase.abilityName)
+		}
+	}
 	assert.Contains(t, abilityNamed(t, "trading_record_contract_trade").Description, "參考價不是開倉價")
+}
+
+func TestJournalAbilitiesThatNameASymbolAskWhichJournalFirst(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_record_contract_trade", "trading_list_contract_trades",
+		"trading_record_spot_trade", "trading_list_spot_trades",
+	} {
+		assert.Contains(t, abilityNamed(t, abilityName).Description, "先問現貨還是合約", abilityName)
+	}
 }
 
 func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {

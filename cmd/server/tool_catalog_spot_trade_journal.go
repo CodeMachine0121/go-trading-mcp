@@ -20,8 +20,6 @@ const spotTradePlanSideNote = "**止損必須低於第一筆買進價、止盈�
 
 const spotTradeOnlyBuyThenSellNote = "**現貨只有先買後賣，沒有做空、沒有槓桿**：使用者說做空或幾倍時，說明現貨只有先買後賣，不要送出。"
 
-const spotTradeAmbiguousSymbolNote = "**同一個代號可能同時是加密貨幣現貨與合約**（例如 BTCUSDT）：使用者沒說是哪一本時先問現貨還是合約，得到回答前不要送出。"
-
 // spotTradeFillParameters are shared by adding and correcting a buy or sell so the two never drift apart.
 func spotTradeFillParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
@@ -44,9 +42,10 @@ func spotTradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 			"記一筆使用者**自己在交易所或券商手動買進**的現貨交易（加密貨幣現貨或台股，系統不下單）。新增後狀態是持有中，回覆帶出編號與記下的時間；"+
 				"台股一張換算成股數時把股數說出來請使用者確認。"+
 				"\n\n"+spotTradeOnlyBuyThenSellNote+
-				"\n\n"+spotTradeAmbiguousSymbolNote+
+				"\n\n"+tradeJournalAmbiguousSymbolNote+
 				"\n\n**價格必須是使用者說的實際價格**：機器人訊息的參考價不是成交價，沒說就先問。"+
 				"\n\n**同一標的已有持有中會被拒絕**，回覆會給出那一筆的編號——改用 trading_add_spot_trade_fill 在那一筆加買進。"+
+				"一句話說了多筆買進時：第一筆用這一支新增，其餘依序用 trading_add_spot_trade_fill 一筆一筆送，中途被拒就停下並帶回原因。"+
 				"\n\n這一筆一律屬於授權給外掛的那位使用者，**沒有欄位可以指定擁有者**。",
 			vo.RequestVerbSubmit, "/spot-trade-records",
 			bodyParameter("symbol", vo.ToolParameterKindString, "現貨標的，如 2330（台股）或 BTCUSDT（加密貨幣現貨）；不認得的會被拒絕", true),
@@ -131,7 +130,8 @@ func spotTradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 		domains.NewApiToolDomain(
 			"trading_list_spot_trades",
 			"列出使用者的現貨交易，依第一筆買進時間由新到舊。**省略 limit 即最近 20 筆**，使用者指定筆數才填；回覆時說出總數。"+
-				"「待檢討」就是 status=closed；「我的台股交易」就是 market=taiwanStock。",
+				"「待檢討」就是 status=closed；「我的台股交易」就是 market=taiwanStock。"+
+				"\n\n"+tradeJournalAmbiguousSymbolNote,
 			vo.RequestVerbRead, "/spot-trade-records",
 			queryParameter("status", vo.ToolParameterKindString, "open（持有中）、closed（已平倉、待檢討）或 reviewed（已檢討）", false),
 			queryParameter("symbol", vo.ToolParameterKindString, "只列這個現貨標的", false),

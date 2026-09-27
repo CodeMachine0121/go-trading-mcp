@@ -8,13 +8,12 @@ import (
 )
 
 const contractTradeFilledPriceNote = "開倉價或平倉價（字串形式的精確小數）。**必須是使用者說的實際價格**——" +
+	"機器人訊息裡的參考價既不是開倉價也不是平倉價，使用者只貼了機器人訊息、沒說實際價格時，先問他，不要拿參考價充當"
+
+const contractTradeOpeningPriceNote = "開倉價（字串形式的精確小數）。**必須是使用者說的實際開倉價**——" +
 	"機器人訊息裡的參考價不是開倉價，使用者只貼了機器人訊息、沒說實際價格時，先問他，不要拿參考價充當"
 
 const contractTradePlanSideNote = "**止損止盈要在對的一邊**：做多止損低於第一筆開倉價、止盈高於；做空相反，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數"
-
-// tradeJournalRecordedAtNote is shared by both journals because the trading service defaults the time the same way for each.
-const tradeJournalRecordedAtNote = "時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
-	"**省略即交易服務以現在記下**，回覆會帶出實際記下的時間——請用台北時間（或使用者說的時區）說出來請他確認"
 
 // contractTradeFillParameters are shared by adding and correcting a fill so the two never drift apart.
 func contractTradeFillParameters() []vo.ToolParameterVo {
@@ -53,6 +52,7 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				"\n\n**開倉價必須是使用者說的實際價格**：機器人訊息的參考價不是開倉價，沒說就先問。"+
 				"\n\n**同一標的、同一方向已有持倉中會被拒絕**，回覆會給出那一筆的編號——改用 trading_add_contract_trade_fill 在那一筆加倉。"+
 				"一句話說了多筆開倉或平倉時：第一筆用這一支新增，其餘依序用 trading_add_contract_trade_fill 一筆一筆送，中途被拒就停下並帶回原因。"+
+				"\n\n"+tradeJournalAmbiguousSymbolNote+
 				"\n\n這一筆一律屬於授權給外掛的那位使用者，**沒有欄位可以指定擁有者**。",
 			vo.RequestVerbSubmit, "/contract-trade-records",
 			[]vo.ToolParameterVo{
@@ -63,7 +63,7 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				bodyParameter("firstEntryFill", vo.ToolParameterKindObject,
 					"開倉那一筆，形狀：{\"kind\":\"entry\", \"filledAt\":\"2026-09-27T14:03:00+08:00\", \"price\":\"97905\", \"quantity\":\"0.03\", "+
 						"\"liquidity\":\"taker\", \"fee\":\"1.47\"}。price 與 quantity 必填；kind 省略即開倉，給了就必須是 \"entry\"。"+
-						"price："+contractTradeFilledPriceNote+"。filledAt："+tradeJournalRecordedAtNote+
+						"price："+contractTradeOpeningPriceNote+"。filledAt："+tradeJournalRecordedAtNote+
 						"。liquidity 省略即吃單；fee 省略即依使用者的費率自動算", true),
 				bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
 					"這筆是依哪一份交易策略做的。**只能是使用者自己的合約交易策略**（吃合約行情的那種），K 線交易策略會被拒絕；不給即自行判斷", false),
@@ -138,7 +138,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		domains.NewApiToolDomain(
 			"trading_list_contract_trades",
 			"列出使用者的合約交易，依開倉時間由新到舊。**省略 limit 即最近 20 筆**，使用者指定筆數才填；回覆時說出總數。"+
-				"「待檢討」就是 status=closed。",
+				"「待檢討」就是 status=closed。"+
+				"\n\n"+tradeJournalAmbiguousSymbolNote,
 			vo.RequestVerbRead, "/contract-trade-records",
 			queryParameter("status", vo.ToolParameterKindString, "open（持倉中）、closed（已平倉、待檢討）或 reviewed（已檢討）", false),
 			queryParameter("symbol", vo.ToolParameterKindString, "只列這個合約標的", false),

@@ -9,6 +9,13 @@ import (
 
 // pathParameter is a value that names *which* thing, written into the address itself.
 // Naming a thing is never optional, so these are always required and always text.
+
+// tradeJournalRecordedAtNote is shared by both journals because the trading service defaults the time the same way for each.
+const tradeJournalRecordedAtNote = "時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
+	"**省略即交易服務以現在記下**，回覆會帶出實際記下的時間——請用台北時間（或使用者說的時區）說出來請他確認"
+
+const tradeJournalAmbiguousSymbolNote = "**同一個代號可能同時是加密貨幣現貨與合約**（例如 BTCUSDT）：使用者沒說是哪一本時先問現貨還是合約，得到回答前不要送出。"
+
 func pathParameter(name string, description string) vo.ToolParameterVo {
 	return vo.NewToolParameterVo(
 		name, vo.ToolParameterKindString, description, true, vo.ToolParameterInPath)
