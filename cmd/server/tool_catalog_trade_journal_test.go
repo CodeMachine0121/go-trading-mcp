@@ -79,11 +79,11 @@ func TestRecordingATradeSendsTheFirstEntryFillNested(t *testing.T) {
 		"symbol":         json.RawMessage(`"BTCUSDT"`),
 		"direction":      json.RawMessage(`"long"`),
 		"leverage":       json.RawMessage(`"10"`),
-		"firstEntryFill": json.RawMessage(`{"price":"97905","quantity":"0.03"}`),
+		"firstEntryFill": json.RawMessage(`{"kind":"entry","price":"97905","quantity":"0.03"}`),
 	})
 
 	assert.JSONEq(t,
-		`{"symbol":"BTCUSDT","direction":"long","leverage":"10","firstEntryFill":{"price":"97905","quantity":"0.03"}}`,
+		`{"symbol":"BTCUSDT","direction":"long","leverage":"10","firstEntryFill":{"kind":"entry","price":"97905","quantity":"0.03"}}`,
 		string(request.Body))
 }
 
@@ -217,7 +217,7 @@ func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {
 			"依序", "中途被拒就停下",
 		}},
 		{"trading_add_contract_trade_fill", []string{"出場超過目前持倉會被拒絕", "先平倉", "可以寫檢討", "已平倉的交易不能再加成交"}},
-		{"trading_update_contract_trade_fill", []string{"只有持倉中的交易可以修正", "平倉後成交已鎖定", "加附註", "刪除整筆重記"}},
+		{"trading_update_contract_trade_fill", []string{"只有持倉中的交易可以修正", "平倉後成交已鎖定", "加附註", "刪除整筆重記", "沒給的項目不會保留", "trading_get_contract_trade"}},
 		{"trading_remove_contract_trade_fill", []string{"持倉中才可刪", "不能刪到沒有進場成交", "trading_delete_contract_trade"}},
 		{"trading_update_contract_trade_plan", []string{"平倉後計畫已鎖定", "trading_add_contract_trade_note", "沒給的項目會被清空", "trading_get_contract_trade"}},
 		{"trading_add_contract_trade_note", []string{"任何狀態都能加", "附註不會改動原本的計畫"}},
@@ -227,7 +227,7 @@ func TestEveryAbilitySaysWhatWillGetItRefused(t *testing.T) {
 		{"trading_get_contract_trade", []string{"不要說成 0", "找不到"}},
 		{"trading_delete_contract_trade", []string{"刪除前必須先向使用者確認是哪一筆", "先列出請他指定", "不要猜", "一併刪除"}},
 		{"trading_get_contract_trade_statistics", []string{"只計期間內平倉", "不是 0%", "沒設止損的交易不計入 R"}},
-		{"trading_compare_contract_trades_with_backtest", []string{"需要時間", "實盤照常", "策略已刪除時說無法重演"}},
+		{"trading_compare_contract_trades_with_backtest", []string{"需要時間", "實盤照常", "策略已刪除時說無法重演", "不要立刻重送"}},
 		{"trading_get_trade_journal_settings", []string{"未設定"}},
 		{"trading_save_trade_journal_settings", []string{"不得為負", "舊成交的手續費不變", "沒給的那一個會被清空", "trading_get_trade_journal_settings"}},
 		{"trading_list_trade_tags", []string{"五個預設失誤標籤"}},
@@ -293,4 +293,16 @@ func boxDescription(t *testing.T, abilityName string, boxName string) string {
 	require.True(t, isDeclared, "%s 沒有 %s", abilityName, boxName)
 
 	return box.Description
+}
+
+func TestRecordingATradeSaysTheFirstFillMustBeAnEntry(t *testing.T) {
+	description := boxDescription(t, "trading_record_contract_trade", "firstEntryFill")
+
+	assert.Contains(t, description, `"kind":"entry"`)
+	assert.Contains(t, description, "少了 kind 會被拒絕")
+}
+
+func TestLeavingLiquidityOutIsSaidToMeanTaker(t *testing.T) {
+	assert.Contains(t, boxDescription(t, "trading_add_contract_trade_fill", "liquidity"), "省略即吃單")
+	assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "firstEntryFill"), "liquidity 省略即吃單")
 }

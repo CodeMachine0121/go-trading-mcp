@@ -10,6 +10,8 @@ import (
 const contractTradeFilledPriceNote = "實際成交價（字串形式的精確小數）。**必須是使用者說的實際成交價**——" +
 	"機器人訊息裡的參考價不是成交價，使用者只貼了機器人訊息、沒說實際成交價時，先問他，不要拿參考價充當"
 
+const contractTradePlanSideNote = "**止損止盈要在對的一邊**：做多止損低於第一筆進場價、止盈高於；做空相反，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數"
+
 const contractTradeFilledAtNote = "成交時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
 	"**省略即交易服務以現在記下**，回覆會帶出實際記下的時間——請用台北時間（或使用者說的時區）說出來請他確認"
 
@@ -21,7 +23,7 @@ func contractTradeFillParameters() []vo.ToolParameterVo {
 		bodyParameter("price", vo.ToolParameterKindString, contractTradeFilledPriceNote, true),
 		bodyParameter("quantity", vo.ToolParameterKindString, "成交數量（字串形式的精確小數），必須大於零", true),
 		bodyParameter("liquidity", vo.ToolParameterKindString,
-			"maker（掛單）或 taker（吃單），決定自動帶出的手續費用哪一個費率", false),
+			"maker（掛單）或 taker（吃單），決定自動帶出的手續費用哪一個費率；**省略即吃單**，使用者說是限價掛單時記得填 maker", false),
 		bodyParameter("fee", vo.ToolParameterKindString,
 			"實際手續費（字串形式的精確小數）。省略即依使用者設定的費率自動算；還沒設定費率時記為 0 並標示未設定費率", false),
 	}
@@ -31,8 +33,7 @@ func contractTradeFillParameters() []vo.ToolParameterVo {
 func contractTradePlanParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("plannedStopLossPrice", vo.ToolParameterKindString,
-			"計畫止損價（字串形式的精確小數）。**止損止盈要在對的一邊**：做多止損低於第一筆進場價、止盈高於；做空相反，放錯邊會被拒絕。"+
-				"沒有計畫止損就算不出 R 倍數", false),
+			"計畫止損價（字串形式的精確小數）。"+contractTradePlanSideNote, false),
 		bodyParameter("plannedTakeProfitPrice", vo.ToolParameterKindString, "計畫止盈價（字串形式的精確小數）", false),
 		bodyParameter("entryReason", vo.ToolParameterKindString, "進場理由", false),
 		bodyParameter("confidence", vo.ToolParameterKindInteger, "信心，1 到 5", false),
@@ -59,10 +60,10 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				bodyParameter("leverage", vo.ToolParameterKindString,
 					"槓桿倍數（字串形式的精確小數）。**留白即一倍**，小於一會被拒絕", false),
 				bodyParameter("firstEntryFill", vo.ToolParameterKindObject,
-					"第一筆進場成交，形狀：{\"filledAt\":\"2026-09-27T14:03:00+08:00\", \"price\":\"97905\", \"quantity\":\"0.03\", "+
-						"\"liquidity\":\"taker\", \"fee\":\"1.47\"}。price 與 quantity 必填。"+
+					"第一筆進場成交，形狀：{\"kind\":\"entry\", \"filledAt\":\"2026-09-27T14:03:00+08:00\", \"price\":\"97905\", \"quantity\":\"0.03\", "+
+						"\"liquidity\":\"taker\", \"fee\":\"1.47\"}。kind（一律 \"entry\"）、price 與 quantity 必填，少了 kind 會被拒絕。"+
 						"price："+contractTradeFilledPriceNote+"。filledAt："+contractTradeFilledAtNote+
-						"。fee 省略即依使用者的費率自動算", true),
+						"。liquidity 省略即吃單；fee 省略即依使用者的費率自動算", true),
 				bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
 					"這筆是依哪一份交易策略做的。**只能是使用者自己的合約交易策略**（吃合約行情的那種），K 線交易策略會被拒絕；不給即自行判斷", false),
 				bodyParameter("setupTagIds", vo.ToolParameterKindArray,
@@ -70,7 +71,7 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				bodyParameter("plan", vo.ToolParameterKindObject,
 					"進場計畫，皆選填，形狀：{\"plannedStopLossPrice\":\"96380\", \"plannedTakeProfitPrice\":\"100785\", "+
 						"\"entryReason\":\"突破前高\", \"confidence\":3}。價格為字串形式的精確小數，信心 1 到 5。"+
-						"**止損止盈要在對的一邊**：做多止損低於第一筆進場價、止盈高於；做空相反，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數", false),
+						contractTradePlanSideNote, false),
 			}...,
 		),
 		domains.NewApiToolDomain(
@@ -83,7 +84,9 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		),
 		domains.NewApiToolDomain(
 			"trading_update_contract_trade_fill",
-			"修正一筆記錯的成交（整筆取代）。**只有持倉中的交易可以修正**；平倉後成交已鎖定，只能加附註或刪除整筆重記。",
+			"修正一筆記錯的成交。**整筆取代，沒給的項目不會保留**：省略成交時間會變成現在、省略掛單吃單會變成吃單、省略手續費會依費率重算——"+
+				"只改其中一項時，先用 trading_get_contract_trade 讀出這筆成交，其餘原樣帶上。"+
+				"**只有持倉中的交易可以修正**；平倉後成交已鎖定，只能加附註或刪除整筆重記。",
 			vo.RequestVerbReplace, "/contract-trade-records/{id}/fills/{fillId}",
 			append([]vo.ToolParameterVo{
 				contractTradeIdentifierParameter(),
@@ -166,7 +169,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 		domains.NewApiToolDomain(
 			"trading_compare_contract_trades_with_backtest",
 			"拿一份合約交易策略的已平倉實單，對照同一段期間的重演。**會替每個標的重演一次，需要時間**。"+
-				"某一列重演失敗時實盤照常、回測欄說出原因；策略已刪除時說無法重演。",
+				"某一列重演失敗時實盤照常、回測欄說出原因；策略已刪除時說無法重演。"+
+				"標的多時可能超過等待上限而被當成連不到交易服務——**這時不要立刻重送**（會再重演一輪），請使用者稍後再試。",
 			vo.RequestVerbRead, "/trading-strategies/{id}/contract-trade-comparison",
 			pathParameter("id", "合約交易策略識別碼"),
 		).Waiting(replayWaitLimit),
