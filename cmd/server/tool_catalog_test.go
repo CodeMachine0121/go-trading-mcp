@@ -102,6 +102,26 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_save_telegram_delivery":     true,
 	"trading_remove_telegram_delivery":   true,
 	"trading_send_telegram_test_message": true,
+	// 合約交易日誌
+	"trading_record_contract_trade":                 true,
+	"trading_add_contract_trade_fill":               true,
+	"trading_update_contract_trade_fill":            true,
+	"trading_remove_contract_trade_fill":            true,
+	"trading_update_contract_trade_plan":            true,
+	"trading_add_contract_trade_note":               true,
+	"trading_write_contract_trade_review":           true,
+	"trading_set_contract_trade_setup_tags":         true,
+	"trading_list_contract_trades":                  true,
+	"trading_get_contract_trade":                    true,
+	"trading_delete_contract_trade":                 true,
+	"trading_get_contract_trade_statistics":         true,
+	"trading_compare_contract_trades_with_backtest": true,
+	"trading_get_trade_journal_settings":            true,
+	"trading_save_trade_journal_settings":           true,
+	"trading_list_trade_tags":                       true,
+	"trading_create_trade_tag":                      true,
+	"trading_rename_trade_tag":                      true,
+	"trading_delete_trade_tag":                      true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {

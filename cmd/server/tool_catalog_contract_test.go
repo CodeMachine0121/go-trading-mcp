@@ -33,6 +33,19 @@ var everyContractAbility = []string{
 	"trading_calculate_contract_indicator",
 	"trading_backtest_contract_strategy_script",
 	"trading_backtest_contract_trading_strategy",
+	"trading_record_contract_trade",
+	"trading_add_contract_trade_fill",
+	"trading_update_contract_trade_fill",
+	"trading_remove_contract_trade_fill",
+	"trading_update_contract_trade_plan",
+	"trading_add_contract_trade_note",
+	"trading_write_contract_trade_review",
+	"trading_set_contract_trade_setup_tags",
+	"trading_list_contract_trades",
+	"trading_get_contract_trade",
+	"trading_delete_contract_trade",
+	"trading_get_contract_trade_statistics",
+	"trading_compare_contract_trades_with_backtest",
 }
 
 // contractCandleFigureNames are every figure a contract candle carries.
@@ -124,6 +137,19 @@ func TestEveryContractAbilityAsksTheRightWayAtTheRightAddress(t *testing.T) {
 		{"trading_calculate_contract_indicator", vo.RequestVerbSubmit, "/contract-indicator-calculations"},
 		{"trading_backtest_contract_strategy_script", vo.RequestVerbSubmit, "/contract-backtests"},
 		{"trading_backtest_contract_trading_strategy", vo.RequestVerbSubmit, "/trading-strategies/7/contract-backtests"},
+		{"trading_record_contract_trade", vo.RequestVerbSubmit, "/contract-trade-records"},
+		{"trading_add_contract_trade_fill", vo.RequestVerbSubmit, "/contract-trade-records/7/fills"},
+		{"trading_update_contract_trade_fill", vo.RequestVerbReplace, "/contract-trade-records/7/fills/1"},
+		{"trading_remove_contract_trade_fill", vo.RequestVerbRemove, "/contract-trade-records/7/fills/1"},
+		{"trading_update_contract_trade_plan", vo.RequestVerbReplace, "/contract-trade-records/7/plan"},
+		{"trading_add_contract_trade_note", vo.RequestVerbSubmit, "/contract-trade-records/7/notes"},
+		{"trading_write_contract_trade_review", vo.RequestVerbReplace, "/contract-trade-records/7/review"},
+		{"trading_set_contract_trade_setup_tags", vo.RequestVerbReplace, "/contract-trade-records/7/setup-tags"},
+		{"trading_list_contract_trades", vo.RequestVerbRead, "/contract-trade-records"},
+		{"trading_get_contract_trade", vo.RequestVerbRead, "/contract-trade-records/7"},
+		{"trading_delete_contract_trade", vo.RequestVerbRemove, "/contract-trade-records/7"},
+		{"trading_get_contract_trade_statistics", vo.RequestVerbRead, "/contract-trade-records/statistics"},
+		{"trading_compare_contract_trades_with_backtest", vo.RequestVerbRead, "/trading-strategies/7/contract-trade-comparison"},
 	}
 	require.Len(t, testCases, len(everyContractAbility))
 
