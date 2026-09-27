@@ -93,7 +93,7 @@ func TestRecordingATradeRequiresOnlyWhatTheTradingServiceRequires(t *testing.T) 
 	for boxName, isRequired := range map[string]bool{
 		"symbol": true, "direction": true, "firstEntryFill": true,
 		"leverage": false, "tradingStrategyId": false, "setupTagIds": false,
-		"plannedStopLossPrice": false, "plannedTakeProfitPrice": false, "entryReason": false, "confidence": false,
+		"plan": false,
 	} {
 		box, isDeclared := boxNamed(ability, boxName)
 
@@ -119,7 +119,7 @@ func TestEachAbilityRequiresOnlyWhatTheTradingServiceRequires(t *testing.T) {
 			"id": true, "executionScore": true, "wentWell": false, "wentWrong": false, "nextTime": false, "mistakeTagIds": false,
 		}},
 		{"trading_set_contract_trade_setup_tags", map[string]bool{"id": true, "setupTagIds": true}},
-		{"trading_list_contract_trades", map[string]bool{"status": false, "symbol": false, "limit": false}},
+		{"trading_list_contract_trades", map[string]bool{"status": false, "symbol": false, "period": false, "limit": false}},
 		{"trading_get_contract_trade_statistics", map[string]bool{"period": false}},
 		{"trading_save_trade_journal_settings", map[string]bool{"makerFeeRate": false, "takerFeeRate": false}},
 		{"trading_create_trade_tag", map[string]bool{"kind": true, "name": true}},

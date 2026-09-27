@@ -39,7 +39,7 @@
 
 | 能力名稱 | 交易服務路由 | 參數（位置／必填） | 說明必須寫出的事 | Satisfies |
 | :--- | :--- | :--- | :--- | :--- |
-| `trading_record_contract_trade` | `POST /contract-trade-records` | body：`symbol`✔、`direction`✔(`long`/`short`)、`leverage`、`firstEntryFill`✔(object：`filledAt`、`price`✔、`quantity`✔、`liquidity`(`maker`/`taker`)、`fee`)、`plannedStopLossPrice`、`plannedTakeProfitPrice`、`entryReason`、`confidence`(1–5)、`tradingStrategyId`、`setupTagIds`(array) | ① 成交價必須是使用者說的實際成交價，**機器人訊息的參考價不是成交價**，沒說就先問；② `filledAt` 省略即交易服務以現在記下，回覆時用台北時間（或使用者說的時區）說出記下的時間請他確認；使用者說了時間就換成 RFC3339 帶時區；③ 同標的同方向已有持倉中會被拒絕並給出那一筆的編號，改用加成交；④ 槓桿留白即一倍、小於一被拒絕；⑤ 止損止盈要在對的一邊；⑥ 只能關聯自己的**合約**交易策略；⑦ 沒有欄位可以指定擁有者 | US-01 全部、US-07「沒有欄位能指定擁有者」 |
+| `trading_record_contract_trade` | `POST /contract-trade-records` | body：`symbol`✔、`direction`✔(`long`/`short`)、`leverage`、`firstEntryFill`✔(object：`filledAt`、`price`✔、`quantity`✔、`liquidity`(`maker`/`taker`)、`fee`)、`plan`(object：`plannedStopLossPrice`、`plannedTakeProfitPrice`、`entryReason`、`confidence`(1–5))、`tradingStrategyId`、`setupTagIds`(array) | ① 成交價必須是使用者說的實際成交價，**機器人訊息的參考價不是成交價**，沒說就先問；② `filledAt` 省略即交易服務以現在記下，回覆時用台北時間（或使用者說的時區）說出記下的時間請他確認；使用者說了時間就換成 RFC3339 帶時區；③ 同標的同方向已有持倉中會被拒絕並給出那一筆的編號，改用加成交；④ 槓桿留白即一倍、小於一被拒絕；⑤ 止損止盈要在對的一邊；⑥ 只能關聯自己的**合約**交易策略；⑦ 沒有欄位可以指定擁有者 | US-01 全部、US-07「沒有欄位能指定擁有者」 |
 | `trading_add_contract_trade_fill` | `POST /contract-trade-records/{id}/fills` | path `id`；body：成交參數組（`kind`✔ `entry`/`exit`、`filledAt`、`price`✔、`quantity`✔、`liquidity`、`fee`） | 出場超過持倉被拒絕（要反手請先平倉再新增一筆）；持倉歸零即平倉，回覆後提醒可以寫檢討；已平倉不能再加；一句話說了多筆成交時依序一筆一筆送，中途被拒就停下帶回原因 | US-02 加碼、全部平倉、出場超過持倉 |
 | `trading_update_contract_trade_fill` | `PUT /contract-trade-records/{id}/fills/{fillId}` | path `id`、`fillId`；body：成交參數組 | 只有持倉中的交易可以修正；平倉後成交已鎖定，只能加附註或刪除整筆重記 | US-02 修正成交、平倉後成交鎖定 |
 | `trading_remove_contract_trade_fill` | `DELETE /contract-trade-records/{id}/fills/{fillId}` | path `id`、`fillId` | 持倉中才可刪；不能刪到沒有進場成交（要整筆放棄請刪除交易） | US-02 刪除成交 |
@@ -47,7 +47,7 @@
 | `trading_add_contract_trade_note` | `POST /contract-trade-records/{id}/notes` | path `id`；body `content`✔ | 任何狀態都能加；附註不會改動原本的計畫 | US-03 加附註 |
 | `trading_write_contract_trade_review` | `PUT /contract-trade-records/{id}/review` | path `id`；body：`wentWell`、`wentWrong`、`nextTime`、`executionScore`✔(1–5)、`mistakeTagIds`(array) | 只能在平倉後寫；寫完即已檢討，之後還能改；失誤標籤用標籤編號，不知道編號時先列出標籤 | US-03 口述檢討、持倉中被拒 |
 | `trading_set_contract_trade_setup_tags` | `PUT /contract-trade-records/{id}/setup-tags` | path `id`；body `setupTagIds`✔(array) | 整組取代；空陣列即全部拿掉 | US-05 新增型態標籤（貼上那一步） |
-| `trading_list_contract_trades` | `GET /contract-trade-records` | query：`status`(`open`/`closed`/`reviewed`)、`symbol`、`limit` | 省略 `limit` 即最近 20 筆（依第一筆進場時間由新到舊），使用者指定筆數才填；回覆時說出總數；「待檢討」＝`status=closed` | US-04 列出待檢討、預設 20 筆、指定幾筆 |
+| `trading_list_contract_trades` | `GET /contract-trade-records` | query：`status`(`open`/`closed`/`reviewed`)、`symbol`、`period`(`7d`/`30d`/`90d`/`all`，以第一筆進場時間篩選，省略即不限)、`limit` | 省略 `limit` 即最近 20 筆（依第一筆進場時間由新到舊），使用者指定筆數才填；回覆時說出總數；「待檢討」＝`status=closed` | US-04 列出待檢討、預設 20 筆、指定幾筆 |
 | `trading_get_contract_trade` | `GET /contract-trade-records/{id}` | path `id` | 回覆裡「算不出／無法計算／估算」的項目照交易服務的說法帶回，**不要說成 0**；別人的交易會是找不到 | US-04 算不出的照原話、別人的交易 |
 | `trading_delete_contract_trade` | `DELETE /contract-trade-records/{id}` | path `id` | **刪除前必須先向使用者確認是哪一筆**（說出標的、方向、編號），使用者說「刪掉 BTC 那筆」但有多筆時先列出請他指定，不要猜；成交、附註、檢討會一併刪除 | US-06 全部 |
 | `trading_get_contract_trade_statistics` | `GET /contract-trade-records/statistics` | query `period`(`7d`/`30d`/`90d`/`all`) | 省略即最近 30 天；只計期間內平倉的；沒有已平倉交易時勝率是不適用，不是 0%；沒設止損的交易不計入 R 相關數字 | US-04 看統計、沒說期間、期間內沒有 |

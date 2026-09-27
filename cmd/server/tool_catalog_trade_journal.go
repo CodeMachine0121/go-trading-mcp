@@ -53,7 +53,7 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				"一句話說了多筆成交時：第一筆用這一支新增，其餘依序用 trading_add_contract_trade_fill 一筆一筆送，中途被拒就停下並帶回原因。"+
 				"\n\n這一筆一律屬於授權給外掛的那位使用者，**沒有欄位可以指定擁有者**。",
 			vo.RequestVerbSubmit, "/contract-trade-records",
-			append([]vo.ToolParameterVo{
+			[]vo.ToolParameterVo{
 				bodyParameter("symbol", vo.ToolParameterKindString, "合約標的，如 BTCUSDT；不認得的會被拒絕", true),
 				bodyParameter("direction", vo.ToolParameterKindString, "long（做多）或 short（做空）；平多、平空不是方向", true),
 				bodyParameter("leverage", vo.ToolParameterKindString,
@@ -67,7 +67,11 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 					"這筆是依哪一份交易策略做的。**只能是使用者自己的合約交易策略**（吃合約行情的那種），K 線交易策略會被拒絕；不給即自行判斷", false),
 				bodyParameter("setupTagIds", vo.ToolParameterKindArray,
 					"型態標籤編號（整數陣列）。不知道編號時先用 trading_list_trade_tags", false),
-			}, contractTradePlanParameters()...)...,
+				bodyParameter("plan", vo.ToolParameterKindObject,
+					"進場計畫，皆選填，形狀：{\"plannedStopLossPrice\":\"96380\", \"plannedTakeProfitPrice\":\"100785\", "+
+						"\"entryReason\":\"突破前高\", \"confidence\":3}。價格為字串形式的精確小數，信心 1 到 5。"+
+						"**止損止盈要在對的一邊**：做多止損低於第一筆進場價、止盈高於；做空相反，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數", false),
+			}...,
 		),
 		domains.NewApiToolDomain(
 			"trading_add_contract_trade_fill",
@@ -132,6 +136,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 			vo.RequestVerbRead, "/contract-trade-records",
 			queryParameter("status", vo.ToolParameterKindString, "open（持倉中）、closed（已平倉、待檢討）或 reviewed（已檢討）", false),
 			queryParameter("symbol", vo.ToolParameterKindString, "只列這個合約標的", false),
+			queryParameter("period", vo.ToolParameterKindString,
+				"7d、30d、90d 或 all，以第一筆進場時間篩選；**省略即不限期間**", false),
 			queryParameter("limit", vo.ToolParameterKindInteger, "最多幾筆，最多 200", false),
 		),
 		domains.NewApiToolDomain(
