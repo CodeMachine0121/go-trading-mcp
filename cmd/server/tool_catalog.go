@@ -203,6 +203,7 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration, replayWaitLimit time.Dura
 	catalog = append(catalog, strategyBotApiTools()...)
 	catalog = append(catalog, telegramDeliveryApiTools()...)
 	catalog = append(catalog, tradeJournalApiTools(replayWaitLimit)...)
+	catalog = append(catalog, spotTradeJournalApiTools(replayWaitLimit)...)
 
 	return catalog
 }

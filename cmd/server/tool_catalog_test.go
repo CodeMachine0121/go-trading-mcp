@@ -122,6 +122,20 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_create_trade_tag":                      true,
 	"trading_rename_trade_tag":                      true,
 	"trading_delete_trade_tag":                      true,
+	// 現貨交易日誌（與合約那本各自一組）
+	"trading_record_spot_trade":                 true,
+	"trading_add_spot_trade_fill":               true,
+	"trading_update_spot_trade_fill":            true,
+	"trading_remove_spot_trade_fill":            true,
+	"trading_update_spot_trade_plan":            true,
+	"trading_add_spot_trade_note":               true,
+	"trading_write_spot_trade_review":           true,
+	"trading_set_spot_trade_setup_tags":         true,
+	"trading_list_spot_trades":                  true,
+	"trading_get_spot_trade":                    true,
+	"trading_delete_spot_trade":                 true,
+	"trading_get_spot_trade_statistics":         true,
+	"trading_compare_spot_trades_with_backtest": true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
