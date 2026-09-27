@@ -70,7 +70,8 @@ func TestOnlyTheReplaysWaitLonger(t *testing.T) {
 			continue
 		}
 
-		isReplay := false
+		isReplay := apiTool.Name() == "trading_compare_contract_trades_with_backtest" ||
+			apiTool.Name() == "trading_compare_spot_trades_with_backtest"
 		for _, abilityName := range replayAbilityNames {
 			isReplay = isReplay || apiTool.Name() == abilityName
 		}
