@@ -139,6 +139,28 @@ func TestEachAbilityRequiresOnlyWhatTheTradingServiceRequires(t *testing.T) {
 	}
 }
 
+func TestRecordingATradeTellsTheAssistantWhatToReportBack(t *testing.T) {
+	description := abilityNamed(t, "trading_record_contract_trade").Description
+
+	for _, phrase := range []string{"編號", "進場均價", "計畫風險", "記下的成交時間"} {
+		assert.Contains(t, description, phrase)
+	}
+}
+
+func TestRecordingATradeForwardsTheTradingStrategyItFollowed(t *testing.T) {
+	request := buildTradeJournalRequest(t, "trading_record_contract_trade", map[string]json.RawMessage{
+		"symbol":            json.RawMessage(`"BTCUSDT"`),
+		"direction":         json.RawMessage(`"long"`),
+		"firstEntryFill":    json.RawMessage(`{"price":"97905","quantity":"0.03"}`),
+		"tradingStrategyId": json.RawMessage(`5`),
+	})
+
+	assert.Contains(t, string(request.Body), `"tradingStrategyId":5`)
+	for _, phrase := range []string{"只能是使用者自己的合約交易策略", "K 線交易策略會被拒絕", "不給即自行判斷"} {
+		assert.Contains(t, boxDescription(t, "trading_record_contract_trade", "tradingStrategyId"), phrase)
+	}
+}
+
 func TestLeavingOutTheFillTimeLeavesItToTheTradingService(t *testing.T) {
 	request := buildTradeJournalRequest(t, "trading_add_contract_trade_fill", map[string]json.RawMessage{
 		"id":       json.RawMessage(`"27"`),
