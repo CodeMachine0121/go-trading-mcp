@@ -174,7 +174,9 @@ func TestSpotQuantitiesPricesAndFeesSayWhatTheAssistantMustKnow(t *testing.T) {
 			assert.Contains(t, boxDescription(t, abilityName, "fee"), phrase, abilityName)
 		}
 		assert.Contains(t, boxDescription(t, abilityName, "price"), "參考價不是成交價", abilityName)
-		assert.Contains(t, boxDescription(t, abilityName, "filledAt"), "省略即交易服務以現在記下", abilityName)
+		for _, phrase := range []string{"省略即交易服務以現在記下", "台北時間", "RFC3339"} {
+			assert.Contains(t, boxDescription(t, abilityName, "filledAt"), phrase, abilityName)
+		}
 	}
 
 	firstBuyFill := boxDescription(t, "trading_record_spot_trade", "firstBuyFill")
@@ -248,4 +250,16 @@ func TestOnlyTheSpotBacktestComparisonWaitsLikeAReplay(t *testing.T) {
 		}
 		assert.Zero(t, request.ResponseWaitLimit, abilityName)
 	}
+}
+
+func TestAFeeTheUserGaveIsForwardedAsGiven(t *testing.T) {
+	request := buildTradeJournalRequest(t, "trading_add_spot_trade_fill", map[string]json.RawMessage{
+		"id":       json.RawMessage(`"41"`),
+		"kind":     json.RawMessage(`"sell"`),
+		"price":    json.RawMessage(`"1120"`),
+		"quantity": json.RawMessage(`"600"`),
+		"fee":      json.RawMessage(`"1983"`),
+	})
+
+	assert.JSONEq(t, `{"kind":"sell","price":"1120","quantity":"600","fee":"1983"}`, string(request.Body))
 }
