@@ -12,14 +12,15 @@ const contractTradeFilledPriceNote = "開倉價或平倉價（字串形式的精
 
 const contractTradePlanSideNote = "**止損止盈要在對的一邊**：做多止損低於第一筆開倉價、止盈高於；做空相反，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數"
 
-const contractTradeFilledAtNote = "時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
+// tradeJournalRecordedAtNote is shared by both journals because the trading service defaults the time the same way for each.
+const tradeJournalRecordedAtNote = "時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
 	"**省略即交易服務以現在記下**，回覆會帶出實際記下的時間——請用台北時間（或使用者說的時區）說出來請他確認"
 
 // contractTradeFillParameters are shared by adding and correcting a fill so the two never drift apart.
 func contractTradeFillParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("kind", vo.ToolParameterKindString, "entry（開倉方向：第一筆即開倉、之後即加倉）或 exit（平倉方向：部分即減倉、讓持倉歸零即平倉）", true),
-		bodyParameter("filledAt", vo.ToolParameterKindString, contractTradeFilledAtNote, false),
+		bodyParameter("filledAt", vo.ToolParameterKindString, tradeJournalRecordedAtNote, false),
 		bodyParameter("price", vo.ToolParameterKindString, contractTradeFilledPriceNote, true),
 		bodyParameter("quantity", vo.ToolParameterKindString, "數量（字串形式的精確小數），必須大於零", true),
 		bodyParameter("liquidity", vo.ToolParameterKindString,
@@ -62,7 +63,7 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 				bodyParameter("firstEntryFill", vo.ToolParameterKindObject,
 					"開倉那一筆，形狀：{\"kind\":\"entry\", \"filledAt\":\"2026-09-27T14:03:00+08:00\", \"price\":\"97905\", \"quantity\":\"0.03\", "+
 						"\"liquidity\":\"taker\", \"fee\":\"1.47\"}。price 與 quantity 必填；kind 省略即開倉，給了就必須是 \"entry\"。"+
-						"price："+contractTradeFilledPriceNote+"。filledAt："+contractTradeFilledAtNote+
+						"price："+contractTradeFilledPriceNote+"。filledAt："+tradeJournalRecordedAtNote+
 						"。liquidity 省略即吃單；fee 省略即依使用者的費率自動算", true),
 				bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
 					"這筆是依哪一份交易策略做的。**只能是使用者自己的合約交易策略**（吃合約行情的那種），K 線交易策略會被拒絕；不給即自行判斷", false),

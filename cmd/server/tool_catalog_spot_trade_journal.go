@@ -16,9 +16,6 @@ const spotTradeQuantityNote = "數量（字串形式的精確小數），必須�
 const spotTradeFeeNote = "這一筆的手續費（字串形式的精確小數）。現貨沒有手續費率，**沒說即 0**；" +
 	"台股賣出的證交稅要併入手續費一起填——使用者記台股賣出沒提手續費時，提醒他證交稅要併入"
 
-const spotTradeFilledAtNote = "時間（RFC3339，帶時區）。使用者說了時間就照他說的換算；" +
-	"**省略即交易服務以現在記下**，回覆會帶出實際記下的時間——請用台北時間（或使用者說的時區）說出來請他確認"
-
 const spotTradePlanSideNote = "**止損必須低於第一筆買進價、止盈必須高於**，放錯邊會被拒絕。沒有計畫止損就算不出 R 倍數，報酬率照算"
 
 const spotTradeOnlyBuyThenSellNote = "**現貨只有先買後賣，沒有做空、沒有槓桿**：使用者說做空或幾倍時，說明現貨只有先買後賣，不要送出。"
@@ -29,7 +26,7 @@ const spotTradeAmbiguousSymbolNote = "**同一個代號可能同時是加密貨�
 func spotTradeFillParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("kind", vo.ToolParameterKindString, "buy（買進）或 sell（賣出）", true),
-		bodyParameter("filledAt", vo.ToolParameterKindString, spotTradeFilledAtNote, false),
+		bodyParameter("filledAt", vo.ToolParameterKindString, tradeJournalRecordedAtNote, false),
 		bodyParameter("price", vo.ToolParameterKindString, spotTradePriceNote, true),
 		bodyParameter("quantity", vo.ToolParameterKindString, spotTradeQuantityNote, true),
 		bodyParameter("fee", vo.ToolParameterKindString, spotTradeFeeNote, false),
@@ -56,7 +53,7 @@ func spotTradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 			bodyParameter("firstBuyFill", vo.ToolParameterKindObject,
 				"第一筆買進，形狀：{\"kind\":\"buy\", \"filledAt\":\"2026-09-27T10:15:00+08:00\", \"price\":\"1050\", \"quantity\":\"1000\", \"fee\":\"1496\"}。"+
 					"price 與 quantity 必填；kind 省略即買進。price："+spotTradePriceNote+"。quantity："+spotTradeQuantityNote+
-					"。filledAt："+spotTradeFilledAtNote+"。fee："+spotTradeFeeNote, true),
+					"。filledAt："+tradeJournalRecordedAtNote+"。fee："+spotTradeFeeNote, true),
 			bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
 				"這筆是依哪一份交易策略做的。**只能是使用者自己的 K 線（現貨）交易策略**，合約交易策略會被拒絕；不給即自行判斷", false),
 			bodyParameter("setupTagIds", vo.ToolParameterKindArray,
