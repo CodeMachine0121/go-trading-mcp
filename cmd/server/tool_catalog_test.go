@@ -102,6 +102,8 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_save_telegram_delivery":     true,
 	"trading_remove_telegram_delivery":   true,
 	"trading_send_telegram_test_message": true,
+	// 幣安交易金鑰（只讀；存入、移除與自動下單開關只在網頁上做）
+	"trading_get_binance_trading_key_status": true,
 	// 合約交易日誌
 	"trading_record_contract_trade":                 true,
 	"trading_add_contract_trade_fill":               true,
