@@ -67,10 +67,8 @@ func buildMcpServer(
 			"被拒絕時，回覆裡的是交易服務自己的說法——請照它說的改一改再試，不要重送一模一樣的東西。" +
 			"回覆說「連不到交易服務」時則相反：那不是你送錯了，晚一點再試同一件事。\n\n" +
 			"**幣安交易金鑰與自動下單，這個外掛只讀得到**：機器人回覆裡的 autoOrderEnabled，以及 trading_get_binance_trading_key_status 的有沒有設定與可交易市場。" +
-			"**存入、更換、移除金鑰，打開或關掉自動下單，都只能由使用者自己在網頁上做**（金鑰在設定頁，自動下單在機器人詳細頁），" +
-			"使用者要求時就這樣告訴他，不要送出任何改動。" +
-			"**絕不要請使用者把 API Key 或 Secret Key 貼進對話；他貼了也不要複述、不要轉送。**" +
-			"提到自動下單時要說清楚：目前開著也還不會下單，機器人仍只送 Telegram 通知。",
+			"提到自動下單時要說清楚：目前開著也還不會下單，機器人仍只送 Telegram 通知。" +
+			binanceAutoOrderWebOnlyNote,
 	})
 
 	controller.NewApiToolController(
