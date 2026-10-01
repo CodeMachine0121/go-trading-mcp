@@ -30,6 +30,7 @@ func TestEveryAbilityThatAnswersWithAStrategyBotSaysAutoOrderDoesNotPlaceOrdersY
 			assert.Contains(t, description, "autoOrderEnabled")
 			assert.Contains(t, description, "目前開著也還不會下單")
 			assert.Contains(t, description, "只送 Telegram 通知")
+			assert.Contains(t, description, "不要猜它是開還是關")
 		})
 	}
 }
