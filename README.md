@@ -274,6 +274,18 @@ curl localhost:8090/health   # {"status":"Healthy"}
   `equityCurvePointTotalCount`；交易明細超過 100 筆時只留最近 100 筆並加 `closedTradeTotalCount`；`inSample`／`validation`
   各自照做。**成績單一個數字都不動**；被拒絕的回覆與看不懂的回覆原封轉交。
 
+## 幣安自動下單（只讀）
+
+交易服務讓使用者留一組自己的**幣安交易金鑰**，並在每台策略機器人上多一個**自動下單**開關（目前開著也還不會下單，機器人仍只送 Telegram 通知）。
+外掛在這件事上**只讀**：
+
+- 每一個回覆機器人的能力都原樣帶出 `autoOrderEnabled`，說明要助理提到它時補一句「目前開著也還不會下單」。
+- **`trading_get_binance_trading_key_status`**（`GET /users/me/binance-trading-key/status`）回答有沒有設定、可交易市場（`spot`／`contract`）與設定時刻；
+  **不含任何一段金鑰內容**，連 API Key 結尾也沒有。另立一件而不併入 `trading_get_current_user`：「我是誰」回答身分，
+  併入就得替一次詢問打兩個入口再自己拼回覆。
+- **沒有**存入／更換／移除金鑰、打開／關掉自動下單的能力；建立與修改機器人也**不宣告、不轉送** `autoOrderEnabled`（交易服務修改時保留原本的開關）。
+  這幾件只能由使用者自己在網頁的設定頁、機器人詳細頁做；說明要助理**絕不請使用者把金鑰貼進對話，貼了也不複述、不轉送**。
+
 ## 合約交易日誌
 
 使用者收到機器人信號後**自己到交易所手動下單**，再請助理記下這一筆。外掛接成 **19 件能力**

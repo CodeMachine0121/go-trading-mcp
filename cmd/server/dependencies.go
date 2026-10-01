@@ -65,7 +65,10 @@ func buildMcpServer(
 			"每一件事都以使用者在 Claude Code 授權給這個外掛的帳號進行，**絕不要向使用者要電子郵件或密碼**。" +
 			"回覆要他重新連線時，請他到 Claude Code 的 /mcp 選單重新連線這個外掛，在瀏覽器登入並按允許。\n\n" +
 			"被拒絕時，回覆裡的是交易服務自己的說法——請照它說的改一改再試，不要重送一模一樣的東西。" +
-			"回覆說「連不到交易服務」時則相反：那不是你送錯了，晚一點再試同一件事。",
+			"回覆說「連不到交易服務」時則相反：那不是你送錯了，晚一點再試同一件事。\n\n" +
+			"**幣安交易金鑰與自動下單，這個外掛只讀得到**：機器人回覆裡的 autoOrderEnabled，以及 trading_get_binance_trading_key_status 的有沒有設定與可交易市場。" +
+			"提到自動下單時要說清楚：目前開著也還不會下單，機器人仍只送 Telegram 通知。" +
+			binanceAutoOrderWebOnlyNote,
 	})
 
 	controller.NewApiToolController(

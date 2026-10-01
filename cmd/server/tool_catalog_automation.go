@@ -94,6 +94,10 @@ const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 h
 	"把它讀成「沒有信號」之前，先用 trading_list_contract_k_candles 看那個合約標的最新的 K 線是不是還在進來；" +
 	"停了的話多半是它已不在合約追蹤名單上（trading_add_to_contract_watchlist 加回去）"
 
+const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEnabled（自動下單：true 開、false 關）**，現貨與合約機器人都有。" +
+	"提到它時要說清楚：**目前開著也還不會下單**，每一輪照樣只判信號、只送 Telegram 通知。" +
+	"回覆裡沒有這一格時，不要猜它是開還是關"
+
 func strategyBotApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
@@ -110,14 +114,17 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"那兩件事**還沒有對過帳**——"+
 				"要對帳就用 trading_backtest_trading_strategy（合約機器人用 trading_backtest_contract_trading_strategy）"+
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
-				"在那之前，不要拿那個 25% 替這組停損背書。",
+				"在那之前，不要拿那個 25% 替這組停損背書。"+
+				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
+				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_bots",
 			"列出你的每一台策略機器人，含它現在是不是在跑。"+
-				"每一台都帶著 marketDataKind，看得出它是現貨機器人（kCandle）還是合約機器人（contractKCandle）。",
+				"每一台都帶著 marketDataKind，看得出它是現貨機器人（kCandle）還是合約機器人（contractKCandle）。"+
+				strategyBotAutoOrderNote,
 			vo.RequestVerbRead, "/strategy-bots",
 			queryParameter("marketDataKind", vo.ToolParameterKindString,
 				"只列其中一種：kCandle（現貨機器人）或 contractKCandle（合約機器人）。不給就全部列出；其他值會被拒絕", false),
@@ -125,7 +132,8 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_get_strategy_bot",
 			"讀一台策略機器人的設定與目前狀態，含它吃哪一種行情（marketDataKind）；"+
-				"合約機器人的 positionPlan 另帶著它的槓桿倍數（leverage）。",
+				"合約機器人的 positionPlan 另帶著它的槓桿倍數（leverage）。"+
+				strategyBotAutoOrderNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}",
 			pathParameter("id", "策略機器人識別碼"),
 		),
@@ -133,7 +141,9 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_update_strategy_bot",
 			"改一台你自己的策略機器人。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"\n\n**例外是 marketDataKind**：不給就是保留原本的種類，只改名字或間隔時不必重帶它；"+
-				"換成另一種會被拒絕。合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。",
+				"換成另一種會被拒絕。合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
+				"\n\n**自動下單也不受這次改寫影響**：這裡沒有那一格，改完維持原本的開或關。"+
+				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
 				strategyBotWriteParameters()...)...,
@@ -146,13 +156,15 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_start_strategy_bot",
-			"啟動一台策略機器人，它開始按自己的間隔一輪一輪跑。",
+			"啟動一台策略機器人，它開始按自己的間隔一輪一輪跑。"+
+				strategyBotAutoOrderNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/power",
 			pathParameter("id", "要啟動哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_stop_strategy_bot",
-			"停掉一台策略機器人。已經跑過的那些輪次紀錄一筆都不刪。",
+			"停掉一台策略機器人。已經跑過的那些輪次紀錄一筆都不刪。停掉不會關掉它的自動下單。"+
+				strategyBotAutoOrderNote,
 			vo.RequestVerbRemove, "/strategy-bots/{id}/power",
 			pathParameter("id", "要停哪一台"),
 		),
@@ -169,7 +181,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
 				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
 				"回應是這台機器人跑完之後的樣子，不是這一輪的紀錄——跑完用 trading_list_strategy_bot_runs 讀這一輪的紀錄。"+
-				contractStrategyBotSkippedRoundNote,
+				contractStrategyBotSkippedRoundNote+strategyBotAutoOrderNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
