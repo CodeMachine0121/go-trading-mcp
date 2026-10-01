@@ -61,7 +61,12 @@ func TestReadingTheBinanceTradingKeyStatusSaysHowToReportEachAnswer(t *testing.T
 
 func TestNoAbilityWritesABinanceTradingKeyOrSwitchesAutoOrder(t *testing.T) {
 	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
-		request, _ := apiTool.BuildRequest(domains.NewToolArgumentsDomain(nil))
+		everyBoxFilledIn := map[string]json.RawMessage{}
+		for _, parameter := range apiTool.ToDefinitionDto().Parameters {
+			everyBoxFilledIn[parameter.Name] = json.RawMessage(`"7"`)
+		}
+		request, buildError := apiTool.BuildRequest(domains.NewToolArgumentsDomain(everyBoxFilledIn))
+		require.NoError(t, buildError, apiTool.Name())
 
 		assert.NotContains(t, request.Path, "/auto-order", apiTool.Name())
 		if strings.HasPrefix(request.Path, "/users/me/binance-trading-key") {
