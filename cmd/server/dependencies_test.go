@@ -127,3 +127,27 @@ func TestTheConnectorSaysItIsAliveWithoutAnAuthorizationOrTheTradingService(t *t
 
 	assert.Equal(t, http.StatusOK, answer.StatusCode)
 }
+
+func TestTheConnectorInstructionsKeepBinanceTradingKeysAndAutoOrderOnTheWeb(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
+
+	assistantSession, connectError := mcp.NewClient(
+		&mcp.Implementation{Name: "assistant", Version: "test"}, nil).
+		Connect(context.Background(), &mcp.StreamableClientTransport{
+			Endpoint:   connectorStandIn.URL + "/mcp",
+			HTTPClient: &http.Client{Transport: bearerAdding{}},
+		}, nil)
+	require.NoError(t, connectError)
+	t.Cleanup(func() { _ = assistantSession.Close() })
+
+	instructions := assistantSession.InitializeResult().Instructions
+	for _, phrase := range []string{
+		"trading_get_binance_trading_key_status",
+		"只能由使用者自己在網頁上做",
+		"不要送出任何改動",
+		"絕不要請使用者把 API Key 或 Secret Key 貼進對話；他貼了也不要複述、不要轉送",
+		"目前開著也還不會下單",
+	} {
+		assert.Contains(t, instructions, phrase)
+	}
+}
