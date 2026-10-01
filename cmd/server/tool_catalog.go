@@ -237,7 +237,10 @@ func accountApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_change_password",
 			"更換密碼。舊密碼對不上即拒絕；新密碼一樣受 72 位元組的上限規則。"+
-				"\n\n改完之後既有的登入與外掛授權仍然有效——這一支不會讓你要重新連線。",
+				"\n\n**改完之後，交易服務會收回這個帳號所有的登入，包含這個外掛的授權。**"+
+				"手上這份授權只撐到它自己到期（最多 15 分鐘），之後換不到新的，"+
+				"使用者得到 Claude Code 的 /mcp 選單重新連線這個外掛，在瀏覽器登入並按允許。"+
+				"改之前先把這件事告訴使用者。",
 			vo.RequestVerbSubmit, "/users/me/password",
 			bodyParameter("currentPassword", vo.ToolParameterKindString, "目前的密碼", true),
 			bodyParameter("newPassword", vo.ToolParameterKindString, "要改成的新密碼", true),

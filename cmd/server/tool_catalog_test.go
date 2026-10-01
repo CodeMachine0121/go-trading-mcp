@@ -711,3 +711,11 @@ func TestBothTradingStrategyWritesSayOnlyOnesOwnScriptsMayBeNamed(t *testing.T) 
 		})
 	}
 }
+
+func TestChangingThePasswordWarnsThatThisConnectorMustBeReconnected(t *testing.T) {
+	description := abilityNamed(t, "trading_change_password").Description
+
+	assert.Contains(t, description, "包含這個外掛的授權")
+	assert.Contains(t, description, "/mcp 選單重新連線")
+	assert.NotContains(t, description, "仍然有效")
+}
