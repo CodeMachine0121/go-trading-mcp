@@ -88,6 +88,8 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 				"請拿那個識別碼用 trading_get_k_candle_history_sync 看進度。四年的一分鐘 K 線要跑十幾分鐘。"+
 				"\n\n它向來源問**整段**（所以中間的破洞補得到），但**只寫進沒有的那幾根**，已經有的原封不動。"+
 				"所以報告裡的「存了幾根」講的是這一次新增了幾根——整段本來就齊全時它是 0，而那是實話。"+
+				"\n\n落在平日的國定假日會被跳過、記在 presumedClosedDayCount，不會讓同步停下——長區間不必拆成好幾段。"+
+				"例外是連續 15 個交易日都沒資料：那比任何休市都長，多半是來源不認得這個代號，同步會停下、原因寫在 fetchFailureReason。"+
 				"\n\n回溯天數必須在 1 到系統上限之間，超過會被擋下來並告訴你上限是多少。"+
 				"沒登錄過的代號回 404。同一個標的同時只跑一趟，再按一次回 409。",
 			vo.RequestVerbSubmit, "/k-candles/history",
@@ -98,9 +100,12 @@ func kCandleApiTools(liveUpdateWaitLimit time.Duration) []domains.ApiToolDomain 
 		domains.NewApiToolDomain(
 			"trading_get_k_candle_history_sync",
 			"看一趟歷史同步走到哪：status（running／succeeded／failed）、completedChunks / totalChunks、"+
-				"storedCount、skippedCount。"+
+				"storedCount、skippedCount、presumedClosedDayCount。"+
 				"\n\n**fetchFailureReason 與 failureReason 是兩件事**："+
-				"前者是行情來源不答話（這趟仍算 succeeded，那是查到的事），後者才是交易服務自己壞掉。",
+				"前者是行情來源不答話（這趟仍算 succeeded，那是查到的事），後者才是交易服務自己壞掉。"+
+				"\n\npresumedClosedDayCount 是被跳過的平日數：來源說那一天沒有這個標的的資料（多半是交易日曆不認得的國定假日），"+
+				"那一天跳過、繼續問下一天，不算來源不答話。"+
+				"它與 skippedCount 是兩件事：skippedCount 是來源答了、但某幾根不合格。",
 			vo.RequestVerbRead, "/k-candles/history/{id}",
 			pathParameter("id", "trading_sync_k_candle_history 回的那個輪次識別碼"),
 		),
