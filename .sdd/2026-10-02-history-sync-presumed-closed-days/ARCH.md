@@ -33,4 +33,5 @@
 | 說明列出推定休市天數並說出它的意思 | `trading_get_k_candle_history_sync` 說明 |
 | 說明分開推定休市天數與略過根數 | 同上 |
 | 發起同步的說明講假日 | `trading_sync_k_candle_history` 說明 |
+| 發起同步的說明講連續太久的例外 | 同上 |
 | 合約那邊不提推定休市 | 未改動合約說明；測試 `mustNotSay` |
