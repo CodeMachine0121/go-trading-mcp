@@ -15,7 +15,10 @@ func TestTheSpotHistorySyncAbilitiesSayWhatAPresumedClosedDayIs(t *testing.T) {
 		mustNotSay  []string
 	}{
 		{abilityName: "trading_sync_k_candle_history",
-			mustSay: []string{"落在平日的國定假日會被跳過、記在 presumedClosedDayCount，不會讓同步停下"}},
+			mustSay: []string{
+				"落在平日的國定假日會被跳過、記在 presumedClosedDayCount，不會讓同步停下",
+				"例外是連續 15 個交易日都沒資料：那比任何休市都長，多半是來源不認得這個代號，同步會停下、原因寫在 fetchFailureReason。",
+			}},
 		{abilityName: "trading_get_k_candle_history_sync",
 			mustSay: []string{
 				"storedCount、skippedCount、presumedClosedDayCount。",
