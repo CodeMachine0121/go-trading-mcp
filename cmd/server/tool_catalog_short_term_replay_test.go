@@ -63,28 +63,26 @@ func TestAReplayWithNeitherSendsWhatItSentBefore(t *testing.T) {
 	}
 }
 
-func TestOnlyTheReplaysWaitLonger(t *testing.T) {
+func TestOnlyWhatIsReplayedOnTheSpotOrLookedAtWithAWaitWaitsLonger(t *testing.T) {
 	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
 		request, buildError := apiTool.BuildRequest(replayArgumentsWith(nil))
 		if buildError != nil {
 			continue
 		}
 
-		isReplay := apiTool.Name() == "trading_compare_contract_trades_with_backtest" ||
-			apiTool.Name() == "trading_compare_spot_trades_with_backtest"
-		for _, abilityName := range replayAbilityNames {
-			isReplay = isReplay || apiTool.Name() == abilityName
-		}
+		waitsLonger := apiTool.Name() == "trading_compare_contract_trades_with_backtest" ||
+			apiTool.Name() == "trading_compare_spot_trades_with_backtest" ||
+			apiTool.Name() == "trading_get_backtest_run"
 
-		if isReplay {
+		if waitsLonger {
 			assert.Equal(t, 120*time.Second, request.ResponseWaitLimit, apiTool.Name())
 			continue
 		}
-		assert.Zero(t, request.ResponseWaitLimit, "只有重演該等比較久：%s", apiTool.Name())
+		assert.Zero(t, request.ResponseWaitLimit, "只有當場重演與看一筆回測輪次該等比較久：%s", apiTool.Name())
 	}
 }
 
-func TestOnlyTheReplaysCondenseWhatTheyHandOn(t *testing.T) {
+func TestOnlyLookingAtABacktestRunCondensesWhatItHandsOn(t *testing.T) {
 	equityPoints := make([]string, 0, 300)
 	for pointIndex := range 300 {
 		equityPoints = append(equityPoints, fmt.Sprintf(`{"equity":"%d"}`, pointIndex))
@@ -93,17 +91,12 @@ func TestOnlyTheReplaysCondenseWhatTheyHandOn(t *testing.T) {
 	succeeded := vo.TradingServiceResponseVo{Outcome: vo.TradingServiceSucceeded, Content: longResult}
 
 	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
-		isReplay := false
-		for _, abilityName := range replayAbilityNames {
-			isReplay = isReplay || apiTool.Name() == abilityName
-		}
-
 		relayed := apiTool.Relayed(succeeded).Content
-		if isReplay {
-			assert.Contains(t, relayed, `"equityCurvePointTotalCount":300`, apiTool.Name())
+		if apiTool.Name() == "trading_get_backtest_run" {
+			assert.Contains(t, relayed, `"equityCurvePointTotalCount":300`)
 			continue
 		}
-		assert.Equal(t, longResult, relayed, "只有重演會精簡：%s", apiTool.Name())
+		assert.Equal(t, longResult, relayed, "只有看一筆回測輪次會精簡：%s", apiTool.Name())
 	}
 }
 
@@ -115,9 +108,8 @@ func TestEveryReplayTeachesShortTermReplaying(t *testing.T) {
 			"fillTiming 用 nextOpen",
 			"只拿 inSample 調參數，只拿 validation 判斷這支策略好不好",
 			"profitFactor", "expectancy", "averageHoldingSeconds", "maximumConsecutiveLossCount", "costToGrossProfitRatio",
-			"整體的時間上限", "請縮短期間或改用粗一點的刻度",
 			"一筆都沒虧時是 null", "價差本身沒賺時是 null",
-			"equityCurvePointTotalCount", "closedTradeTotalCount",
+			"不要數交易明細",
 		} {
 			assert.Contains(t, description, taught, abilityName)
 		}

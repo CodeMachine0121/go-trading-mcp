@@ -197,7 +197,7 @@ curl localhost:8090/health   # {"status":"Healthy"}
 | `SERVER_PORT` | `8090` | 外掛自己聽在哪個埠 |
 | `MCP_PATH` | `/mcp` | 掛在哪個路徑上 |
 | `TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS` | `30` | 單次請求逾時 |
-| `TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS` | `120` | 四件重演自己的逾時。**要比交易服務整次重演的允許時間（預設 90 秒）長**，讓交易服務自己先說「沒跑完」，而不是外掛先放棄 |
+| `TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS` | `120` | 兩件實盤 vs 回測與「看一筆回測輪次」自己的逾時。**要比交易服務整次當場重演的允許時間（預設 90 秒）與順便等的上限（60 秒）長**，讓交易服務自己先說「沒跑完」，而不是外掛先放棄 |
 | `LIVE_UPDATE_WAIT_LIMIT_SECONDS` | `10` | 「看一眼即時更新」最長等幾秒 |
 
 打錯的數字會**退回預設值而不是讓外掛起不來**——一個時間打錯，不該讓整個東西掛掉。
