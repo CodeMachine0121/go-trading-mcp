@@ -84,10 +84,3 @@ func TestOpeningItUpIsPossibleButHasToBeSaidOutLoud(t *testing.T) {
 
 	assert.Equal(t, "0.0.0.0", loadApplicationConfig().ServerBindAddress)
 }
-
-func TestAnIdleConnectionIsNotHeldForever(t *testing.T) {
-	assert.Equal(t, 60*time.Minute, loadApplicationConfig().IdleConnectionTimeout)
-
-	t.Setenv("IDLE_CONNECTION_TIMEOUT_MINUTES", "15")
-	assert.Equal(t, 15*time.Minute, loadApplicationConfig().IdleConnectionTimeout)
-}

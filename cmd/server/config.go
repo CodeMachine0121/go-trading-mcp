@@ -29,7 +29,6 @@ type ApplicationConfig struct {
 	// a replay ran out of time.
 	TradingServiceReplayTimeout time.Duration
 	LiveUpdateWaitLimit         time.Duration
-	IdleConnectionTimeout       time.Duration
 }
 
 func loadApplicationConfig() ApplicationConfig {
@@ -47,8 +46,6 @@ func loadApplicationConfig() ApplicationConfig {
 			wholeNumberWithDefault("TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS", 120)) * time.Second,
 		LiveUpdateWaitLimit: time.Duration(
 			wholeNumberWithDefault("LIVE_UPDATE_WAIT_LIMIT_SECONDS", 10)) * time.Second,
-		IdleConnectionTimeout: time.Duration(
-			wholeNumberWithDefault("IDLE_CONNECTION_TIMEOUT_MINUTES", 60)) * time.Minute,
 	}
 }
 

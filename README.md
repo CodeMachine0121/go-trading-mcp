@@ -199,7 +199,6 @@ curl localhost:8090/health   # {"status":"Healthy"}
 | `TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS` | `30` | 單次請求逾時 |
 | `TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS` | `120` | 四件重演自己的逾時。**要比交易服務整次重演的允許時間（預設 90 秒）長**，讓交易服務自己先說「沒跑完」，而不是外掛先放棄 |
 | `LIVE_UPDATE_WAIT_LIMIT_SECONDS` | `10` | 「看一眼即時更新」最長等幾秒 |
-| `IDLE_CONNECTION_TIMEOUT_MINUTES` | `60` | 連線閒置多久就放掉（Claude Code 會自己重開，不必重新授權） |
 
 打錯的數字會**退回預設值而不是讓外掛起不來**——一個時間打錯，不該讓整個東西掛掉。
 
@@ -269,10 +268,28 @@ curl localhost:8090/health   # {"status":"Healthy"}
   說明要助理**只拿調參段調參、只以驗證段判斷**。
 - 一段共用說明（`shortTermReplayNote`）教助理讀五格新統計：`profitFactor`、`expectancy`、`averageHoldingSeconds`、
   `maximumConsecutiveLossCount`、`costToGrossProfitRatio`。
-- **重演等比較久**（`TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS`），其他能力照舊。
-- **成功的重演結果交給助理前會先精簡**（`ReplayResultDomain`）：資金曲線超過 200 點時平均取 200 點（頭尾必留）並加
-  `equityCurvePointTotalCount`；交易明細超過 100 筆時只留最近 100 筆並加 `closedTradeTotalCount`；`inSample`／`validation`
-  各自照做。**成績單一個數字都不動**；被拒絕的回覆與看不懂的回覆原封轉交。
+- 四件重演**不再當場回成績單、也不再等比較久**：送出就回一筆回測輪次，見下一節。
+
+### 回測輪次
+
+交易服務把使用者送出的回測改成**先記下一筆回測輪次、立刻回覆**，重演在背後走，成績單留在輪次上。四件重演能力的輸入一字不改，
+回覆變成輪次（`id`、`status`）；說明要助理**把輪次編號說給使用者**、拿 `id` 去看、`queued` 時不要重送。
+另外三件（`cmd/server/tool_catalog_strategy.go` 的 `backtestRunApiTools`）：
+
+- **`trading_get_backtest_run`**（`GET /backtest-runs/{id}`）：狀態（`queued`／`running`／`succeeded`／`failed`／`cancelled`）、進度、完成時的成績單、失敗時的原因。
+  可帶 `waitSeconds`（最多 60）順便等：輪次提前結束就提前回。**它等比較久**（`TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS`），
+  而且**成績單交給助理前會先精簡**（`ReplayResultDomain`，精簡的是回覆裡的 `result`）：資金曲線超過 200 點時平均取 200 點（頭尾必留）並加
+  `equityCurvePointTotalCount`；交易明細超過 100 筆時只留最近 100 筆並加 `closedTradeTotalCount`；`inSample`／`validation` 各自照做。
+  **成績單一個數字都不動**；還沒有成績單的輪次、被拒絕的回覆與看不懂的回覆原封轉交。
+- **`trading_list_backtest_runs`**（`GET /backtest-runs`）：新到舊，可依 `status`、`strategyScriptId`、`tradingStrategyId` 篩，`limit` 預設 20、最多 200，回覆帶 `totalCount`。
+- **`trading_cancel_backtest_run`**（`POST /backtest-runs/{id}/cancel`）：只有排隊中與進行中能取消。
+
+說明裡的規矩：「超過時間上限」「被重新啟動打斷」照原因說、不猜成腳本壞了；使用者問以前跑過的用列表找、不重跑。
+
+## 可以開好幾份
+
+外掛**不在任何一份上保留連線狀態**（MCP 的 Streamable HTTP 以無狀態模式運作）：每一次呼叫自帶外掛授權，落在哪一份都一樣，
+所以部署端可以同時開好幾份、不需要黏住同一份。Claude Code 既有的連線不必重新授權。
 
 ## 幣安自動下單（只讀）
 

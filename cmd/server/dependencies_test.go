@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,4 +148,33 @@ func TestTheConnectorInstructionsKeepBinanceTradingKeysAndAutoOrderOnTheWeb(t *t
 	} {
 		assert.Contains(t, instructions, phrase)
 	}
+}
+
+// Every call carries its own bearer, so a call that arrives without a session (on any
+// replica, or after another replica answered the one before) is answered all the same.
+func TestTheAssembledConnectorAnswersACallThatCarriesNoSession(t *testing.T) {
+	connectorStandIn := assembledConnector(t)
+	callWithoutSession := func(body string) *http.Response {
+		request, requestError := http.NewRequest(http.MethodPost, connectorStandIn.URL+"/mcp", strings.NewReader(body))
+		require.NoError(t, requestError)
+		request.Header.Set("Authorization", "Bearer live")
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Accept", "application/json, text/event-stream")
+
+		answer, answerError := http.DefaultClient.Do(request)
+		require.NoError(t, answerError)
+		t.Cleanup(func() { _ = answer.Body.Close() })
+
+		return answer
+	}
+
+	initialized := callWithoutSession(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`)
+	assert.Equal(t, http.StatusOK, initialized.StatusCode)
+	assert.Empty(t, initialized.Header.Get("Mcp-Session-Id"))
+
+	listed := callWithoutSession(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	assert.Equal(t, http.StatusOK, listed.StatusCode)
+	listedBody, readError := io.ReadAll(listed.Body)
+	require.NoError(t, readError)
+	assert.Contains(t, string(listedBody), "trading_get_backtest_run")
 }

@@ -28,9 +28,11 @@ func buildHttpHandler(applicationConfig ApplicationConfig) http.Handler {
 	)
 
 	server := buildMcpServer(applicationConfig, tradingServiceProxy)
+	// Stateless: every call carries its own bearer, so no connection state is kept on
+	// one replica and any replica can answer any call.
 	mcpHandler := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return server },
-		&mcp.StreamableHTTPOptions{SessionTimeout: applicationConfig.IdleConnectionTimeout})
+		&mcp.StreamableHTTPOptions{Stateless: true})
 
 	router := http.NewServeMux()
 	router.Handle(applicationConfig.McpPath, connectorAuthorizationController.Guard(mcpHandler))
