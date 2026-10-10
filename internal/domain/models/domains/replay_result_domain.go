@@ -32,8 +32,7 @@ const (
 // It is read as raw JSON fields rather than decoded into figures, which is what lets
 // the report card's exact decimals pass through untouched.
 //
-// A backtest run's detail carries its replay result under "result"; it is condensed
-// in place by the same rules, and a run that has no result yet is handed on as is.
+// A backtest run's detail carries its replay result under "result" and is condensed in place.
 type ReplayResultDomain struct {
 	content string
 }

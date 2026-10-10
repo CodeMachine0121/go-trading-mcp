@@ -23,10 +23,7 @@ type ApplicationConfig struct {
 	TradingServiceBaseUrl        string
 	TradingServicePublicUrl      string
 	TradingServiceRequestTimeout time.Duration
-	// TradingServiceReplayTimeout is how long the replay abilities wait for their
-	// answer. It is longer than the usual wait, and longer than the trading service's
-	// own allowance for a whole replay, so that the trading service is the one to say
-	// a replay ran out of time.
+	// TradingServiceReplayTimeout covers the on-the-spot comparisons and a run looked at with a wait; it must outlast the trading service's own limits.
 	TradingServiceReplayTimeout time.Duration
 	LiveUpdateWaitLimit         time.Duration
 }

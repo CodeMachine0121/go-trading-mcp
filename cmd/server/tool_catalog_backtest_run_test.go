@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// A replay answers at once with a run, so the assistant must be told to come back for
-// the report card and not to resend while the run is queued.
 func TestEveryReplayTeachesSubmittingThenLookingAtTheRun(t *testing.T) {
 	for _, abilityName := range replayAbilityNames {
 		t.Run(abilityName, func(t *testing.T) {
@@ -23,7 +21,7 @@ func TestEveryReplayTeachesSubmittingThenLookingAtTheRun(t *testing.T) {
 			} {
 				assert.Contains(t, description, taught)
 			}
-			for _, noLongerSaid := range []string{"整體的時間上限", "交到你手上之前會先精簡"} {
+			for _, noLongerSaid := range []string{"整體的時間上限", "交到你手上之前會先精簡", "回來的是成績單"} {
 				assert.NotContains(t, description, noLongerSaid)
 			}
 		})

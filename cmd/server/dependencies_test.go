@@ -150,8 +150,6 @@ func TestTheConnectorInstructionsKeepBinanceTradingKeysAndAutoOrderOnTheWeb(t *t
 	}
 }
 
-// Every call carries its own bearer, so a call that arrives without a session (on any
-// replica, or after another replica answered the one before) is answered all the same.
 func TestTheAssembledConnectorAnswersACallThatCarriesNoSession(t *testing.T) {
 	connectorStandIn := assembledConnector(t)
 	callWithoutSession := func(body string) *http.Response {

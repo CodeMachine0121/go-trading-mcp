@@ -239,22 +239,17 @@ const shortTermReplayNote = "\n\n**研發短線策略時，fillTiming 用 nextOp
 	"**短線策略要看 expectancy 與 costToGrossProfitRatio**：勝率高而 expectancy 接近零、或成本吃掉大半價差，都是交易次數多、沒有真的優勢。" +
 	"\n\n**拿到成績單後，筆數、勝率請讀成績單，不要數交易明細**：交到你手上的成績單已經精簡過（見 trading_get_backtest_run）。"
 
-// backgroundReplayNote is what every replay does now: it records a backtest run and
-// answers at once, so the assistant has to come back for the report card. Said once
-// for all four, because an assistant told two different stories about the same
-// replay would wait for one and resend the other.
+// backgroundReplayNote is shared by the four replays so none of them tells a different story about what comes back.
 const backgroundReplayNote = "\n\n**它不等算完**——要求合法就立刻回一筆回測輪次（id、status），請拿 id 用 trading_get_backtest_run 看進度與成績單；短的幾秒，四年份的 1 小時刻度可能要幾分鐘。**把輪次編號說給使用者**，並說明可以隨時回來看。" +
 	"\n\nstatus 是 queued 時代表前面還有在跑的，**會自動開始，不要重送**；被拒絕「你同時最多 N 筆」時，等其中一筆結束或用 trading_cancel_backtest_run 取消一筆再送。" +
 	"\n\n回測有背景時間上限（預設三十分鐘）：超過的輪次會是 failed、原因寫「超過時間上限」，請縮短期間或改用粗一點的刻度再送一筆。要求本身不合法（區間顛倒、腳本不是你的、旋鈕沒宣告過……）時照舊當場被拒絕、不留輪次。"
 
-// backtestRunApiTools are the three abilities around a backtest run: looking at one,
-// listing one's own, cancelling one that has not finished.
 func backtestRunApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_get_backtest_run",
 			"看一筆回測輪次走到哪：status 五選一——queued（排隊中，前面還有在跑的，會自動開始）、running（進行中，progressPercent 說走到幾成）、"+
-				"succeeded（完成，result 是成績單）、failed（failureReason 說為什麼）、cancelled（已取消）。"+
+				"succeeded（完成，result 是成績單）、failed（failureReason 說為什麼）、cancelled（已取消）。回覆也帶要跑什麼：kind、symbol、interval、startTime、endTime、subjectName。"+
 				"\n\n**可以順便等一下**：給 waitSeconds（最多 60），輪次在那之前結束就立刻回，沒結束就回當時的狀態與進度——不必每隔幾秒戳一次。"+
 				"\n\n**failureReason 照原話說**：「超過時間上限」是回測太長、「被重新啟動打斷」是交易服務換了一台，兩者都不是腳本壞了，不要猜成腳本有錯；腳本真的出錯時寫的是那一句錯誤。"+
 				"\n\n**成績單（result）交到你手上之前會先精簡**：資金曲線超過兩百點時平均取兩百點（頭尾都在），並多一個 equityCurvePointTotalCount 說原本幾點；"+
@@ -296,7 +291,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
 				"\n\n重演一律以 signal 這種指標值種類執行——它讀的就是每根一個買賣信號，"+
 				"所以這裡沒有 resultType 可填、也不需要填。"+
-				"\n\n回來的是成績單、交易明細與資金曲線。"+
+				"\n\n輪次完成後（trading_get_backtest_run）拿到的是成績單、交易明細與資金曲線。"+
 				"**成績單裡的交易筆數一定要看**——一張幾乎沒有交易的漂亮成績單會被讀成「很穩」，"+
 				"而真相是這份策略根本沒有在做決定。"+
 				"\n\n模擬了出場價位時，**stopLossExitCount 也一定要看**："+
