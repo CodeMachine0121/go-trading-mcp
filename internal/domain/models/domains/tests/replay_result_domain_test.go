@@ -109,3 +109,49 @@ func TestCondensingDoesNotEscapeWhatTheTradingServiceWrote(t *testing.T) {
 
 	assert.Contains(t, content, `"note":"<短線> & 合約"`)
 }
+
+type condensedRunDetail struct {
+	ID     int              `json:"id"`
+	Status string           `json:"status"`
+	Result *condensedReplay `json:"result"`
+}
+
+func condensedDetailOf(t *testing.T, content string) condensedRunDetail {
+	t.Helper()
+
+	detail := condensedRunDetail{}
+	require.NoError(t, json.Unmarshal(
+		[]byte(domains.NewReplayResultDomain(content).ToCondensedContent()), &detail))
+
+	return detail
+}
+
+func TestABacktestRunDetailIsCondensedInsideItsResult(t *testing.T) {
+	detail := condensedDetailOf(t, `{"id":40,"status":"succeeded","result":`+aReplayResultWith(300, 1, "")+`}`)
+
+	assert.Equal(t, 40, detail.ID)
+	assert.Equal(t, "succeeded", detail.Status)
+	require.NotNil(t, detail.Result)
+	assert.Len(t, detail.Result.EquityCurve, 200)
+	require.NotNil(t, detail.Result.EquityCurvePointTotalCount)
+	assert.Equal(t, 300, *detail.Result.EquityCurvePointTotalCount)
+}
+
+func TestABacktestRunDetailsPartsAreCondensedByTheSameRules(t *testing.T) {
+	detail := condensedDetailOf(t, `{"id":40,"status":"succeeded","result":`+
+		aReplayResultWith(10, 1, `,"validation":`+aReplayResultWith(1000, 1, ""))+`}`)
+
+	require.NotNil(t, detail.Result)
+	require.NotNil(t, detail.Result.Validation)
+	assert.Len(t, detail.Result.Validation.EquityCurve, 200)
+}
+
+func TestABacktestRunWithoutAResultIsHandedOnUntouched(t *testing.T) {
+	for _, content := range []string{
+		`{"id":40,"status":"running","progressPercent":40,"result":null}`,
+		`{"id":41,"status":"queued"}`,
+		`{"id":42,"status":"failed","failureReason":"超過時間上限","result":null}`,
+	} {
+		assert.Equal(t, content, domains.NewReplayResultDomain(content).ToCondensedContent())
+	}
+}

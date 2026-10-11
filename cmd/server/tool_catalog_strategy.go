@@ -237,10 +237,53 @@ const shortTermReplayNote = "\n\n**研發短線策略時，fillTiming 用 nextOp
 	"驗證起點必須落在期間之內、兩段都要至少一格，否則會被拒絕。" +
 	"\n\n**成績單多五格**：profitFactor（賺的那幾筆淨損益合計 ÷ 虧的那幾筆合計，一筆都沒虧時是 null——不是無限大）、expectancy（每一筆平均淨賺多少）、averageHoldingSeconds（平均持倉秒數）、maximumConsecutiveLossCount（最多連虧幾筆，打平會打斷）、costToGrossProfitRatio（手續費吃掉扣成本前價差的比例，0.25 就是吃掉四分之一；價差本身沒賺時是 null；合約的資金費用不算在內）。結束時還開著的那一注不算進這五格。" +
 	"**短線策略要看 expectancy 與 costToGrossProfitRatio**：勝率高而 expectancy 接近零、或成本吃掉大半價差，都是交易次數多、沒有真的優勢。" +
-	"\n\n**一次重演有整體的時間上限**：跑太久會整次被拒絕（不會給半張成績單），請縮短期間或改用粗一點的刻度再試。" +
-	"\n\n**長重演交到你手上之前會先精簡**：資金曲線超過兩百點時平均取兩百點（頭尾都在），並多一個 equityCurvePointTotalCount 說原本幾點；交易明細超過一百筆時只列最近一百筆，並多一個 closedTradeTotalCount 說總共幾筆；inSample 與 validation 各自照做。**成績單的每一個數字都沒有動**——筆數、勝率請讀成績單，不要數交易明細。"
+	"\n\n**拿到成績單後，筆數、勝率請讀成績單，不要數交易明細**：交到你手上的成績單已經精簡過（見 trading_get_backtest_run）。"
 
-func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
+// backgroundReplayNote is shared by the four replays so none of them tells a different story about what comes back.
+const backgroundReplayNote = "\n\n**它不等算完**——要求合法就立刻回一筆回測輪次（id、status），請拿 id 用 trading_get_backtest_run 看進度與成績單；短的幾秒，四年份的 1 小時刻度可能要幾分鐘。**把輪次編號說給使用者**，並說明可以隨時回來看。" +
+	"\n\nstatus 是 queued 時代表前面還有在跑的，**會自動開始，不要重送**；被拒絕「你同時最多 N 筆」時，等其中一筆結束或用 trading_cancel_backtest_run 取消一筆再送。" +
+	"\n\n回測有背景時間上限（預設三十分鐘）：超過的輪次會是 failed、原因寫「超過時間上限」，請縮短期間或改用粗一點的刻度再送一筆。要求本身不合法（區間顛倒、腳本不是你的、旋鈕沒宣告過……）時照舊當場被拒絕、不留輪次。"
+
+func backtestRunApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
+	return []domains.ApiToolDomain{
+		domains.NewApiToolDomain(
+			"trading_get_backtest_run",
+			"看一筆回測輪次走到哪：status 五選一——queued（排隊中，前面還有在跑的，會自動開始）、running（進行中，progressPercent 說走到幾成）、"+
+				"succeeded（完成，result 是成績單）、failed（failureReason 說為什麼）、cancelled（已取消）。回覆也帶要跑什麼：kind、symbol、interval、startTime、endTime、subjectName。"+
+				"\n\n**可以順便等一下**：給 waitSeconds（最多 60），輪次在那之前結束就立刻回，沒結束就回當時的狀態與進度——不必每隔幾秒戳一次。"+
+				"\n\n**failureReason 照原話說**：「超過時間上限」是回測太長、「被重新啟動打斷」是交易服務換了一台，兩者都不是腳本壞了，不要猜成腳本有錯；腳本真的出錯時寫的是那一句錯誤。"+
+				"\n\n**成績單（result）交到你手上之前會先精簡**：資金曲線超過兩百點時平均取兩百點（頭尾都在），並多一個 equityCurvePointTotalCount 說原本幾點；"+
+				"交易明細超過一百筆時只列最近一百筆，並多一個 closedTradeTotalCount 說總共幾筆；inSample 與 validation 各自照做。**成績單的每一個數字都沒有動**——筆數、勝率請讀成績單，不要數交易明細。"+
+				"\n\n不是自己的輪次回 404。",
+			vo.RequestVerbRead, "/backtest-runs/{id}",
+			pathParameter("id", "四件重演能力回的那個輪次 id"),
+			queryParameter("waitSeconds", vo.ToolParameterKindInteger,
+				"最多等幾秒再回（0 到 60）。輪次在那之前結束就提前回；不給即不等", false),
+		).Waiting(replayWaitLimit).CondensingReplayResults(),
+		domains.NewApiToolDomain(
+			"trading_list_backtest_runs",
+			"列出使用者自己的回測輪次，新到舊，回覆帶 totalCount。**回覆時說出總數。**"+
+				"每一筆帶 status、要跑什麼（kind、symbol、interval、startTime、endTime、subjectName）、submittedAt，以及完成後才有的 totalReturnRate、maximumDrawdown、tradeCount；失敗的帶 failureReason。"+
+				"\n\n使用者問「昨天那幾次回測」「上次跑的結果」時用這一件找，**不要憑記憶重跑**。要看完整成績單再拿 id 用 trading_get_backtest_run。"+
+				"\n\n可以只看某一種 status、只看某一支策略腳本（strategyScriptId）或某一份交易策略（tradingStrategyId）的；limit 不給即預設 20、最多 200。",
+			vo.RequestVerbRead, "/backtest-runs",
+			queryParameter("status", vo.ToolParameterKindString,
+				"只看這一種狀態：queued／running／succeeded／failed／cancelled。不給即全部", false),
+			queryParameter("strategyScriptId", vo.ToolParameterKindInteger, "只看重演這一支策略腳本的輪次", false),
+			queryParameter("tradingStrategyId", vo.ToolParameterKindInteger, "只看重演這一份交易策略的輪次", false),
+			queryParameter("limit", vo.ToolParameterKindInteger, "最多回幾筆，預設 20、最多 200", false),
+		),
+		domains.NewApiToolDomain(
+			"trading_cancel_backtest_run",
+			"取消一筆還沒跑完的回測輪次：排隊中的直接變成 cancelled、永遠不會開始；進行中的盡快停下、也變成 cancelled，沒有成績單。"+
+				"\n\n已經結束（succeeded／failed／cancelled）的不能取消，會被拒絕並說它已經結束；不是自己的回 404。",
+			vo.RequestVerbSubmit, "/backtest-runs/{id}/cancel",
+			pathParameter("id", "要取消哪一筆回測輪次"),
+		),
+	}
+}
+
+func backtestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_backtest_strategy_script",
@@ -248,7 +291,7 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
 				"\n\n重演一律以 signal 這種指標值種類執行——它讀的就是每根一個買賣信號，"+
 				"所以這裡沒有 resultType 可填、也不需要填。"+
-				"\n\n回來的是成績單、交易明細與資金曲線。"+
+				"\n\n輪次完成後（trading_get_backtest_run）拿到的是成績單、交易明細與資金曲線。"+
 				"**成績單裡的交易筆數一定要看**——一張幾乎沒有交易的漂亮成績單會被讀成「很穩」，"+
 				"而真相是這份策略根本沒有在做決定。"+
 				"\n\n模擬了出場價位時，**stopLossExitCount 也一定要看**："+
@@ -257,7 +300,8 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				"後者是還沒遇到那個掃光它的盤。每一筆交易自己也帶著 exitReason。"+
 				costedReportCardNote+
 				spotOnlyReplayNote+
-				shortTermReplayNote,
+				shortTermReplayNote+
+				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -272,7 +316,7 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
-		).Waiting(replayWaitLimit).CondensingReplayResults(),
+		),
 		domains.NewApiToolDomain(
 			"trading_backtest_trading_strategy",
 			"拿**一份交易策略**重演一段已經發生過的行情。"+
@@ -281,11 +325,12 @@ func backtestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
 				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定。"+
 				costedReportCardNote+
 				spotOnlyReplayNote+
-				shortTermReplayNote,
+				shortTermReplayNote+
+				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				backtestParameters()...)...,
-		).Waiting(replayWaitLimit).CondensingReplayResults(),
+		),
 	}
 }
 
@@ -325,7 +370,7 @@ const contractAccountReplayNote = "\n\n**這是在逐倉合約帳戶上重演**�
 	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負或超過 100；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
 	"\n\n**多空反手一旦進場就一直在場內**，只有止損、止盈或強平能讓它回到空手——使用者想要「平掉但不反手」時，請他改用 longOnly 或 shortOnly。"
 
-func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain {
+func contractBacktestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_backtest_contract_strategy_script",
@@ -337,7 +382,8 @@ func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 				"**沒有 spot 這一種**——現貨的事用 trading_backtest_strategy_script。"+
 				costedReportCardNote+
 				contractAccountReplayNote+
-				shortTermReplayNote,
+				shortTermReplayNote+
+				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/contract-backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -355,7 +401,7 @@ func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
-		).Waiting(replayWaitLimit).CondensingReplayResults(),
+		),
 		domains.NewApiToolDomain(
 			"trading_backtest_contract_trading_strategy",
 			"拿**一份吃合約行情的交易策略**在**合約帳戶**上重演一段已經發生過的永續合約行情。"+
@@ -365,10 +411,11 @@ func contractBacktestApiTools(replayWaitLimit time.Duration) []domains.ApiToolDo
 				"\n\n成績單多一個 conflictedCandleCount：買賣條件同時成立、當作持平的格數。"+
 				costedReportCardNote+
 				contractAccountReplayNote+
-				shortTermReplayNote,
+				shortTermReplayNote+
+				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				contractBacktestParameters()...)...,
-		).Waiting(replayWaitLimit).CondensingReplayResults(),
+		),
 	}
 }

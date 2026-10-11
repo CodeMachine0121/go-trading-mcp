@@ -31,6 +31,8 @@ const (
 //
 // It is read as raw JSON fields rather than decoded into figures, which is what lets
 // the report card's exact decimals pass through untouched.
+//
+// A backtest run's detail carries its replay result under "result" and is condensed in place.
 type ReplayResultDomain struct {
 	content string
 }
@@ -88,7 +90,7 @@ func (replayResultDomain ReplayResultDomain) ToCondensedContent() string {
 	}
 	isShortened := len(shortenedLists) > 0
 
-	for _, partName := range []string{"inSample", "validation"} {
+	for _, partName := range []string{"inSample", "validation", "result"} {
 		part, hasPart := fields[partName]
 		if !hasPart {
 			continue

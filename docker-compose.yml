@@ -27,7 +27,6 @@ services:
       TRADING_SERVICE_REQUEST_TIMEOUT_SECONDS: "30"
       TRADING_SERVICE_REPLAY_TIMEOUT_SECONDS: "120"
       LIVE_UPDATE_WAIT_LIMIT_SECONDS: "10"
-      IDLE_CONNECTION_TIMEOUT_MINUTES: "60"
 
     extra_hosts:
       # Docker Desktop（macOS／Windows）本來就認得 host.docker.internal；

@@ -138,6 +138,10 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_delete_spot_trade":                 true,
 	"trading_get_spot_trade_statistics":         true,
 	"trading_compare_spot_trades_with_backtest": true,
+	// 回測輪次（四件重演送出後拿它看、列、取消）
+	"trading_get_backtest_run":    true,
+	"trading_list_backtest_runs":  true,
+	"trading_cancel_backtest_run": true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
