@@ -22,16 +22,23 @@ var everyAbilityThatAnswersWithAStrategyBot = []string{
 	"trading_run_strategy_bot_now",
 }
 
-func TestEveryAbilityThatAnswersWithAStrategyBotSaysAutoOrderDoesNotPlaceOrdersYet(t *testing.T) {
+func TestEveryAbilityThatAnswersWithAStrategyBotSaysAutoOrderReallyTrades(t *testing.T) {
 	for _, abilityName := range everyAbilityThatAnswersWithAStrategyBot {
 		t.Run(abilityName, func(t *testing.T) {
 			description := abilityNamed(t, abilityName).Description
 
 			assert.Contains(t, description, "autoOrderEnabled")
-			assert.Contains(t, description, "目前開著也還不會下單")
-			assert.Contains(t, description, "只送 Telegram 通知")
+			assert.Contains(t, description, "會真的在使用者的幣安帳戶上開倉與平倉")
+			assert.Contains(t, description, "平倉立刻以市場價成交")
 			assert.Contains(t, description, "不要猜它是開還是關")
+			assert.Contains(t, description, "autoOrderEntrySlippageTolerancePercentage")
 		})
+	}
+}
+
+func TestNoAbilitySaysAutoOrderDoesNotPlaceOrdersYet(t *testing.T) {
+	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
+		assert.NotContains(t, apiTool.ToDefinitionDto().Description, "還不會下單", apiTool.Name())
 	}
 }
 
