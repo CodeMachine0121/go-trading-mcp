@@ -38,7 +38,11 @@ func TestEveryAbilityThatAnswersWithAStrategyBotSaysAutoOrderReallyTrades(t *tes
 
 func TestNoAbilitySaysAutoOrderDoesNotPlaceOrdersYet(t *testing.T) {
 	for _, apiTool := range apiToolCatalog(10*time.Second, 120*time.Second) {
-		assert.NotContains(t, apiTool.ToDefinitionDto().Description, "還不會下單", apiTool.Name())
+		definitionDto := apiTool.ToDefinitionDto()
+		assert.NotContains(t, definitionDto.Description, "還不會下單", apiTool.Name())
+		for _, parameter := range definitionDto.Parameters {
+			assert.NotContains(t, parameter.Description, "還不會下單", apiTool.Name()+" "+parameter.Name)
+		}
 	}
 }
 

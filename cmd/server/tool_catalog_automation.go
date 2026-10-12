@@ -105,9 +105,7 @@ const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 h
 	"停了的話多半是它已不在合約追蹤名單上（trading_add_to_contract_watchlist 加回去）"
 
 const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEnabled（自動下單：true 開、false 關）**，現貨與合約機器人都有。" +
-	"提到它時要說清楚：**合約機器人開著自動下單時，會真的在使用者的幣安帳戶上開倉與平倉**——" +
-	"開倉掛一張有上限的限價進場單（見 autoOrderEntrySlippageTolerancePercentage）、平倉立刻以市場價成交，並掛上止損止盈；" +
-	"現貨機器人開著目前仍不下單。關著的機器人每一輪只判信號、只送 Telegram 通知。" +
+	autoOrderReallyTradesNote + "關著的機器人每一輪只判信號、只送 Telegram 通知。" +
 	"回覆裡沒有這一格時，不要猜它是開還是關。" +
 	"\n\n**每一台機器人也帶著 autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，百分點）**：" +
 	"自動下單開倉時，進場單的價格最多比參考價差這麼多（做多最多貴這麼多、做空最多便宜這麼多），一個觸發間隔內沒成交就撤單"
