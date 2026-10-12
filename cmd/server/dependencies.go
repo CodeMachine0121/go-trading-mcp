@@ -68,7 +68,9 @@ func buildMcpServer(
 			"被拒絕時，回覆裡的是交易服務自己的說法——請照它說的改一改再試，不要重送一模一樣的東西。" +
 			"回覆說「連不到交易服務」時則相反：那不是你送錯了，晚一點再試同一件事。\n\n" +
 			"**幣安交易金鑰與自動下單，這個外掛只讀得到**：機器人回覆裡的 autoOrderEnabled，以及 trading_get_binance_trading_key_status 的有沒有設定與可交易市場。" +
-			"提到自動下單時要說清楚：目前開著也還不會下單，機器人仍只送 Telegram 通知。" +
+			"提到自動下單時要說清楚：**合約機器人開著自動下單時，會真的在使用者的幣安帳戶上開倉與平倉**——" +
+			"開倉掛有上限的限價進場單、平倉立刻以市場價成交，並掛上止損止盈；現貨機器人開著目前仍不下單。" +
+			"機器人的進場滑價容忍度（autoOrderEntrySlippageTolerancePercentage）是機器人設定，這個外掛讀得到也改得動。" +
 			binanceAutoOrderWebOnlyNote,
 	})
 

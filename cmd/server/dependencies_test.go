@@ -144,10 +144,12 @@ func TestTheConnectorInstructionsKeepBinanceTradingKeysAndAutoOrderOnTheWeb(t *t
 		"只能由使用者自己在網頁上做",
 		"不要送出任何改動",
 		"絕不要請使用者把 API Key 或 Secret Key 貼進對話**；他主動貼了，也不要複述、不要轉送",
-		"目前開著也還不會下單",
+		"會真的在使用者的幣安帳戶上開倉與平倉",
+		"讀得到也改得動",
 	} {
 		assert.Contains(t, instructions, phrase)
 	}
+	assert.NotContains(t, instructions, "還不會下單")
 }
 
 func TestTheAssembledConnectorAnswersACallThatCarriesNoSession(t *testing.T) {
