@@ -24,11 +24,11 @@
 | Area | Action | What / Why |
 | :--- | :--- | :--- |
 | `cmd/server/tool_catalog_automation.go` `strategyBotWriteParameters` | **Modify** | 加 `autoOrderEntrySlippageTolerancePercentage`（`ToolParameterKindString`、非必填）：範圍 0～5（含）、百分點、建立預設 0.1、改寫不給即保留、限價＝參考價 ±、一個觸發間隔內沒成交就撤單、0 可能常常不成交、平倉不受影響、現貨無作用、只有停止的機器人改得動 |
-| 同檔 `strategyBotAutoOrderNote` | **Modify** | 改成實情：合約機器人開著自動下單會真的在幣安開倉（有上限的限價進場單）與平倉（市價）、掛止損止盈；現貨仍不下單；另說回覆帶 `autoOrderEntrySlippageTolerancePercentage` |
+| 同檔 `strategyBotAutoOrderNote` | **Modify** | 以共用的 `autoOrderReallyTradesNote`（放在 `tool_catalog_binance_trading_key.go`，與 `binanceAutoOrderWebOnlyNote` 同處）改成實情：合約機器人開著自動下單會真的在幣安開倉（有上限的限價進場單）與平倉（市價）、掛止損止盈；現貨仍不下單；另說回覆帶 `autoOrderEntrySlippageTolerancePercentage` |
 | 同檔新常數 `contractAutoOrderResultNote` | **Add** | 讀執行紀錄的說明：`autoOrder` 只在排了自動下單的那一輪出現；`status` 六種（含 `unfilled`）；進場欄位；`entryStatus` 四種；滑價正數不利；舊紀錄沒有進場欄位。掛在 `trading_list_strategy_bot_runs` 與 `trading_run_strategy_bot_now`（後者指向讀紀錄） |
-| `trading_update_strategy_bot` 說明 | **Modify** | 整份改寫的例外列成三樣：`marketDataKind`、自動下單、進場滑價容忍度 |
+| `trading_update_strategy_bot` 說明 | **Modify** | 整份改寫的例外列成三樣：`marketDataKind`、自動下單、進場滑價容忍度；並說只有已停止的機器人改得動 |
 | `trading_delete_strategy_bot` 說明 | **Modify** | 講 409 `reason` 為 `autoOrderEntryOutstanding` 時的意思與解法（網頁關自動下單、等撤單、再刪；外掛不能關）＋ `binanceAutoOrderWebOnlyNote` |
-| `cmd/server/dependencies.go` 伺服器說明 | **Modify** | 「目前開著也還不會下單」→ 實情；外掛讀得到也改得動容忍度 |
+| `cmd/server/dependencies.go` 伺服器說明 | **Modify** | 「目前開著也還不會下單」→ `autoOrderReallyTradesNote`；外掛讀得到也改得動容忍度 |
 | 測試 `tool_catalog_binance_auto_order_test.go`、`dependencies_test.go` | **Modify** | 舊斷言釘的正是過時的話，改成釘新的說法並斷言舊句子不再出現在任何能力或伺服器說明裡 |
 | 新測試 `tool_catalog_auto_order_limit_entry_test.go` | **Add** | 釘 PRD 情境：轉送／不轉送容忍度、說明的每一條要點 |
 | `README.md`、`.sdd/UL-MAP.md` | **Modify** | 改過時的說法、加新詞 |
@@ -44,7 +44,7 @@
 | Name | Kind | Responsibility (purpose) | Collaborators | Satisfies (PRD scenario) |
 | :--- | :--- | :--- | :--- | :--- |
 | `contractAutoOrderResultNote` | 說明常數 | 一份「下單結果怎麼讀」的話，讀紀錄與立刻跑一輪共用 | — | 全部成交、部分成交、沒有成交、等待成交中 |
-| `strategyBotAutoOrderEntryOutstandingNote`（併入刪除說明，不另立常數） | — | 只有刪除一處用 | — | 進場單還掛著 |
+| `autoOrderReallyTradesNote` | 說明常數 | 一份「自動下單開著會真的開倉平倉」的話，伺服器說明與所有機器人能力共用，避免再有一處過時 | — | 列出機器人說實情 |
 
 ---
 
