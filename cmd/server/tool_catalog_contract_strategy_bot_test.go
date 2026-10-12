@@ -80,11 +80,10 @@ func TestWritingAStrategyBotForwardsTheKindOnlyWhenGiven(t *testing.T) {
 	}
 }
 
-// The rewrite says the kind is the one box a whole rewrite does not clear.
 func TestRewritingAStrategyBotSaysTheKindIsKept(t *testing.T) {
 	description := abilityNamed(t, "trading_update_strategy_bot").Description
 
-	assert.Contains(t, description, "例外是 marketDataKind**：不給就是保留原本的種類")
+	assert.Contains(t, description, "例外有三樣，不給就是保留原本的**：marketDataKind")
 	assert.Contains(t, description, "換成另一種會被拒絕")
 }
 

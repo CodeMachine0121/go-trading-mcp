@@ -291,17 +291,27 @@ curl localhost:8090/health   # {"status":"Healthy"}
 外掛**不在任何一份上保留連線狀態**（MCP 的 Streamable HTTP 以無狀態模式運作）：每一次呼叫自帶外掛授權，落在哪一份都一樣，
 所以部署端可以同時開好幾份、不需要黏住同一份。Claude Code 既有的連線不必重新授權。
 
-## 幣安自動下單（只讀）
+## 幣安自動下單（開關只讀）
 
-交易服務讓使用者留一組自己的**幣安交易金鑰**，並在每台策略機器人上多一個**自動下單**開關（目前開著也還不會下單，機器人仍只送 Telegram 通知）。
-外掛在這件事上**只讀**：
+交易服務讓使用者留一組自己的**幣安交易金鑰**，並在每台策略機器人上多一個**自動下單**開關。
+**合約機器人開著自動下單時會真的在使用者的幣安帳戶上開倉與平倉**：開倉掛有上限的限價進場單、平倉立刻以市場價成交，並掛上止損止盈（現貨機器人目前仍不下單）。
+外掛對開關與金鑰**只讀**：
 
-- 每一個回覆機器人的能力都原樣帶出 `autoOrderEnabled`，說明要助理提到它時補一句「目前開著也還不會下單」。
+- 每一個回覆機器人的能力都原樣帶出 `autoOrderEnabled`，說明要助理提到它時說清楚開著會真的開倉平倉。
 - **`trading_get_binance_trading_key_status`**（`GET /users/me/binance-trading-key/status`）回答有沒有設定、可交易市場（`spot`／`contract`）與設定時刻；
   **不含任何一段金鑰內容**，連 API Key 結尾也沒有。另立一件而不併入 `trading_get_current_user`：「我是誰」回答身分，
   併入就得替一次詢問打兩個入口再自己拼回覆。
 - **沒有**存入／更換／移除金鑰、打開／關掉自動下單的能力；建立與修改機器人也**不宣告、不轉送** `autoOrderEnabled`（交易服務修改時保留原本的開關）。
   這幾件只能由使用者自己在網頁的設定頁、機器人詳細頁做；說明要助理**絕不請使用者把金鑰貼進對話，貼了也不複述、不轉送**。
+- **進場滑價容忍度** `autoOrderEntrySlippageTolerancePercentage` 是機器人設定，外掛**讀得到也改得動**：建立與修改機器人宣告這一格
+  （字串精確小數、百分點、0～5 含、非必填）。**不填就不送**——建立時交易服務給 0.1，修改時保留原值；外掛不設預設值，否則一次只改間隔的修改會把 0.3 蓋回 0.1。
+  開倉的進場單價格＝參考價 ±（做多加、做空減）容忍度，一個觸發間隔內沒成交就撤單；平倉不受影響。範圍檢查留給交易服務。
+- **`trading_list_strategy_bot_runs`** 與 `trading_run_strategy_bot_now` 的說明解釋執行紀錄上的 `autoOrder`：整體結果
+  （`pending`／`filled`／`partiallyDone`／`unfilled` 沒有成交／`notPlaced`／`abandoned`）、進場欄位（`referencePrice`、`entryLimitPrice`、
+  `entrySlippageTolerancePercentage`、`requestedQuantity`、`entryExecutedQuantity`、`entrySlippagePercentage` 正數對使用者不利）與
+  `entryStatus`（`working`／`filled`／`partiallyFilled`／`unfilled`）。
+- **`trading_delete_strategy_bot`**：進場單還掛在幣安上時交易服務以 409、`reason` 為 `autoOrderEntryOutstanding` 拒絕刪除，拒絕原樣轉交；
+  說明要助理請使用者到網頁關掉這台的自動下單、等撤單後再刪。
 
 ## 合約交易日誌
 

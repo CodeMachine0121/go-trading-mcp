@@ -10,6 +10,11 @@ const binanceAutoOrderWebOnlyNote = "\n\n**存入、更換、移除幣安交易�
 	"使用者要求時，說明這件事要他自己到網頁上做，不要送出任何改動。" +
 	"**絕不要請使用者把 API Key 或 Secret Key 貼進對話**；他主動貼了，也不要複述、不要轉送到任何能力裡，請他改到網頁設定頁自己填"
 
+// autoOrderReallyTradesNote is the one place that says what an auto order does, because the instructions and every bot ability once all repeated a sentence that went stale on the same day.
+const autoOrderReallyTradesNote = "提到自動下單時要說清楚：**合約機器人開著自動下單時，會真的在使用者的幣安帳戶上開倉與平倉**——" +
+	"開倉掛一張有上限的限價進場單（價格不超過參考價 ± 那台機器人的進場滑價容忍度）、平倉立刻以市場價成交，並掛上止損止盈；" +
+	"現貨機器人開著目前仍不下單。"
+
 // Deliberately only the status view: every other trading key route and the auto-order switch accept web sign-in only.
 func binanceTradingKeyApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{

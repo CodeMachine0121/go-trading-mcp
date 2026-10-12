@@ -71,6 +71,19 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"\n\n**合約標的還沒有交易規格時**照舊建議，但不取整、不估強平價，訊息會說明；"+
 				"這時強平警告退回粗略判斷（止損距離 × 槓桿達到 100%）。"+
 				"**現貨機器人給大於一倍的槓桿會被拒絕**：現貨是拿現金換東西，沒有人借錢給你", false),
+		bodyParameter("autoOrderEntrySlippageTolerancePercentage", vo.ToolParameterKindString,
+			"**進場滑價容忍度**（字串形式的精確小數，百分點：\"0.1\" 就是 0.1%），**介於 0 到 5（含）**，超出會被拒絕。"+
+				"**建立時不給就是 0.1**；**修改時不給就是保留原本的值**，只改別的設定時不要帶它。"+
+				"\n\n它決定**合約機器人自動下單開倉**的進場單價格：做多掛在參考價 ×（1 ＋ 容忍度 ÷ 100）、做空掛在參考價 ×（1 − 容忍度 ÷ 100），"+
+				"照價格跳動單位往不超過容忍度的方向取整——**成交價絕不會比參考價差超過這麼多**。"+
+				"進場單**從那一輪說出結論起最多等一個觸發間隔**：全部成交就掛止損止盈；部分成交就撤掉剩下的、保留並保護已成交的那一份；"+
+				"一點都沒成交就撤單、維持空手。"+
+				"等待中只要下一輪說出新結論、使用者關掉自動下單或停止機器人，進場單就立刻撤掉，已成交的那一份照樣保留；"+
+				"**部分成交的那一份在進場單收尾前還沒有止損**，最長一個觸發間隔。"+
+				"**0 代表只肯在參考價成交，快速行情裡可能常常不成交**；設得越寬越容易成交、但可能付出越多滑價。"+
+				"**平倉一律立刻以市場價成交，不受它影響**。"+
+				"現貨機器人也帶著這一格、也改得動，但現貨機器人目前不下單，所以沒有作用。"+
+				"跟其他設定一樣，**只有已停止的機器人改得動**", false),
 	}
 }
 
@@ -95,8 +108,26 @@ const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 h
 	"停了的話多半是它已不在合約追蹤名單上（trading_add_to_contract_watchlist 加回去）"
 
 const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEnabled（自動下單：true 開、false 關）**，現貨與合約機器人都有。" +
-	"提到它時要說清楚：**目前開著也還不會下單**，每一輪照樣只判信號、只送 Telegram 通知。" +
-	"回覆裡沒有這一格時，不要猜它是開還是關"
+	autoOrderReallyTradesNote + "關著的機器人每一輪只判信號、只送 Telegram 通知。" +
+	"回覆裡沒有這一格時，不要猜它是開還是關。" +
+	"\n\n**每一台機器人也帶著 autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，百分點）**：" +
+	"自動下單開倉時，進場單的價格最多比參考價差這麼多（做多最多貴這麼多、做空最多便宜這麼多），一個觸發間隔內沒成交就撤單"
+
+// contractAutoOrderResultNote is what the two abilities that lead to a bot's rounds say about
+// a round's auto order, so that an assistant reads an entry order that filled nothing as
+// cancelled rather than as a failure, and reads a positive slippage as the owner's cost.
+const contractAutoOrderResultNote = "\n\n**合約機器人那一輪排了自動下單時，紀錄多帶一份 autoOrder（下單結果）**；沒排的那一輪沒有。" +
+	"status 是整體結果：pending 等待下單（還在送或進場單還在等成交）、filled 全部完成、" +
+	"partiallyDone 部分完成（平倉已成、新倉沒開成）、unfilled **沒有成交**（進場單送出了卻一點都沒成交、已撤單，沒有開倉也沒有平倉——不是失敗）、" +
+	"notPlaced 沒有下單、abandoned 送出前就放棄（太晚或使用者煞車）；reason 是交易服務說的原因。" +
+	"另有 action（動作）、平倉的 closedQuantity／closeAveragePrice、開倉的 openedDirection／openedQuantity／openAveragePrice、" +
+	"stopLossPrice／takeProfitPrice，以及 protectionMissing（true 表示倉位開著卻沒掛上應有的止損或止盈，要提醒使用者）。" +
+	"\n\n**開倉的那一輪另帶進場單的細節**（數字都是字串形式的精確小數）：referencePrice 參考價、entryLimitPrice 進場限價、" +
+	"entrySlippageTolerancePercentage 當時用的容忍度、requestedQuantity 要求數量、entryExecutedQuantity 已成交數量、" +
+	"entrySlippagePercentage 相對參考價的滑價百分比——**正數表示對使用者不利**（做多買貴了、做空賣便宜了），負數表示比參考價更好；" +
+	"有成交才有滑價。entryStatus 是進場單狀態：working 等待成交（最多等一個觸發間隔）、filled 全部成交、" +
+	"partiallyFilled 部分成交（其餘已撤單，例如「部分成交 0.001／0.002」）、unfilled 沒有成交（已撤單）。" +
+	"沒有參考價可算的那一輪沒有這些欄位；**這個功能上線前的紀錄也沒有**——沒有不代表那一輪沒下單"
 
 func strategyBotApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
@@ -140,9 +171,11 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_update_strategy_bot",
 			"改一台你自己的策略機器人。這是整份改寫：沒帶到的欄位會變成空的。"+
-				"\n\n**例外是 marketDataKind**：不給就是保留原本的種類，只改名字或間隔時不必重帶它；"+
-				"換成另一種會被拒絕。合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
-				"\n\n**自動下單也不受這次改寫影響**：這裡沒有那一格，改完維持原本的開或關。"+
+				"**只有已停止的機器人改得動**：在跑的會被拒絕，先用 trading_stop_strategy_bot 停掉、改完再用 trading_start_strategy_bot 啟動。"+
+				"\n\n**例外有三樣，不給就是保留原本的**：marketDataKind（只改名字或間隔時不必重帶它，換成另一種會被拒絕）、"+
+				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
+				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
+				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
 				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
@@ -150,7 +183,12 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_delete_strategy_bot",
-			"刪掉一台你自己的策略機器人。",
+			"刪掉一台你自己的策略機器人。"+
+				"\n\n**這台機器人還有一張自動下單的進場單掛在幣安上時，刪除會被拒絕**，拒絕的 reason 是 autoOrderEntryOutstanding——"+
+				"刪了就沒有人撤那張單，它之後成交會是一個沒有止損的倉位。"+
+				"遇到時告訴使用者：請他**自己到網頁上這台機器人的詳細頁關掉自動下單**，等進場單撤掉（最多一個觸發間隔）後再刪；"+
+				"這個外掛不能替他關，不要重送同一個刪除。"+
+				binanceAutoOrderWebOnlyNote,
 			vo.RequestVerbRemove, "/strategy-bots/{id}",
 			pathParameter("id", "要刪哪一台"),
 		),
@@ -172,7 +210,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_list_strategy_bot_runs",
 			"看一台策略機器人跑過哪幾輪，以及每一輪做了什麼決定。"+
 				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+
-				contractStrategyBotRunDetailsNote+contractStrategyBotSkippedRoundNote,
+				contractStrategyBotRunDetailsNote+contractAutoOrderResultNote+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要看哪一台"),
 		),
@@ -181,7 +219,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
 				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
 				"回應是這台機器人跑完之後的樣子，不是這一輪的紀錄——跑完用 trading_list_strategy_bot_runs 讀這一輪的紀錄。"+
-				contractStrategyBotSkippedRoundNote+strategyBotAutoOrderNote,
+				contractStrategyBotSkippedRoundNote+contractAutoOrderResultNote+strategyBotAutoOrderNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),
