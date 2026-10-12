@@ -60,6 +60,9 @@ func TestTheEntrySlippageToleranceSaysWhatItMeansBeforeAnythingIsSent(t *testing
 		"0 代表只肯在參考價成交，快速行情裡可能常常不成交",
 		"平倉一律立刻以市場價成交，不受它影響",
 		"現貨機器人目前不下單，所以沒有作用",
+		"下一輪說出新結論、使用者關掉自動下單或停止機器人，進場單就立刻撤掉",
+		"部分成交的那一份在進場單收尾前還沒有止損",
+		"只有已停止的機器人改得動",
 	} {
 		assert.Contains(t, box.Description, phrase)
 	}
@@ -69,6 +72,7 @@ func TestRewritingAStrategyBotSaysTheEntrySlippageToleranceIsKeptWhenNotGiven(t 
 	description := abilityNamed(t, "trading_update_strategy_bot").Description
 
 	assert.Contains(t, description, "這是整份改寫")
+	assert.Contains(t, description, "只有已停止的機器人改得動**：在跑的會被拒絕，先用 trading_stop_strategy_bot 停掉")
 	assert.Contains(t, description, "autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）")
 }
 
