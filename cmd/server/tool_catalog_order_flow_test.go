@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
@@ -41,11 +40,15 @@ func TestOnlyARunsParameterBoxTalksAboutThisTimesValues(t *testing.T) {
 		"trading_calculate_indicator": true, "trading_calculate_contract_indicator": true,
 		"trading_backtest_strategy_script": true, "trading_backtest_contract_strategy_script": true,
 	} {
-		box, _ := boxNamed(abilityNamed(t, abilityName), "parameters")
+		box, hasBox := boxNamed(abilityNamed(t, abilityName), "parameters")
+		require.True(t, hasBox, abilityName)
 
-		assert.Equal(t, takesValues,
-			strings.Contains(box.Description, "這一次的 parameterValues 同樣照這些規則檢查——例如把 orderFlowPriceStep 調成 0 會整次被拒絕"),
-			abilityName)
+		if takesValues {
+			assert.Contains(t, box.Description,
+				"這一次的 parameterValues 同樣照這些規則檢查——例如把 orderFlowPriceStep 調成 0 會整次被拒絕", abilityName)
+		} else {
+			assert.NotContains(t, box.Description, "parameterValues", abilityName)
+		}
 	}
 }
 
@@ -70,6 +73,7 @@ func TestTheOrderFlowReachIsExplainedWhereverItCanRefuse(t *testing.T) {
 		"trading_create_strategy_script", "trading_calculate_contract_indicator",
 		"trading_backtest_contract_strategy_script", "trading_backtest_contract_trading_strategy",
 		"trading_create_strategy_bot", "trading_update_strategy_bot",
+		"trading_compare_contract_trades_with_backtest",
 	} {
 		description := abilityNamed(t, abilityName).Description
 
@@ -78,11 +82,12 @@ func TestTheOrderFlowReachIsExplainedWhereverItCanRefuse(t *testing.T) {
 			"**回看根數與重演的暖機都算在內**",
 			"跨過午夜就多算一天",
 			"重演在**送出時**就照整段判",
-			"合約機器人每一輪要的是「回看根數 × 彙總刻度」那麼長",
-			"**一個回看根數都沒宣告的算式，重演會先讀預設的 200 根暖機**",
+			"所以它要的是「回看根數 × 彙總刻度」那麼長",
+			"它宣告了回看根數就以最大的那個當暖機；**一個都沒宣告時先讀預設的 200 根**",
 			"宣告一個小的 lookbackCount（例如算式真正需要的根數）就會取代那 200 根",
-			"交易策略的重演以**所有信號來源裡最大的回看根數**當暖機",
-			"縮短區間、減少（或宣告一個小的）回看根數、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep",
+			"暖機是**所有信號來源裡最大的回看根數**，只有每一支都沒宣告時才是預設的 200 根",
+			"**機器人沒有暖機**：合約機器人每一輪讀的是最大回看根數那麼多格（一個都沒宣告就只讀一格）",
+			"縮短區間、減少回看根數（重演時沒宣告的就宣告一個小的）、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep",
 			"**要的超過上述任何一個上限，機器人會被停下**",
 		} {
 			assert.Contains(t, description, phrase, abilityName)

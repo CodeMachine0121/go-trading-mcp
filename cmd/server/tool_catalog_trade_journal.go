@@ -172,7 +172,8 @@ func tradeJournalApiTools(replayWaitLimit time.Duration) []domains.ApiToolDomain
 			"trading_compare_contract_trades_with_backtest",
 			"拿一份合約交易策略的已平倉實單，對照同一段期間的重演。**會替每個標的重演一次，需要時間**。"+
 				"某一列重演失敗時實盤照常、回測欄說出原因；策略已刪除時說無法重演。"+
-				"標的多時可能超過等待上限而被當成連不到交易服務——**這時不要立刻重送**（會再重演一輪），請使用者稍後再試。",
+				"標的多時可能超過等待上限而被當成連不到交易服務——**這時不要立刻重送**（會再重演一輪），請使用者稍後再試。"+
+				orderFlowReachNote,
 			vo.RequestVerbRead, "/trading-strategies/{id}/contract-trade-comparison",
 			pathParameter("id", "合約交易策略識別碼"),
 		).Waiting(replayWaitLimit),
