@@ -147,7 +147,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。"+
 				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
-				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
+				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote+orderFlowReachNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),

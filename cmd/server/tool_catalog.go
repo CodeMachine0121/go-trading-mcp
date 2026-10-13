@@ -89,14 +89,7 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 				"**建立時不給就是 kCandle**；**修改時不給就是保留原本的**，照抄原本的也可以。"+
 				"**建立後不得更換**——換成另一種會被拒絕，要吃另一種請另建一支", false),
 		bodyParameter("parameters", vo.ToolParameterKindArray,
-			"這支算式自己的旋鈕，每個為 {\"name\":…, \"kind\":…, \"defaultValue\":…}。"+
-				"kind 有四種：lookbackCount（大於零的整數，這條線要回看幾根；系統取所有這種的最大值決定要讀幾根）、"+
-				"number（任何數字，原樣交給算式）、boolean（是非，0 為否、非零為是）、"+
-				"orderFlowPriceStep（**訂單流價位寬度**：大於零、可以有小數、最細 0.00000001；"+
-				"**只給 marketDataKind 為 contractKCandle 的策略腳本、一支至多一個**，K 線種類宣告會被拒絕；"+
-				"宣告了，每一格合約行情格的 Footprint 才有內容，價位依這個寬度分）。"+
-				"算式以 indicator.LookbackCount(\"名字\")、indicator.Number(\"名字\")、indicator.Boolean(\"名字\") 取用；"+
-				"訂單流價位寬度的值就在每一格的 Footprint.PriceStep，也可以用 indicator.Number 讀", false),
+			"這支算式自己的旋鈕。"+parameterKindsNote, false),
 	}
 }
 
@@ -252,3 +245,15 @@ func accountApiTools() []domains.ApiToolDomain {
 		),
 	}
 }
+
+// parameterKindsNote is the one description of a declared knob, shared by every box that
+// takes them — the saved script's and a brought-along one's — since an assistant reading two
+// wordings of one shape writes a script that fits only one of them. What declaring an order
+// flow price step does is the contract script note's to say; this only says what the kind is.
+const parameterKindsNote = "每個為 {\"name\":…, \"kind\":…, \"defaultValue\":…}。" +
+	"kind 有四種：lookbackCount（大於零的整數，這條線要回看幾根；系統取所有這種的最大值決定要讀幾根）、" +
+	"number（任何數字，原樣交給算式）、boolean（是非，0 為否、非零為是）、" +
+	"orderFlowPriceStep（**訂單流價位寬度**：大於零、可以有小數、最細 0.00000001；" +
+	"**只給吃合約行情（contractKCandle）的算式、一支至多一個**，吃 K 線的宣告會被拒絕；它做什麼見合約行情算式的說明裡的 Footprint）。" +
+	"算式以 indicator.LookbackCount(\"名字\")、indicator.Number(\"名字\")、indicator.Boolean(\"名字\") 取用。" +
+	"parameterValues 給的值同樣照這些規則檢查——例如把 orderFlowPriceStep 調成 0 會整次被拒絕"

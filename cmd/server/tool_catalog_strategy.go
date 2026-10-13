@@ -195,9 +195,9 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"Delta 買賣差、PointOfControl 成交最多的價位，平手取低）。" +
 	"\n\n**訂單流足跡要先宣告一個 kind 為 orderFlowPriceStep 的參數才有**，沒宣告時整份是空的。" +
 	"每一筆成交的價格往下取到寬度的整數倍就是它的價位；只算這一格收盤以前的成交。" +
-	"訂單流不存進交易服務，每次現拿（過完的日子讀交易所每日歷史檔、今天用即時查詢），所以第一次會比較慢；" +
-	"一次至多涵蓋 31 天、一格至多 1,000 個價位、一次至多 2,000,000 個價位——太細就放寬寬度，太長就縮短期間。" +
-	"機器人一輪來不及備齊會跳過那一輪；要的超過 31 天會被停下。" +
+	"訂單流**不存進資料庫**：過完的日子讀交易所的每日歷史檔，今天與檔案還沒出現的昨天用即時查詢；" +
+	"交易服務只在記憶中暫留最近整理過的幾天，所以同一段第二次通常很快，但重啟、或請求落在另一台分身上時會重拿，第一次會比較慢。" +
+	orderFlowReachNote +
 	"\n\n**資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付**——" +
 	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
 	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +
@@ -320,7 +320,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕", false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -391,7 +391,8 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
-				backgroundReplayNote,
+				backgroundReplayNote+
+				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/contract-backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -405,7 +406,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來、吃合約行情的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕", false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -420,10 +421,23 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
-				backgroundReplayNote,
+				backgroundReplayNote+
+				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				contractBacktestParameters()...)...,
 		),
 	}
 }
+
+// orderFlowReachNote is how much order flow one run may ask for and what to change when it
+// asks for more. It travels with every ability where the limit bites — the contract script
+// note, both contract replays and creating a bot — because a limit only said where scripts
+// are written is a limit the assistant meets for the first time as a refusal.
+const orderFlowReachNote = "\n\n**宣告了 orderFlowPriceStep 的算式，一次至多拿 31 個世界標準時間日曆日的訂單流**：" +
+	"從它讀的第一格（**回看根數與重演的暖機都算在內**）的開頭，數到最後一格收盤；跨過午夜就多算一天。" +
+	"所以四小時刻度回看 200 根就已經超過，跟要看的區間多短無關。" +
+	"重演在**送出時**就照整段判，超過即拒絕；合約機器人每一輪要的是「回看根數 × 彙總刻度」那麼長。" +
+	"另外一格至多 1,000 個價位、一次至多 2,000,000 個價位。" +
+	"**超過時的出路**：縮短區間、減少回看根數、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep。" +
+	"機器人一輪來不及備齊訂單流會跳過那一輪、下一輪接著補；**要的超過上述任何一個上限，機器人會被停下**並說出原因。"
