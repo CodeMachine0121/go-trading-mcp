@@ -73,7 +73,6 @@ func TestTheOrderFlowReachIsExplainedWhereverItCanRefuse(t *testing.T) {
 		"trading_create_strategy_script", "trading_calculate_contract_indicator",
 		"trading_backtest_contract_strategy_script", "trading_backtest_contract_trading_strategy",
 		"trading_create_strategy_bot", "trading_update_strategy_bot",
-		"trading_compare_contract_trades_with_backtest",
 	} {
 		description := abilityNamed(t, abilityName).Description
 
@@ -82,11 +81,11 @@ func TestTheOrderFlowReachIsExplainedWhereverItCanRefuse(t *testing.T) {
 			"**回看根數與重演的暖機都算在內**",
 			"跨過午夜就多算一天",
 			"重演在**送出時**就照整段判",
-			"所以它要的是「回看根數 × 彙總刻度」那麼長",
+			"用了訂單流的那一支要的是「它自己的回看根數 × 彙總刻度」那麼長；被停下時要改的是那一支，不是別的來源",
 			"它宣告了回看根數就以最大的那個當暖機；**一個都沒宣告時先讀預設的 200 根**",
 			"宣告一個小的 lookbackCount（例如算式真正需要的根數）就會取代那 200 根",
 			"暖機是**所有信號來源裡最大的回看根數**，只有每一支都沒宣告時才是預設的 200 根",
-			"**機器人沒有暖機**：合約機器人每一輪讀的是最大回看根數那麼多格（一個都沒宣告就只讀一格）",
+			"**機器人沒有暖機，而且每個信號來源各算各的**",
 			"縮短區間、減少回看根數（重演時沒宣告的就宣告一個小的）、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep",
 			"**要的超過上述任何一個上限，機器人會被停下**",
 		} {
@@ -110,4 +109,18 @@ func TestAnOrderFlowPriceStepIsForwardedUntouched(t *testing.T) {
 	sentBody := map[string]json.RawMessage{}
 	require.NoError(t, json.Unmarshal(request.Body, &sentBody))
 	assert.JSONEq(t, declared, string(sentBody["parameters"]))
+}
+
+// The comparison refuses nothing up front and offers no stretch to change, so it gets its own words.
+func TestTheTradeComparisonSaysWhereAnOrderFlowLimitShowsUp(t *testing.T) {
+	description := abilityNamed(t, "trading_compare_contract_trades_with_backtest").Description
+
+	for _, phrase := range []string{
+		"每個標的的重演區間由那個標的實單涵蓋的期間決定（再加上暖機），這裡沒有區間可以選",
+		"超過訂單流一次能拿的 31 天時，整個對照照樣回來，只是那一列的回測欄說出原因",
+		"要讓它算得出來只能改那份交易策略——減少回看根數、換細一點的彙總刻度",
+	} {
+		assert.Contains(t, description, phrase)
+	}
+	assert.NotContains(t, description, "重演在**送出時**就照整段判")
 }

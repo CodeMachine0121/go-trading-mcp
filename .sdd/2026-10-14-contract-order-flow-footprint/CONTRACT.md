@@ -13,7 +13,8 @@ Contract: PRD.md · Design map: ARCH.md · Implementation: `cmd/server/` · Orac
 | AC-5 | 宣告了才有與不落地 | 沒宣告是空的；不存進資料庫、記憶中暫留，重啟或換分身會重拿 | 同上 | 同上 | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-6 | 上限的算法與出路（US-03） | 日曆日、含回看與暖機、預設 200 根暖機與如何取代、交易策略取最大回看、出路、機器人會被停下 | `orderFlowReachNote`（合約算式說明、兩種合約重演、建立與修改機器人） | `TestTheOrderFlowReachIsExplainedWhereverItCanRefuse` | asserts-oracle | produces-oracle | ✅ conforms |
 | AC-7 | 每一格參數說明都一樣（US-03） | 六個 parameters 格都列四種；只有執行的那幾格提 parameterValues | `parameterKindsNote` + `parameterValuesCheckedNote` | `TestEveryParameterBoxNamesTheFourKindsTheSameWay`、`TestOnlyARunsParameterBoxTalksAboutThisTimesValues` | asserts-oracle | produces-oracle | ✅ conforms |
+| AC-8 | 實單對照的說法不同（US-03） | 區間由實單決定、只有那一列說出原因、只能改交易策略 | `trading_compare_contract_trades_with_backtest` 說明 | `TestTheTradeComparisonSaysWhereAnOrderFlowLimitShowsUp` | asserts-oracle | produces-oracle | ✅ conforms |
 
 ## Summary
 
-- Conforms: 7/7 ✅ (100%) · Orphans: 0
+- Conforms: 8/8 ✅ (100%) · Orphans: 0
