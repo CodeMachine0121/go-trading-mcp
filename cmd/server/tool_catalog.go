@@ -255,5 +255,8 @@ const parameterKindsNote = "每個為 {\"name\":…, \"kind\":…, \"defaultValu
 	"number（任何數字，原樣交給算式）、boolean（是非，0 為否、非零為是）、" +
 	"orderFlowPriceStep（**訂單流價位寬度**：大於零、可以有小數、最細 0.00000001；" +
 	"**只給吃合約行情（contractKCandle）的算式、一支至多一個**，吃 K 線的宣告會被拒絕；它做什麼見合約行情算式的說明裡的 Footprint）。" +
-	"算式以 indicator.LookbackCount(\"名字\")、indicator.Number(\"名字\")、indicator.Boolean(\"名字\") 取用。" +
-	"parameterValues 給的值同樣照這些規則檢查——例如把 orderFlowPriceStep 調成 0 會整次被拒絕"
+	"算式以 indicator.LookbackCount(\"名字\")、indicator.Number(\"名字\")、indicator.Boolean(\"名字\") 取用；" +
+	"訂單流價位寬度的值就在每一格的 Footprint.PriceStep，也可以用 indicator.Number(\"名字\") 讀"
+
+// parameterValuesCheckedNote is for the boxes of a run, which take this time's values too.
+const parameterValuesCheckedNote = "。這一次的 parameterValues 同樣照這些規則檢查——例如把 orderFlowPriceStep 調成 0 會整次被拒絕"

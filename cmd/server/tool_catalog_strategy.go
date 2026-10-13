@@ -320,7 +320,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕。"+parameterKindsNote, false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote+parameterValuesCheckedNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -406,7 +406,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來、吃合約行情的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕。"+parameterKindsNote, false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote+parameterValuesCheckedNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -437,7 +437,10 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 const orderFlowReachNote = "\n\n**宣告了 orderFlowPriceStep 的算式，一次至多拿 31 個世界標準時間日曆日的訂單流**：" +
 	"從它讀的第一格（**回看根數與重演的暖機都算在內**）的開頭，數到最後一格收盤；跨過午夜就多算一天。" +
 	"所以四小時刻度回看 200 根就已經超過，跟要看的區間多短無關。" +
+	"**一個回看根數都沒宣告的算式，重演會先讀預設的 200 根暖機**——四小時或一天刻度因此一定超過；" +
+	"這時宣告一個小的 lookbackCount（例如算式真正需要的根數）就會取代那 200 根。" +
+	"交易策略的重演以**所有信號來源裡最大的回看根數**當暖機，所以縮短訂單流那一支的回看不夠，回看最長的那一支也要一起看。" +
 	"重演在**送出時**就照整段判，超過即拒絕；合約機器人每一輪要的是「回看根數 × 彙總刻度」那麼長。" +
 	"另外一格至多 1,000 個價位、一次至多 2,000,000 個價位。" +
-	"**超過時的出路**：縮短區間、減少回看根數、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep。" +
+	"**超過時的出路**：縮短區間、減少（或宣告一個小的）回看根數、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep。" +
 	"機器人一輪來不及備齊訂單流會跳過那一輪、下一輪接著補；**要的超過上述任何一個上限，機器人會被停下**並說出原因。"

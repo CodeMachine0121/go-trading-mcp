@@ -183,7 +183,7 @@ func indicatorCalculationParameters() []vo.ToolParameterVo {
 			"自帶算式時它產出什麼形狀：float／floatList／bool／boolList／signal。省略即 float。"+
 				"指名既有策略腳本時這一格會被忽略", false),
 		bodyParameter("parameters", vo.ToolParameterKindArray,
-			"自帶算式時它宣告的旋鈕；指名既有策略腳本時會被忽略。"+parameterKindsNote, false),
+			"自帶算式時它宣告的旋鈕；指名既有策略腳本時會被忽略。"+parameterKindsNote+parameterValuesCheckedNote, false),
 		bodyParameter("parameterValues", vo.ToolParameterKindArray,
 			"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。"+
 				"沒給的用宣告的預設值；給了一個沒宣告過的名字則整次拒絕", false),
