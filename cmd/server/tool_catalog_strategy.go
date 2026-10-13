@@ -189,7 +189,15 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"FundingRate（收盤時現行的資金費率，正的是做多付給做空）與 FundingSettledInBar（這一格內有沒有真的結算）；" +
 	"OpenInterest、OpenInterestValue（持倉量、持倉價值）、" +
 	"AccountLongShare、AccountShortShare、AccountLongShortRatio（多空人數比）、" +
-	"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio（大戶多空持倉比）。" +
+	"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio（大戶多空持倉比）；" +
+	"Footprint（**訂單流足跡**，indicator.Footprint：PriceStep 價位寬度、Levels 一串 indicator.PriceLevel——" +
+	"每一個有 Price、BuyVolume（買方主動吃單）、SellVolume（賣方主動吃單）、TradeCount，價位由低到高、只列有成交的——" +
+	"Delta 買賣差、PointOfControl 成交最多的價位，平手取低）。" +
+	"\n\n**訂單流足跡要先宣告一個 kind 為 orderFlowPriceStep 的參數才有**，沒宣告時整份是空的。" +
+	"每一筆成交的價格往下取到寬度的整數倍就是它的價位；只算這一格收盤以前的成交。" +
+	"訂單流不存進交易服務，每次現拿（過完的日子讀交易所每日歷史檔、今天用即時查詢），所以第一次會比較慢；" +
+	"一次至多涵蓋 31 天、一格至多 1,000 個價位、一次至多 2,000,000 個價位——太細就放寬寬度，太長就縮短期間。" +
+	"機器人一輪來不及備齊會跳過那一輪；要的超過 31 天會被停下。" +
 	"\n\n**資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付**——" +
 	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
 	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +

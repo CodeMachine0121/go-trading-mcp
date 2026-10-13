@@ -90,9 +90,13 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 				"**建立後不得更換**——換成另一種會被拒絕，要吃另一種請另建一支", false),
 		bodyParameter("parameters", vo.ToolParameterKindArray,
 			"這支算式自己的旋鈕，每個為 {\"name\":…, \"kind\":…, \"defaultValue\":…}。"+
-				"kind 只有兩種：lookbackCount（大於零的整數，這條線要回看幾根；系統取所有這種的最大值決定要讀幾根）"+
-				"與 number（任何數字，原樣交給算式）。算式以 indicator.LookbackCount(\"名字\") "+
-				"與 indicator.Number(\"名字\") 取用", false),
+				"kind 有四種：lookbackCount（大於零的整數，這條線要回看幾根；系統取所有這種的最大值決定要讀幾根）、"+
+				"number（任何數字，原樣交給算式）、boolean（是非，0 為否、非零為是）、"+
+				"orderFlowPriceStep（**訂單流價位寬度**：大於零、可以有小數、最細 0.00000001；"+
+				"**只給 marketDataKind 為 contractKCandle 的策略腳本、一支至多一個**，K 線種類宣告會被拒絕；"+
+				"宣告了，每一格合約行情格的 Footprint 才有內容，價位依這個寬度分）。"+
+				"算式以 indicator.LookbackCount(\"名字\")、indicator.Number(\"名字\")、indicator.Boolean(\"名字\") 取用；"+
+				"訂單流價位寬度的值就在每一格的 Footprint.PriceStep，也可以用 indicator.Number 讀", false),
 	}
 }
 
