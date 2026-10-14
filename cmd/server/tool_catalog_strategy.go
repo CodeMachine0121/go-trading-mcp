@@ -189,7 +189,15 @@ const contractKCandleScriptNote = "\n\n**吃合約行情（marketDataKind 為 co
 	"FundingRate（收盤時現行的資金費率，正的是做多付給做空）與 FundingSettledInBar（這一格內有沒有真的結算）；" +
 	"OpenInterest、OpenInterestValue（持倉量、持倉價值）、" +
 	"AccountLongShare、AccountShortShare、AccountLongShortRatio（多空人數比）、" +
-	"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio（大戶多空持倉比）。" +
+	"TopTraderPositionLongShare、TopTraderPositionShortShare、TopTraderPositionLongShortRatio（大戶多空持倉比）；" +
+	"Footprint（**訂單流足跡**，indicator.Footprint：PriceStep 價位寬度、Levels 一串 indicator.PriceLevel——" +
+	"每一個有 Price、BuyVolume（買方主動吃單）、SellVolume（賣方主動吃單）、TradeCount，價位由低到高、只列有成交的——" +
+	"Delta 買賣差、PointOfControl 成交最多的價位，平手取低）。" +
+	"\n\n**訂單流足跡要先宣告一個 kind 為 orderFlowPriceStep 的參數才有**，沒宣告時整份是空的。" +
+	"每一筆成交的價格往下取到寬度的整數倍就是它的價位；只算這一格收盤以前的成交。" +
+	"訂單流**不存進資料庫**：過完的日子讀交易所的每日歷史檔，今天與檔案還沒出現的昨天用即時查詢；" +
+	"交易服務只在記憶中暫留最近整理過的幾天，所以同一段第二次通常很快，但重啟、或請求落在另一台分身上時會重拿，第一次會比較慢。" +
+	orderFlowReachNote +
 	"\n\n**資金費率每一格都延續上一次結算的費率，只有 FundingSettledInBar 為真的那一格才是真的收付**——" +
 	"把每一格的 FundingRate 加總，算出來的是一個從來沒有人付過的數字。" +
 	"\n\n**沒有值一律是零，分不出「沒錄到」與「真的是零」**：舊資料沒有指數價格與溢價指數（那一格整組為零）、" +
@@ -312,7 +320,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕", false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote+parameterValuesCheckedNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -383,7 +391,8 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
-				backgroundReplayNote,
+				backgroundReplayNote+
+				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/contract-backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
@@ -397,7 +406,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				bodyParameter("script", vo.ToolParameterKindString,
 					"一段還沒存起來、吃合約行情的算式。與 strategyScriptId 擇一", false),
 				bodyParameter("parameters", vo.ToolParameterKindArray,
-					"自帶算式時它宣告的旋鈕", false),
+					"自帶算式時它宣告的旋鈕。"+parameterKindsNote+parameterValuesCheckedNote, false),
 				bodyParameter("parameterValues", vo.ToolParameterKindArray,
 					"這一次要把旋鈕調成多少，每個為 {\"name\":…, \"value\":…}。只用於這次重演，不寫回腳本", false),
 			)...,
@@ -412,10 +421,28 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
-				backgroundReplayNote,
+				backgroundReplayNote+
+				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
 				contractBacktestParameters()...)...,
 		),
 	}
 }
+
+// orderFlowReachNote is how much order flow one run may ask for and what to change when it
+// asks for more. It travels with every ability where the limit bites — the contract script
+// note, both contract replays and creating a bot — because a limit only said where scripts
+// are written is a limit the assistant meets for the first time as a refusal.
+const orderFlowReachNote = "\n\n**宣告了 orderFlowPriceStep 的算式，一次至多拿 31 個世界標準時間日曆日的訂單流**：" +
+	"從它讀的第一格（**回看根數與重演的暖機都算在內**）的開頭，數到最後一格收盤；跨過午夜就多算一天。" +
+	"所以四小時刻度回看 200 根就已經超過，跟要看的區間多短無關。" +
+	"\n\n**重演的暖機**：重演一支策略腳本時，它宣告了回看根數就以最大的那個當暖機；**一個都沒宣告時先讀預設的 200 根**——" +
+	"四小時或一天刻度因此一定超過，宣告一個小的 lookbackCount（例如算式真正需要的根數）就會取代那 200 根。" +
+	"重演一份交易策略時，暖機是**所有信號來源裡最大的回看根數**，只有每一支都沒宣告時才是預設的 200 根——" +
+	"所以縮短訂單流那一支的回看不夠，回看最長的那一支也要一起看。重演在**送出時**就照整段判，超過即拒絕。" +
+	"\n\n**機器人沒有暖機，而且每個信號來源各算各的**：合約機器人每一輪讓每個來源各讀自己宣告的最大回看根數那麼多格（沒宣告就只讀一格），" +
+	"所以用了訂單流的那一支要的是「它自己的回看根數 × 彙總刻度」那麼長；被停下時要改的是那一支，不是別的來源。" +
+	"另外一格至多 1,000 個價位、一次至多 2,000,000 個價位。" +
+	"\n\n**超過時的出路**：縮短區間、減少回看根數（重演時沒宣告的就宣告一個小的）、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep。" +
+	"機器人一輪來不及備齊訂單流會跳過那一輪、下一輪接著補；**要的超過上述任何一個上限，機器人會被停下**並說出原因。"

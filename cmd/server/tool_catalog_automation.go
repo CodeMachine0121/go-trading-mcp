@@ -147,7 +147,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。"+
 				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
-				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
+				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote+orderFlowReachNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),
@@ -176,7 +176,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
 				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
 				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
-				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote,
+				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote+orderFlowReachNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
 				strategyBotWriteParameters()...)...,
