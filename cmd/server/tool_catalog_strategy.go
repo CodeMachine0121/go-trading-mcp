@@ -241,6 +241,10 @@ const spotOnlyReplayNote = "\n\n**這兩件只重演現貨。** 買入時空手�
 // decide whether a short-term report card means anything — filling at the next open,
 // and judging only by a part the tuning never saw — because an assistant left to
 // itself does neither, and nothing in the numbers says so.
+// replayWindowNote says each replayed run reads only its declared look-back, as a bot round does, so a script needing more history must declare it.
+const replayWindowNote = "\n\n**重演裡每一格只看得到它自己的回看根數**：每一格執行一次算式，拿到的是到那一格為止、最多宣告的最大回看根數那麼多格，" +
+	"與機器人每一輪讀的一樣；沒宣告回看根數的才看得到暖機起點以來的全部。所以算式裡均線、ATR 要用多少根，回看根數就要宣告多大。"
+
 // multiIntervalReplayNote explains a replay over sources on different intervals, which only replays of trading strategies meet.
 const multiIntervalReplayNote = "\n\n**信號來源可以各用不同的彙總刻度**：重演以最細的那一種為步調逐格往前走，" +
 	"回覆與回測輪次的 interval 就是它。較粗的來源在**自己的刻度上**執行算式，每一格只聽它**已經走完的最後一根**——" +
@@ -317,6 +321,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				spotOnlyReplayNote+
 				shortTermReplayNote+
+				replayWindowNote+
 				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/backtests",
 			append(append([]vo.ToolParameterVo{
@@ -343,6 +348,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				spotOnlyReplayNote+
 				multiIntervalReplayNote+
 				shortTermReplayNote+
+				replayWindowNote+
 				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests",
 			append([]vo.ToolParameterVo{pathParameter("id", "要重演哪一份交易策略")},
@@ -400,6 +406,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
+				replayWindowNote+
 				backgroundReplayNote+
 				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/contract-backtests",
@@ -431,6 +438,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				contractAccountReplayNote+
 				multiIntervalReplayNote+
 				shortTermReplayNote+
+				replayWindowNote+
 				backgroundReplayNote+
 				orderFlowReachNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/contract-backtests",

@@ -270,3 +270,17 @@ func TestTradingStrategyToolsExplainSourcesOnDifferentIntervals(t *testing.T) {
 		assert.Contains(t, signalSources.Description, "重演以最細的那一種為步調", abilityName)
 	}
 }
+
+func TestReplayToolsSayEachRunSeesOnlyItsLookback(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_strategy_script",
+		"trading_backtest_trading_strategy",
+		"trading_backtest_contract_strategy_script",
+		"trading_backtest_contract_trading_strategy",
+	} {
+		description := abilityNamed(t, abilityName).Description
+
+		assert.Contains(t, description, "**重演裡每一格只看得到它自己的回看根數**", abilityName)
+		assert.Contains(t, description, "與機器人每一輪讀的一樣", abilityName)
+	}
+}
