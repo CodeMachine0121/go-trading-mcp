@@ -240,3 +240,33 @@ func TestRewritingATradingStrategySaysTheTradingModeIsKept(t *testing.T) {
 	assert.Contains(t, description, "例外是 marketDataKind 與 tradingMode**：不給就是保留原本的")
 	assert.NotContains(t, description, "不給就回到 longShort")
 }
+
+// Sources may read different intervals, and an assistant reading the replay's interval or warm-up
+// must know it is the finest one and that coarser sources only hear finished bars.
+func TestTradingStrategyToolsExplainSourcesOnDifferentIntervals(t *testing.T) {
+	for _, abilityName := range []string{"trading_backtest_trading_strategy", "trading_backtest_contract_trading_strategy"} {
+		description := abilityNamed(t, abilityName).Description
+
+		for _, phrase := range []string{
+			"**信號來源可以各用不同的彙總刻度**：重演以最細的那一種為步調逐格往前走",
+			"回覆與回測輪次的 interval 就是它",
+			"每一格只聽它**已經走完的最後一根**",
+			"一根都還沒走完時算持平",
+			"暖機照每個來源自己的刻度換算",
+		} {
+			assert.Contains(t, description, phrase, abilityName)
+		}
+	}
+
+	for _, abilityName := range []string{"trading_backtest_strategy_script", "trading_backtest_contract_strategy_script"} {
+		assert.NotContains(t, abilityNamed(t, abilityName).Description, "信號來源可以各用不同的彙總刻度", abilityName)
+	}
+
+	for _, abilityName := range []string{"trading_create_trading_strategy", "trading_update_trading_strategy"} {
+		signalSources, declared := boxNamed(abilityNamed(t, abilityName), "signalSources")
+
+		require.True(t, declared, abilityName)
+		assert.Contains(t, signalSources.Description, "**每個來源的 aggregationInterval 可以各不相同**", abilityName)
+		assert.Contains(t, signalSources.Description, "重演以最細的那一種為步調", abilityName)
+	}
+}
