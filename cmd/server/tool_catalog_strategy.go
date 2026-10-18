@@ -94,7 +94,9 @@ func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 			"這份策略要跑哪幾支策略腳本，每個為 "+
 				"{\"label\":\"短均線\", \"strategyScriptId\":1, \"aggregationInterval\":\"1h\", "+
 				"\"parameterValues\":[{\"name\":\"期數\",\"value\":20}]}。"+
-				"label 是你在買賣條件裡怎麼稱呼這一路信號", true),
+				"label 是你在買賣條件裡怎麼稱呼這一路信號。"+
+				"**每個來源的 aggregationInterval 可以各不相同**（例如日線定方向、4h 等回檔、15m 抓進場）："+
+				"重演以最細的那一種為步調，較粗的那一路只聽它已經走完的最後一根", true),
 		bodyParameter("buyCondition", vo.ToolParameterKindObject,
 			"什麼時候買。巢狀結構，兩種節點擇一："+
 				"比較節點 {\"sourceLabel\":\"短均線\", \"signal\":\"buy\"}，"+
@@ -239,6 +241,12 @@ const spotOnlyReplayNote = "\n\n**這兩件只重演現貨。** 買入時空手�
 // decide whether a short-term report card means anything — filling at the next open,
 // and judging only by a part the tuning never saw — because an assistant left to
 // itself does neither, and nothing in the numbers says so.
+// multiIntervalReplayNote explains a replay over sources on different intervals, which only replays of trading strategies meet.
+const multiIntervalReplayNote = "\n\n**信號來源可以各用不同的彙總刻度**：重演以最細的那一種為步調逐格往前走，" +
+	"回覆與回測輪次的 interval 就是它。較粗的來源在**自己的刻度上**執行算式，每一格只聽它**已經走完的最後一根**——" +
+	"還在走的那一根看不到；一根都還沒走完時算持平。暖機照每個來源自己的刻度換算（日線回看 80 根就先讀 80 天），" +
+	"換算後超過一次重演的上限會被拒絕，請減少那個來源的回看根數或縮短期間。"
+
 const shortTermReplayNote = "\n\n**研發短線策略時，fillTiming 用 nextOpen**：收盤成交（close，不給即是）是讓說出信號的那一格在它自己的收盤價成交，而收盤那一刻其實已經過去了——短線賺的常常就是那一點點，所以收盤成交的成績單必然偏樂觀。下一格開盤成交時，最後一格說出的信號不會成交。" +
 	"\n\n**樣本外：給 validationStartTime，把這段期間切成調參段（之前）與驗證段（之後）。**回來會多 inSample 與 validation 兩份結果（形狀與整段相同），兩段各自從初始資金、空手開始，算式在驗證段看得到之前的歷史。" +
 	"**只拿 inSample 調參數，只拿 validation 判斷這支策略好不好**；看過 validation 之後又回頭改參數，那一段就不再是樣本外，請換一段更晚、還沒看過的期間當驗證段。" +
@@ -333,6 +341,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 				"那一支重演的是單獨一支算式產出的信號，這一支重演的是幾支信號組合出來的決定。"+
 				costedReportCardNote+
 				spotOnlyReplayNote+
+				multiIntervalReplayNote+
 				shortTermReplayNote+
 				backgroundReplayNote,
 			vo.RequestVerbSubmit, "/trading-strategies/{id}/backtests",
@@ -420,6 +429,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				"\n\n成績單多一個 conflictedCandleCount：買賣條件同時成立、當作持平的格數。"+
 				costedReportCardNote+
 				contractAccountReplayNote+
+				multiIntervalReplayNote+
 				shortTermReplayNote+
 				backgroundReplayNote+
 				orderFlowReachNote,
@@ -439,8 +449,10 @@ const orderFlowReachNote = "\n\n**宣告了 orderFlowPriceStep 的算式，一�
 	"所以四小時刻度回看 200 根就已經超過，跟要看的區間多短無關。" +
 	"\n\n**重演的暖機**：重演一支策略腳本時，它宣告了回看根數就以最大的那個當暖機；**一個都沒宣告時先讀預設的 200 根**——" +
 	"四小時或一天刻度因此一定超過，宣告一個小的 lookbackCount（例如算式真正需要的根數）就會取代那 200 根。" +
-	"重演一份交易策略時，暖機是**所有信號來源裡最大的回看根數**，只有每一支都沒宣告時才是預設的 200 根——" +
-	"所以縮短訂單流那一支的回看不夠，回看最長的那一支也要一起看。重演在**送出時**就照整段判，超過即拒絕。" +
+	"重演一份交易策略時，暖機是**每個信號來源的回看根數換成重演步調（最細的那個刻度）的根數後取最大**——" +
+	"日線回看 80 根、步調是 15m 時就是 7,680 根；刻度都相同時就是最大的回看根數。只有每一支都沒宣告時才是預設的 200 根——" +
+	"所以縮短訂單流那一支的回看不夠，換算後回看最長的那一支也要一起看。來源刻度不同時，讀取起點還會往前對齊到最粗那一種的格子起點，" +
+	"訂單流的天數也從那裡算。重演在**送出時**就照整段判，超過即拒絕。" +
 	"\n\n**機器人沒有暖機，而且每個信號來源各算各的**：合約機器人每一輪讓每個來源各讀自己宣告的最大回看根數那麼多格（沒宣告就只讀一格），" +
 	"所以用了訂單流的那一支要的是「它自己的回看根數 × 彙總刻度」那麼長；被停下時要改的是那一支，不是別的來源。" +
 	"另外一格至多 1,000 個價位、一次至多 2,000,000 個價位。" +
