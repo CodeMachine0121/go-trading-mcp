@@ -199,15 +199,15 @@ func TestCreatingAProfileSendsOnlyWhatTheUserSaid(t *testing.T) {
 
 func TestBothProfileWritesTakeTheSameBoxes(t *testing.T) {
 	createBoxes := abilityNamed(t, "trading_create_symbol_screening_profile").Parameters
-	updateBoxes := abilityNamed(t, "trading_update_symbol_screening_profile").Parameters
+	updateAbility := abilityNamed(t, "trading_update_symbol_screening_profile")
 
 	for _, createBox := range createBoxes {
-		updateBox, isDeclared := boxNamed(abilityNamed(t, "trading_update_symbol_screening_profile"), createBox.Name)
+		updateBox, isDeclared := boxNamed(updateAbility, createBox.Name)
 		require.True(t, isDeclared, createBox.Name)
 		assert.Equal(t, createBox.IsRequired, updateBox.IsRequired, createBox.Name)
 	}
-	assert.Len(t, updateBoxes, len(createBoxes)+1)
-	assert.Contains(t, abilityNamed(t, "trading_update_symbol_screening_profile").Description, "整份改寫")
+	assert.Len(t, updateAbility.Parameters, len(createBoxes)+1)
+	assert.Contains(t, updateAbility.Description, "整份改寫")
 }
 
 func TestLookingAtAScreeningTeachesHowToReadTheVerdicts(t *testing.T) {
