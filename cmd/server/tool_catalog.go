@@ -210,6 +210,7 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration, replayWaitLimit time.Dura
 	catalog = append(catalog, binanceTradingKeyApiTools()...)
 	catalog = append(catalog, tradeJournalApiTools(replayWaitLimit)...)
 	catalog = append(catalog, spotTradeJournalApiTools(replayWaitLimit)...)
+	catalog = append(catalog, symbolScreeningApiTools(replayWaitLimit)...)
 
 	return catalog
 }
@@ -228,7 +229,8 @@ func accountApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_get_current_user",
-			"問交易服務「我是誰」，回覆目前這份外掛授權代表的使用者識別碼與電子郵件。"+
+			"問交易服務「我是誰」，回覆目前這份外掛授權代表的使用者識別碼與電子郵件，"+
+				"以及這個帳號是不是管理員（isAdmin；只有管理員能用標的篩選）。"+
 				"用來確認在 Claude Code 授權給這個外掛的帳號是不是你以為的那一個。",
 			vo.RequestVerbRead, "/users/me",
 		),

@@ -142,6 +142,16 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_get_backtest_run":    true,
 	"trading_list_backtest_runs":  true,
 	"trading_cancel_backtest_run": true,
+	// 標的篩選（只有管理員能用）
+	"trading_list_symbol_screening_profiles":  true,
+	"trading_get_symbol_screening_profile":    true,
+	"trading_create_symbol_screening_profile": true,
+	"trading_update_symbol_screening_profile": true,
+	"trading_delete_symbol_screening_profile": true,
+	"trading_submit_symbol_screening_run":     true,
+	"trading_list_symbol_screening_runs":      true,
+	"trading_get_symbol_screening_run":        true,
+	"trading_cancel_symbol_screening_run":     true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {

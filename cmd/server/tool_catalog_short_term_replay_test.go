@@ -72,13 +72,14 @@ func TestOnlyWhatIsReplayedOnTheSpotOrLookedAtWithAWaitWaitsLonger(t *testing.T)
 
 		waitsLonger := apiTool.Name() == "trading_compare_contract_trades_with_backtest" ||
 			apiTool.Name() == "trading_compare_spot_trades_with_backtest" ||
-			apiTool.Name() == "trading_get_backtest_run"
+			apiTool.Name() == "trading_get_backtest_run" ||
+			apiTool.Name() == "trading_get_symbol_screening_run"
 
 		if waitsLonger {
 			assert.Equal(t, 120*time.Second, request.ResponseWaitLimit, apiTool.Name())
 			continue
 		}
-		assert.Zero(t, request.ResponseWaitLimit, "只有當場重演與看一筆回測輪次該等比較久：%s", apiTool.Name())
+		assert.Zero(t, request.ResponseWaitLimit, "只有當場重演、看一筆回測輪次與看一筆標的篩選該等比較久：%s", apiTool.Name())
 	}
 }
 
