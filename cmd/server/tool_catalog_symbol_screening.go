@@ -93,8 +93,8 @@ func symbolScreeningApiTools(replayWaitLimit time.Duration) []domains.ApiToolDom
 			"trading_submit_symbol_screening_run",
 			"送出一次標的篩選：指名一份篩選設定，加一串用逗號分隔的永續合約標的，系統在背後逐一檢查"+
 				"「這套策略原封不動能不能移植過去、能不能錯開現有部位」。"+
-				"\n\n**symbols 照使用者貼的原樣放進去**——全形逗號、大小寫、重複由交易服務整理，外掛不要先整理；一次最多 20 個，"+
-				"含字母數字以外的字元會被拒絕並指出是哪一個。"+
+				"\n\n**symbols 照使用者貼的原樣放進去**——全形逗號、大小寫、重複由交易服務整理，外掛不要先整理；一次最多幾個由交易服務決定（預設 20），"+
+				"超過或含字母數字以外的字元會被拒絕並說明原因，照原話帶回。"+
 				"\n\n**它不等跑完**：立刻回一筆排隊中的篩選（id、status），**把篩選編號說給使用者**，再用 trading_get_symbol_screening_run 看。"+
 				"status 是 queued 代表前面還有在跑的（全系統一次只跑一筆），**會自動開始，不要重送**；"+
 				"自己已經有一筆在排隊或進行中時會被拒絕，等它結束或用 trading_cancel_symbol_screening_run 取消再送。"+
