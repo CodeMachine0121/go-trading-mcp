@@ -159,14 +159,16 @@ func TestLookingAtAScreeningCanWaitAWhile(t *testing.T) {
 
 func TestCreatingAProfileSendsOnlyWhatTheUserSaid(t *testing.T) {
 	testCases := []struct {
-		name           string
-		arguments      map[string]string
-		expectedFields []string
+		name                string
+		arguments           map[string]string
+		expectedFields      []string
+		expectedHistoryDays string
 	}{
 		{name: "only the essentials",
 			arguments:      map[string]string{"name": `"趨勢 V3"`, "strategyScriptId": `108`, "aggregationInterval": `"4h"`},
 			expectedFields: []string{"aggregationInterval", "name", "strategyScriptId"}},
 		{name: "history days equal to the default are still sent",
+			expectedHistoryDays: `730`,
 			arguments: map[string]string{"name": `"趨勢 V3"`, "strategyScriptId": `108`, "aggregationInterval": `"4h"`,
 				"historyDays": `730`},
 			expectedFields: []string{"aggregationInterval", "historyDays", "name", "strategyScriptId"}},
@@ -188,6 +190,9 @@ func TestCreatingAProfileSendsOnlyWhatTheUserSaid(t *testing.T) {
 				sentFields = append(sentFields, field)
 			}
 			assert.ElementsMatch(t, testCase.expectedFields, sentFields)
+			if testCase.expectedHistoryDays != "" {
+				assert.JSONEq(t, testCase.expectedHistoryDays, string(sent["historyDays"]))
+			}
 		})
 	}
 }
@@ -221,4 +226,28 @@ func TestAskingWhoIAmSaysWhetherIAmAnAdministrator(t *testing.T) {
 
 	assert.Contains(t, description, "isAdmin")
 	assert.Contains(t, description, "管理員")
+}
+
+func TestEveryScreeningAbilityHandsBackWhatTheTradingServiceSaidWordForWord(t *testing.T) {
+	testCases := []struct {
+		name     string
+		response vo.TradingServiceResponseVo
+	}{
+		{name: "not an administrator", response: vo.TradingServiceResponseVo{
+			Outcome: vo.TradingServiceRefused, Content: `{"message":"這是管理員功能"}`}},
+		{name: "a symbol it cannot read", response: vo.TradingServiceResponseVo{
+			Outcome: vo.TradingServiceRefused, Content: `{"message":"篩選的要求不正確: BTC-USDT 只能有英文字母與數字"}`}},
+		{name: "an interval it cannot screen", response: vo.TradingServiceResponseVo{
+			Outcome: vo.TradingServiceRefused, Content: `{"message":"篩選的要求不正確: 看盤間隔只能是每 4 小時或每天"}`}},
+		{name: "a queued run", response: vo.TradingServiceResponseVo{
+			Outcome: vo.TradingServiceSucceeded, Content: `{"id":9,"status":"queued","candidateCount":2}`}},
+	}
+
+	for _, abilityName := range symbolScreeningAbilityNames {
+		for _, testCase := range testCases {
+			t.Run(abilityName+" "+testCase.name, func(t *testing.T) {
+				assert.Equal(t, testCase.response, apiToolNamed(t, abilityName).Relayed(testCase.response))
+			})
+		}
+	}
 }
