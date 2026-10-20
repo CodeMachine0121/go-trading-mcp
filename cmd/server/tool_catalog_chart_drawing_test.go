@@ -183,7 +183,7 @@ func TestChartDrawingAbilitiesTeachTheAssistantToDrawOnlyItsOwnLines(t *testing.
 			"revision 0", "manual", "assistant", "畫線之前先讀一次", "手畫的（source 是 manual）動不了", "不要改用別的辦法去刪",
 		}},
 		{"trading_add_chart_drawings", []string{
-			"trading_get_k_candle_series", "trading_get_contract_k_candle_series",
+			"trading_get_k_candle_series", "trading_get_contract_k_candle_series", "interval 給與這次相同的刻度", "不要用 displayableCandleCount",
 			"正好是那個刻度上一根已經存在的 K 線的起始時間", "價格優先用吸附", "不能兩個都給",
 			"最多 200 個、一次最多 20 個", "還剩幾個空位", "照它說的改一改再送，不要原樣重送",
 			"不必先問使用者確認", "回到網頁的看盤工作區（或重新聚焦那一頁）", "手畫的（source 是 manual）動不了",
@@ -203,6 +203,14 @@ func TestChartDrawingAbilitiesTeachTheAssistantToDrawOnlyItsOwnLines(t *testing.
 				assert.Contains(t, description, phrase)
 			}
 		})
+	}
+}
+
+func TestAddingDrawingsPointsOnlyAtSeriesThatHonourTheInterval(t *testing.T) {
+	description := abilityNamed(t, "trading_add_chart_drawings").Description
+
+	for _, oneMinuteOnly := range []string{"trading_list_k_candles", "trading_list_contract_k_candles"} {
+		assert.NotContains(t, description, oneMinuteOnly)
 	}
 }
 

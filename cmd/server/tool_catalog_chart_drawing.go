@@ -36,9 +36,10 @@ func chartDrawingApiTools() []domains.ApiToolDomain {
 			"在使用者的 K 線圖上畫線：在一份繪圖板上新增一批**助手繪圖**（1 到 20 個），整批檢查、整批生效。"+
 				"回覆帶 revision（新版本）與 addedDrawings（新畫的每一個，含編號與吸附後的實際價格）。"+
 				"繪圖不涉及錢，**新增直接生效，不必先問使用者確認**。"+
-				"\n\n**先讀行情，不要自己編時間或價位**：先用讀 K 線的能力找到真正的 K 線起始時間與高低點——"+
-				"現貨板（spot）用 trading_get_k_candle_series 或 trading_list_k_candles，合約板（contract）用 trading_get_contract_k_candle_series 或 trading_list_contract_k_candles，"+
-				"刻度要與這次給的 interval 一樣。**每一個錨點的 openTime 必須正好是那個刻度上一根已經存在的 K 線的起始時間**"+
+				"\n\n**先讀行情，不要自己編時間或價位**：先用彙總 K 線序列找到真正的 K 線起始時間與高低點——"+
+				"現貨板（spot）用 trading_get_k_candle_series，合約板（contract）用 trading_get_contract_k_candle_series，"+
+				"**interval 給與這次相同的刻度**（不要用 displayableCandleCount 讓系統挑別的刻度；一分鐘原始 K 線只對得上 1m），"+
+				"回來每一根的 openTime 與開高低收就是能用的錨點。**每一個錨點的 openTime 必須正好是那個刻度上一根已經存在的 K 線的起始時間**"+
 				"（一小時刻度 08:30 不是起始時間、還沒走到的未來沒有 K 線、台股週末沒有 K 線）。"+
 				"\n\n**價格優先用吸附**：錨點給 snapTo（open／high／low／close）就由交易服務取那一根的開高低收（現貨板取現貨 K 線、合約板取合約 K 線），"+
 				"免得畫在編造的價位；真的要畫在不是開高低收的價位才給 price。**price 與 snapTo 一定要給其中一個、不能兩個都給**。"+
