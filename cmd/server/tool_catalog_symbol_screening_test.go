@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/domains"
 	"github.com/CodeMachine0121/go-trading-mcp/internal/domain/models/vo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,15 +22,6 @@ var symbolScreeningAbilityNames = []string{
 	"trading_list_symbol_screening_runs",
 	"trading_get_symbol_screening_run",
 	"trading_cancel_symbol_screening_run",
-}
-
-func screeningArguments(values map[string]string) domains.ToolArgumentsDomain {
-	arguments := map[string]json.RawMessage{}
-	for name, value := range values {
-		arguments[name] = json.RawMessage(value)
-	}
-
-	return domains.NewToolArgumentsDomain(arguments)
 }
 
 func TestEveryScreeningAbilitySaysOnlyAdministratorsMayUseItAndNotToRetry(t *testing.T) {
@@ -75,7 +65,7 @@ func TestEveryScreeningAbilityAsksTheRightPlace(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.abilityName, func(t *testing.T) {
-			request, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(screeningArguments(testCase.arguments))
+			request, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(filledInArguments(testCase.arguments))
 
 			require.NoError(t, buildError)
 			assert.Equal(t, testCase.expectedVerb, request.Verb)
@@ -103,7 +93,7 @@ func TestSubmittingAScreeningSendsThePastedListUntouched(t *testing.T) {
 			pastedJson, _ := json.Marshal(testCase.pasted)
 
 			request, buildError := apiToolNamed(t, "trading_submit_symbol_screening_run").BuildRequest(
-				screeningArguments(map[string]string{"profileId": `4`, "symbols": string(pastedJson)}))
+				filledInArguments(map[string]string{"profileId": `4`, "symbols": string(pastedJson)}))
 
 			require.NoError(t, buildError)
 			sent := map[string]json.RawMessage{}
@@ -143,7 +133,7 @@ func TestLookingAtAScreeningCanWaitAWhile(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			request, buildError := apiToolNamed(t, "trading_get_symbol_screening_run").BuildRequest(
-				screeningArguments(testCase.arguments))
+				filledInArguments(testCase.arguments))
 
 			require.NoError(t, buildError)
 			assert.Equal(t, "/symbol-screening-runs/9", request.Path)
@@ -180,7 +170,7 @@ func TestCreatingAProfileSendsOnlyWhatTheUserSaid(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			request, buildError := apiToolNamed(t, "trading_create_symbol_screening_profile").BuildRequest(
-				screeningArguments(testCase.arguments))
+				filledInArguments(testCase.arguments))
 
 			require.NoError(t, buildError)
 			sent := map[string]json.RawMessage{}

@@ -152,6 +152,10 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_list_symbol_screening_runs":      true,
 	"trading_get_symbol_screening_run":        true,
 	"trading_cancel_symbol_screening_run":     true,
+	// 看盤繪圖（只能動助手畫的；整份存回只限網頁）
+	"trading_get_chart_drawings":    true,
+	"trading_add_chart_drawings":    true,
+	"trading_remove_chart_drawings": true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
@@ -241,6 +245,15 @@ func abilityNamed(t *testing.T, name string) dto.ToolDefinitionDto {
 	require.FailNowf(t, "清單裡沒有這件能力", "%s", name)
 
 	return dto.ToolDefinitionDto{}
+}
+
+func filledInArguments(values map[string]string) domains.ToolArgumentsDomain {
+	arguments := map[string]json.RawMessage{}
+	for name, value := range values {
+		arguments[name] = json.RawMessage(value)
+	}
+
+	return domains.NewToolArgumentsDomain(arguments)
 }
 
 // boxNamed is one declared box, and whether it was declared at all.
