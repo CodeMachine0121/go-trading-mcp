@@ -190,7 +190,7 @@ func TestChartDrawingAbilitiesTeachTheAssistantToDrawOnlyItsOwnLines(t *testing.
 			"沒有任何能力可以移動、改色、鎖定",
 		}},
 		{"trading_remove_chart_drawings", []string{
-			"不給 ids 即移除這份繪圖板上助手畫的全部", "整次拒絕、一個都不刪", "移除了 0 個",
+			"不給 ids 即移除這份繪圖板上助手畫的全部", "整次拒絕、一個都不刪", "這份繪圖板上沒有的編號也整次拒絕", "移除了 0 個",
 			"不要改用別的辦法去刪", "在網頁的看盤工作區上動",
 		}},
 	}
@@ -238,6 +238,28 @@ func TestEveryChartDrawingAbilityNamesTheBoardByMarketAndSymbol(t *testing.T) {
 			}
 			marketBox, _ := boxNamed(ability, "market")
 			assert.Contains(t, marketBox.Description, "spot（現貨）或 contract（永續合約）")
+		})
+	}
+}
+
+func TestChartDrawingAbilitiesWaitOnlyTheUsualTime(t *testing.T) {
+	testCases := []struct {
+		abilityName string
+		arguments   map[string]string
+	}{
+		{"trading_get_chart_drawings", map[string]string{"market": `"spot"`, "symbol": `"BTCUSDT"`}},
+		{"trading_add_chart_drawings", map[string]string{"market": `"spot"`, "symbol": `"BTCUSDT"`,
+			"interval": `"1h"`, "drawings": "[" + horizontalLineSnappedToLow + "]"}},
+		{"trading_remove_chart_drawings", map[string]string{"market": `"spot"`, "symbol": `"BTCUSDT"`}},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			request, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(filledInArguments(testCase.arguments))
+
+			require.NoError(t, buildError)
+			assert.Zero(t, request.ResponseWaitLimit)
+			assert.Zero(t, request.LiveUpdateWaitLimit)
 		})
 	}
 }
