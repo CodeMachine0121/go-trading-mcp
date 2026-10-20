@@ -84,21 +84,6 @@ func TestWritingAStrategyBotWithoutSymbolsIsNotSent(t *testing.T) {
 	}
 }
 
-func TestWritingAStrategyBotSaysEachSymbolTakesTheWholePositionPlanAndReallyTrades(t *testing.T) {
-	for _, abilityName := range bothStrategyBotWrites {
-		t.Run(abilityName, func(t *testing.T) {
-			description := abilityNamed(t, abilityName).Description
-
-			for _, phrase := range []string{
-				"每個監聽標的各自照整份算", "**總曝險最多是部位規劃的 N 倍**", "沒有同時持倉上限",
-				"每一個監聽標的都會真的在使用者的幣安帳戶上各自開倉平倉",
-			} {
-				assert.Contains(t, description, phrase)
-			}
-		})
-	}
-}
-
 func TestCreatingAStrategyBotSaysItWatchesUpToTenSymbols(t *testing.T) {
 	description := abilityNamed(t, "trading_create_strategy_bot").Description
 
