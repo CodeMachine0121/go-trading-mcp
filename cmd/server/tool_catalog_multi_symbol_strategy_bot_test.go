@@ -10,13 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var everyAbilityAnsweringWithAStrategyBot = []string{
-	"trading_create_strategy_bot", "trading_update_strategy_bot",
-	"trading_list_strategy_bots", "trading_get_strategy_bot",
-	"trading_start_strategy_bot", "trading_stop_strategy_bot",
-	"trading_run_strategy_bot_now",
-}
-
 func TestWritingAStrategyBotAsksForARequiredListOfSymbols(t *testing.T) {
 	for _, abilityName := range bothStrategyBotWrites {
 		t.Run(abilityName, func(t *testing.T) {
@@ -128,7 +121,7 @@ func TestRewritingAStrategyBotSaysTheListIsCompleteAndWhyARemovalIsRefused(t *te
 }
 
 func TestEveryAbilityAnsweringWithABotSaysHowToReadEachWatchedSymbol(t *testing.T) {
-	for _, abilityName := range everyAbilityAnsweringWithAStrategyBot {
+	for _, abilityName := range everyAbilityThatAnswersWithAStrategyBot {
 		t.Run(abilityName, func(t *testing.T) {
 			description := abilityNamed(t, abilityName).Description
 
