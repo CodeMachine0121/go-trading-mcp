@@ -129,6 +129,7 @@ func TestEveryAbilityAnsweringWithABotSaysHowToReadEachWatchedSymbol(t *testing.
 				"watchedSymbols", "lastSentSignal 上一次送出的信號（沒送過就沒有）", "conflicting", "autoOrderPosition",
 				"機器人本身**不再**有單一的 symbol",
 				"**整台停擺**", "**標的停擺**", "**其他標的照常、機器人仍在跑**",
+				"**兩種停擺看它寫在哪裡分，不看它的值**", "也可能是 scriptFailed 或 orderFlowRefused",
 				"scriptFailed", "orderFlowRefused",
 				"只盯一個標的時，它停擺就是整台停擺",
 				"**停止再啟動**會清掉每個標的的停擺、上一次送出的信號與衝突記號，機器人持倉不動",

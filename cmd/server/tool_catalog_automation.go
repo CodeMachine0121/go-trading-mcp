@@ -117,7 +117,8 @@ const strategyBotWatchedSymbolsNote = "\n\n**每個監聽標的的狀態在 watc
 	"symbol 標的、lastSentSignal 上一次送出的信號（沒送過就沒有）、conflicting 衝突記號、haltReason 標的停擺原因（沒停擺就沒有），" +
 	"合約機器人另帶 autoOrderPosition（那個標的的機器人持倉：direction 為 long／short，空字串即空手；quantity 數量）。" +
 	"機器人本身**不再**有單一的 symbol、lastSentSignal、conflicting、autoOrderPosition——都在各監聽標的上。" +
-	"\n\n**兩種停擺分開讀**：機器人上的 haltReason 是**整台停擺**（交易策略或策略腳本找不到、Telegram 出問題，或全部標的都停擺），整台不再跑；" +
+	"\n\n**兩種停擺看它寫在哪裡分，不看它的值**：機器人上的 haltReason 是**整台停擺**（交易策略或策略腳本找不到、Telegram 出問題，" +
+	"或全部標的都停擺——這時它就是讓標的停擺的那一種，也可能是 scriptFailed 或 orderFlowRefused），整台不再跑；" +
 	"某個監聽標的上的 haltReason（scriptFailed 策略腳本在它身上算不出來、orderFlowRefused 訂單流超過範圍）是**標的停擺**——" +
 	"只有那個標的不跑，**其他標的照常、機器人仍在跑**，不要說成整台停了。只盯一個標的時，它停擺就是整台停擺。" +
 	"\n\n**停止再啟動**會清掉每個標的的停擺、上一次送出的信號與衝突記號，機器人持倉不動；這是讓停擺的標的恢復的辦法。" +
