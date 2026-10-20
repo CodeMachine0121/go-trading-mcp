@@ -126,7 +126,7 @@ func TestEveryAbilityAnsweringWithABotSaysHowToReadEachWatchedSymbol(t *testing.
 			description := abilityNamed(t, abilityName).Description
 
 			for _, phrase := range []string{
-				"watchedSymbols", "lastSentSignal", "conflicting", "autoOrderPosition",
+				"watchedSymbols", "lastSentSignal 上一次送出的信號（沒送過就沒有）", "conflicting", "autoOrderPosition",
 				"機器人本身**不再**有單一的 symbol",
 				"**整台停擺**", "**標的停擺**", "**其他標的照常、機器人仍在跑**",
 				"scriptFailed", "orderFlowRefused",
