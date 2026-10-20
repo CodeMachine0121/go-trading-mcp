@@ -153,6 +153,9 @@ const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEna
 
 const strategyBotReplyNote = strategyBotWatchedSymbolsNote + strategyBotAutoOrderNote
 
+const strategyBotWriteNote = strategyBotCapitalAllocationNote + strategyBotReplyNote +
+	binanceAutoOrderWebOnlyNote + orderFlowReachNote
+
 // contractAutoOrderResultNote is what the two abilities that lead to a bot's rounds say about
 // a round's auto order, so that an assistant reads an entry order that filled nothing as
 // cancelled rather than as a failure, and reads a positive slippage as the owner's cost.
@@ -187,8 +190,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。"+
 				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
-				strategyBotCapitalAllocationNote+strategyBotReplyNote+
-				binanceAutoOrderWebOnlyNote+orderFlowReachNote,
+				strategyBotWriteNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),
@@ -224,8 +226,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"**移除一個標的被拒時整次修改什麼都不改**：reason 為 watchedSymbolHoldsPosition 是那個標的還有機器人持倉，要先讓它空手才能移除；"+
 				"reason 為 watchedSymbolAutoOrderOutstanding 是那個標的還有沒做完的自動下單，要等它做完才能移除。"+
 				"遇到時照原話告訴使用者，**不要重送同一份**；要改別的設定就把那個標的留在清單裡再送。"+
-				strategyBotCapitalAllocationNote+strategyBotReplyNote+
-				binanceAutoOrderWebOnlyNote+orderFlowReachNote,
+				strategyBotWriteNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
 				strategyBotWriteParameters()...)...,
