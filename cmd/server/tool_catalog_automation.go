@@ -219,7 +219,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
 				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
 				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
-				"\n\n**positionPlan 裡不給 capitalAllocations 時**：監聽標的與原本完全相同（順序不論）就**保留原本的分配比例**，"+
+				"\n\n**positionPlan 整組改寫的唯一例外是 capitalAllocations——不給時不會變成空的**：監聽標的與原本完全相同（順序不論）就**保留原本的分配比例**，"+
 				"所以只改名字、間隔或其他部位規劃時不必重帶；**只要多了或少了任何一個標的，就重新平均分配**——使用者自己調過的分配會不見。"+
 				"加減標的前先跟使用者說清楚，或把新的分配比例一起送。"+
 				"\n\n**symbols 是修改後的完整清單**：只改名字、間隔或部位規劃時也要把原本的標的照抄回去，漏列一個就是把它移除。"+

@@ -93,6 +93,7 @@ func TestRewritingAStrategyBotSaysWhenTheAllocationIsKeptOrSplitAgain(t *testing
 	description := abilityNamed(t, "trading_update_strategy_bot").Description
 
 	for _, phrase := range []string{
+		"positionPlan 整組改寫的唯一例外是 capitalAllocations——不給時不會變成空的",
 		"監聽標的與原本完全相同（順序不論）就**保留原本的分配比例**",
 		"只改名字、間隔或其他部位規劃時不必重帶",
 		"**只要多了或少了任何一個標的，就重新平均分配**", "使用者自己調過的分配會不見",
