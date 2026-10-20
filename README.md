@@ -257,8 +257,20 @@ curl localhost:8090/health   # {"status":"Healthy"}
   移除還有機器人持倉或沒做完自動下單的標的時，交易服務以 409、`reason` 為 `watchedSymbolHoldsPosition`／`watchedSymbolAutoOrderOutstanding` 整次拒絕，原樣轉交。
 - 回覆機器人的七件能力說明 **`watchedSymbols`**（每個標的的 `lastSentSignal`、`conflicting`、`haltReason`，合約另有 `autoOrderPosition`），
   以及機器人上的 `haltReason` 是**整台停擺**、標的上的是**標的停擺**（其他標的照常）。
-- 建立與修改的說明講清楚**每個標的各自照整份部位規劃算**（總曝險最多 N 倍）、合約機器人開著自動下單時每個標的都會真的下單。
+- 合約機器人開著自動下單時每個標的都會真的下單（用它分到的那一份，見〈資金分配〉）。
 - **`trading_list_strategy_bot_runs`** 多一格可選的查詢 `symbol` 只看一個標的；每一筆紀錄帶 `symbol`，輪次編號跨標的不重複。
+
+### 資金分配
+
+`positionPlan.capital` 是**整台機器人的總金額**（合約機器人是保證金，名目＝保證金 × 槓桿），每個監聽標的只用
+**分到的資金**＝`capital × allocationPercentage ÷ 100`，倉位大小模式在那一份裡運作；分配固定、沒用到的不借給別的標的。
+
+- 建立與修改機器人時 `positionPlan` 可另帶選填的 **`capitalAllocations`**（`[{"symbol","allocationPercentage"}]`）。
+  它住在 `positionPlan` 這個物件裡，隨整個物件原樣轉送——外掛沒有新增任何一格，也不檢查規則
+  （每個監聽標的都給或都不給、不重複、大於 0 且不超過 100、最多兩位小數、合計不超過 100），拒絕原樣轉交。
+- 不給即由交易服務平均分配（100 ÷ 標的數，無條件捨去到兩位小數）；修改時監聽標的不變（順序不論）即保留、變了即重新平均，說明要助理加減標的前先講清楚。
+- 回覆機器人的七件能力說明每個監聽標的上的 **`allocationPercentage`**；回覆不帶分到的金額，由助理照公式自己算。
+- 形狀範例刻意不含 `capitalAllocations`——助理會照抄範例，抄到別台的標的就會被拒絕；寫法另起一句、以「例如盯 BTCUSDT、ETHUSDT 時」帶出。
 
 ### 合約重演與合約交易策略
 

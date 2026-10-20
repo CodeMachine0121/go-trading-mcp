@@ -53,13 +53,20 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"{\"capital\":\"50000\", \"sizingMode\":\"percentage\", \"sizingValue\":\"10\", "+
 				"\"stopLossPercentage\":\"3\", \"takeProfitPercentage\":\"5\"}。"+
 				"capital 是這一組的開關：不給它，其餘幾樣填了也不算。"+
+				"**capital 是整台機器人的總金額**，不是每個標的各一份：盯幾個監聽標的都一樣，每個標的只用它分到的那一份（見下面的 capitalAllocations）。"+
 				"金額一律以字串給精確小數。"+
-				"sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、"+
-				"fixedAmount 每次押固定金額；不給即 allIn。"+
+				"sizingMode 三選一：allIn 全押（押滿那個標的分到的資金，不必給 sizingValue）、percentage 押分到的資金的百分之幾、"+
+				"fixedAmount 每次押固定金額（超過那個標的分到的資金就押不下）；不給即 allIn。"+
 				"stopLossPercentage 與 takeProfitPercentage 是百分點（3 就是 3%），各自可以單獨不給。"+
+				"\n\n**capitalAllocations（資金分配）選填**：替每個監聽標的給一個分配比例（%），例如盯 BTCUSDT、ETHUSDT 時另加 "+
+				"\"capitalAllocations\":[{\"symbol\":\"BTCUSDT\",\"allocationPercentage\":\"60\"},{\"symbol\":\"ETHUSDT\",\"allocationPercentage\":\"40\"}]"+
+				"（allocationPercentage 給字串或數字都可以）。**不給就是平均分配**（建立時；修改時見 trading_update_strategy_bot）。"+
+				"要給就照交易服務的規則，否則整台被拒絕：**每一個監聽標的都要給**（只給一部分會被拒絕）、只能指名這台的監聽標的、同一個標的不得給兩次（大小寫不同視為同一個）、"+
+				"每個**大於 0、不超過 100**、**最多到小數點後兩位**、**加起來不得超過 100**（可以少於 100，剩下的不動用）。"+
+				"被拒絕時照原話告訴使用者、改一改再送。"+
 				"\n\n**槓桿倍數只有合約機器人收**，合約機器人才在這一組裡另加一項，例如 \"leverage\":\"5\"（字串形式的精確小數）：不給或零即一倍，小於一會被拒絕，"+
 				"超過那個合約標的最高那一級允許的槓桿會被拒絕並說出上限。"+
-				"合約機器人建議的是**保證金**（照 sizingMode 從 capital 算出來的那一筆），名目＝保證金 × 槓桿，"+
+				"合約機器人的 capital 是**保證金**，不是名目；建議的保證金照 sizingMode 從那個標的分到的資金算出來，名目＝保證金 × 槓桿，"+
 				"止損止盈的虧賺照名目算；做空時止損在上、止盈在下。"+
 				"\n\n**合約機器人的建議照交易所規則算**：數量＝名目 ÷ 參考價，照數量步進往下取整，"+
 				"保證金與名目照取整後的數量重算；止損止盈價照價格跳動單位取最接近的一檔。"+
@@ -116,6 +123,9 @@ const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 h
 const strategyBotWatchedSymbolsNote = "\n\n**每個監聽標的的狀態在 watchedSymbols 裡**（依加入的先後順序），每一個帶著：" +
 	"symbol 標的、lastSentSignal 上一次送出的信號（沒送過就沒有）、conflicting 衝突記號、haltReason 標的停擺原因（沒停擺就沒有），" +
 	"合約機器人另帶 autoOrderPosition（那個標的的機器人持倉：direction 為 long／short，空字串即空手；quantity 數量）。" +
+	"每一個也帶著 **allocationPercentage 分配比例**（字串，單位 %）：那個標的分到的資金＝positionPlan 的 capital × allocationPercentage ÷ 100，" +
+	"回覆裡沒有這個數字，要自己算；全部加起來少於 100 的部分是沒動用的錢。" +
+	"分配不是 100% 時，建議部位訊息多一行「資金分配 33.33%：總金額 1000 中的 333.3」說出那個標的分到多少；100% 時訊息不多這一行。" +
 	"機器人本身**不再**有單一的 symbol、lastSentSignal、conflicting、autoOrderPosition——都在各監聽標的上。" +
 	"\n\n**兩種停擺看它寫在哪裡分，不看它的值**：機器人上的 haltReason 是**整台停擺**（交易策略或策略腳本找不到、Telegram 出問題，" +
 	"或全部標的都停擺——這時它就是讓標的停擺的那一種，也可能是 scriptFailed 或 orderFlowRefused），整台不再跑；" +
@@ -124,9 +134,16 @@ const strategyBotWatchedSymbolsNote = "\n\n**每個監聽標的的狀態在 watc
 	"\n\n**停止再啟動**會清掉每個標的的停擺、上一次送出的信號與衝突記號，機器人持倉不動；這是讓停擺的標的恢復的辦法。" +
 	"對已停止的機器人用 trading_run_strategy_bot_now 立刻跑一輪時，每一個標的都跑（含停擺中的），跑出結論的標的就不再停擺"
 
-const strategyBotPerSymbolExposureNote = "\n\n**部位規劃是整台機器人的設定，每個監聽標的各自照整份算**：" +
-	"盯 N 個標的時，同時最多可能有 N 份部位——**總曝險最多是部位規劃的 N 倍**，沒有同時持倉上限。建立或加標的時要讓使用者知道。" +
-	"**合約機器人開著自動下單時，每一個監聽標的都會真的在使用者的幣安帳戶上各自開倉平倉**——加一個標的就是多一個會真的下單的標的"
+const strategyBotCapitalAllocationNote = "\n\n**positionPlan 的 capital 是整台機器人的總金額，每個監聽標的只用它分到的那一份**：" +
+	"分到的資金＝capital × 那個標的的分配比例 ÷ 100（不取整），倉位大小模式在那一份裡照舊運作。" +
+	"例如總金額 1000、BTCUSDT 60%、ETHUSDT 40%，BTCUSDT 分到 600、ETHUSDT 分到 400；所有標的同時開滿也不超過總金額。" +
+	"**合約機器人的總金額是保證金，不是名目**：總金額 100、槓桿 5、BTCUSDT 50% 時，BTCUSDT 的保證金最多 50、名目 250。" +
+	"\n\n**分配是固定的**：一個標的只用自己那一份，沒用到的份額**不借給**別的標的，加起來少於 100% 的部分也不動用。" +
+	"**不給 capitalAllocations 就是平均分配**：每個標的拿 100 ÷ 標的數、無條件捨去到小數點後兩位，零頭不動用——" +
+	"1 個 100%、2 個各 50%、3 個各 33.33%（總金額 1000 時各分到 333.3，0.01% 沒動用）、7 個各 14.28%。" +
+	"\n\n**盯的標的越多，每個分到的越少**：例如總金額 50、固定金額 50、盯 2 個標的，每個只分到 25、押不下 50" +
+	"（訊息會說「這個標的分到的資金不足」）。建立或加標的時要讓使用者知道，必要時調大總金額或改倉位大小。" +
+	"**合約機器人開著自動下單時，每一個監聽標的都會真的在使用者的幣安帳戶上開倉平倉**，用的就是它分到的那一份——與建議部位訊息同一個數字"
 
 const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEnabled（自動下單：true 開、false 關）**，現貨與合約機器人都有。" +
 	autoOrderReallyTradesNote + "關著的機器人每一輪只判信號、只送 Telegram 通知。" +
@@ -135,6 +152,9 @@ const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEna
 	"自動下單開倉時，進場單的價格最多比參考價差這麼多（做多最多貴這麼多、做空最多便宜這麼多），一個觸發間隔內沒成交就撤單"
 
 const strategyBotReplyNote = strategyBotWatchedSymbolsNote + strategyBotAutoOrderNote
+
+const strategyBotWriteNote = strategyBotCapitalAllocationNote + strategyBotReplyNote +
+	binanceAutoOrderWebOnlyNote + orderFlowReachNote
 
 // contractAutoOrderResultNote is what the two abilities that lead to a bot's rounds say about
 // a round's auto order, so that an assistant reads an entry order that filled nothing as
@@ -170,8 +190,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。"+
 				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
-				strategyBotPerSymbolExposureNote+strategyBotReplyNote+
-				binanceAutoOrderWebOnlyNote+orderFlowReachNote,
+				strategyBotWriteNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
 		),
@@ -200,12 +219,14 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
 				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
 				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
+				"\n\n**positionPlan 整組改寫的唯一例外是 capitalAllocations——不給時不會變成空的**：監聽標的與原本完全相同（順序不論）就**保留原本的分配比例**，"+
+				"所以只改名字、間隔或其他部位規劃時不必重帶；**只要多了或少了任何一個標的，就重新平均分配**——使用者自己調過的分配會不見。"+
+				"加減標的前先跟使用者說清楚，或把新的分配比例一起送。"+
 				"\n\n**symbols 是修改後的完整清單**：只改名字、間隔或部位規劃時也要把原本的標的照抄回去，漏列一個就是把它移除。"+
 				"**移除一個標的被拒時整次修改什麼都不改**：reason 為 watchedSymbolHoldsPosition 是那個標的還有機器人持倉，要先讓它空手才能移除；"+
 				"reason 為 watchedSymbolAutoOrderOutstanding 是那個標的還有沒做完的自動下單，要等它做完才能移除。"+
 				"遇到時照原話告訴使用者，**不要重送同一份**；要改別的設定就把那個標的留在清單裡再送。"+
-				strategyBotPerSymbolExposureNote+strategyBotReplyNote+
-				binanceAutoOrderWebOnlyNote+orderFlowReachNote,
+				strategyBotWriteNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
 				strategyBotWriteParameters()...)...,

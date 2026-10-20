@@ -120,5 +120,5 @@ func TestWritingABotKeepsTheSpotSentences(t *testing.T) {
 	description := positionPlanDescriptionOf(t, "trading_create_strategy_bot")
 
 	assert.Contains(t, description, "**現貨機器人給大於一倍的槓桿會被拒絕**：現貨是拿現金換東西，沒有人借錢給你")
-	assert.Contains(t, description, "sizingMode 三選一：allIn 全押（不必給 sizingValue）、percentage 押資金的百分之幾、")
+	assert.Contains(t, description, "sizingMode 三選一：allIn 全押（押滿那個標的分到的資金，不必給 sizingValue）、percentage 押分到的資金的百分之幾、")
 }
