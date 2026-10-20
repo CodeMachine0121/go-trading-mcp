@@ -211,6 +211,7 @@ func apiToolCatalog(liveUpdateWaitLimit time.Duration, replayWaitLimit time.Dura
 	catalog = append(catalog, tradeJournalApiTools(replayWaitLimit)...)
 	catalog = append(catalog, spotTradeJournalApiTools(replayWaitLimit)...)
 	catalog = append(catalog, symbolScreeningApiTools(replayWaitLimit)...)
+	catalog = append(catalog, chartDrawingApiTools()...)
 
 	return catalog
 }

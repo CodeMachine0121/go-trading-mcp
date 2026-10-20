@@ -152,6 +152,10 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_list_symbol_screening_runs":      true,
 	"trading_get_symbol_screening_run":        true,
 	"trading_cancel_symbol_screening_run":     true,
+	// 看盤繪圖（只能動助手畫的；整份存回只限網頁）
+	"trading_get_chart_drawings":    true,
+	"trading_add_chart_drawings":    true,
+	"trading_remove_chart_drawings": true,
 }
 
 func TestTheCatalogueCoversEveryThingTheTradingServiceOffersAndNothingElse(t *testing.T) {
