@@ -35,12 +35,12 @@
 | :--- | :--- | :--- | :--- |
 | `trading_get_chart_drawings` | read `/users/me/chart-drawings/{market}/{symbol}` | path `market`✔、`symbol`✔ | US-01 全部 |
 | `trading_add_chart_drawings` | submit `/users/me/chart-drawings/{market}/{symbol}/assistant-drawings` | path `market`✔、`symbol`✔；body `interval`✔(string)、`drawings`✔(array) | US-02 全部 |
-| `trading_remove_assistant_chart_drawings` | remove `/users/me/chart-drawings/{market}/{symbol}/assistant-drawings` | path `market`✔、`symbol`✔；query `ids`(string，逗號分隔，選填) | US-03 全部 |
+| `trading_remove_chart_drawings` | remove `/users/me/chart-drawings/{market}/{symbol}/assistant-drawings` | path `market`✔、`symbol`✔；query `ids`(string，逗號分隔，選填) | US-03 全部 |
 
 決定：
 - **`ids` 宣告為字串**（`"12,15"`）：查詢字串由 `ToolArgumentsDomain.PlainTextAt` 讀，陣列會被送成 `[12,15]` 而被交易服務拒絕；字串最貼近交易服務的 `?ids=1,2`，且與 `trading_submit_symbol_screening_run` 的 `symbols` 同一種形狀。不給即不帶查詢字串＝移除助手畫的全部。
 - **`drawings` 宣告為 array**，說明以一個完整範例寫出形狀（`kind`、`anchors[{openTime, snapTo|price}]`、`color`、`lineWidth`、`lineStyle`），列出八種種類與點數、十二色、線寬、線型、上限；比照 `firstEntryFill` 以文字描述物件形狀的既有作法（能力欄位的 schema 只有型別與說明）。
-- 命名：`get`／`add`／`remove_assistant` 對齊既有 `trading_get_*`、`trading_add_*`、`trading_remove_*`；移除的名稱帶 `assistant`，讓「只能移除助手畫的」連名字都看得到。
+- 命名：`get`／`add`／`remove` 對齊既有 `trading_get_*`、`trading_add_*`、`trading_remove_*`。**名稱刻意不帶 `assistant`**：`TestNoAbilityLetsOneAssistantSpendAnothersBudget` 以名稱不含 assistant／chat 守住「不代理交易服務的行情對話助手」，這條界線比在名稱上標「助手」更重要；「只能移除助手畫的」改由說明與路由（`/assistant-drawings`）保證。
 - 新增不加 `Waiting`：交易服務一次讀幾根 K 線即回，一般等待時間足夠。
 
 ---
@@ -91,7 +91,7 @@ flowchart TD
 | US-02 空位不夠… | 既有拒絕轉達＋說明（上限） |
 | US-02 沒說刻度外掛先擋下 | `interval` 必填 → `ErrRequiredArgumentMissing` |
 | US-02 說明教會助理畫對 | `trading_add_chart_drawings` 說明與格子說明 |
-| US-03 指名移除一條助手畫的 | `trading_remove_assistant_chart_drawings` query `ids` |
+| US-03 指名移除一條助手畫的 | `trading_remove_chart_drawings` query `ids` |
 | US-03 不指名即移除助手畫的全部 | 不給 `ids` → 不帶查詢字串 |
 | US-03 指名到手畫的整次拒絕 | 既有拒絕轉達＋`chartDrawingAssistantOnlyNote` |
 | US-03 指名不存在的編號整次拒絕 | 既有拒絕轉達 |
