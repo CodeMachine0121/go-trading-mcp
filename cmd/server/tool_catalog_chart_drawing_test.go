@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -21,15 +20,6 @@ var chartDrawingAbilityNames = []string{
 
 const horizontalLineSnappedToLow = `{"kind":"horizontalLine","anchors":[{"openTime":"2026-10-19T08:00:00Z","snapTo":"low"}],` +
 	`"color":"red","lineWidth":2,"lineStyle":"dashed"}`
-
-func chartDrawingArguments(values map[string]string) domains.ToolArgumentsDomain {
-	arguments := map[string]json.RawMessage{}
-	for name, value := range values {
-		arguments[name] = json.RawMessage(value)
-	}
-
-	return domains.NewToolArgumentsDomain(arguments)
-}
 
 func TestEveryChartDrawingAbilityAsksTheRightBoard(t *testing.T) {
 	testCases := []struct {
@@ -65,7 +55,7 @@ func TestEveryChartDrawingAbilityAsksTheRightBoard(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.abilityName+" "+testCase.expectedPath, func(t *testing.T) {
 			request, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(
-				chartDrawingArguments(testCase.arguments))
+				filledInArguments(testCase.arguments))
 
 			require.NoError(t, buildError)
 			assert.Equal(t, testCase.expectedVerb, request.Verb)
@@ -87,7 +77,7 @@ func TestReadingOrRemovingSendsNothingInTheContents(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.abilityName, func(t *testing.T) {
 			request, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(
-				chartDrawingArguments(testCase.arguments))
+				filledInArguments(testCase.arguments))
 
 			require.NoError(t, buildError)
 			assert.Nil(t, request.Body)
@@ -117,7 +107,7 @@ func TestAddingDrawingsHandsTheIntervalAndEveryDrawingOverUntouched(t *testing.T
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			request, buildError := apiToolNamed(t, "trading_add_chart_drawings").BuildRequest(chartDrawingArguments(
+			request, buildError := apiToolNamed(t, "trading_add_chart_drawings").BuildRequest(filledInArguments(
 				map[string]string{"market": `"contract"`, "symbol": `"BTCUSDT"`,
 					"interval": testCase.interval, "drawings": testCase.drawings}))
 
@@ -146,7 +136,7 @@ func TestEveryChartDrawingAbilityNeedsItsBoxesFilledIn(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.abilityName+" without "+testCase.missingName, func(t *testing.T) {
 			_, buildError := apiToolNamed(t, testCase.abilityName).BuildRequest(
-				chartDrawingArguments(testCase.arguments))
+				filledInArguments(testCase.arguments))
 
 			require.ErrorIs(t, buildError, domains.ErrRequiredArgumentMissing)
 			assert.Contains(t, buildError.Error(), testCase.missingName)
@@ -170,7 +160,7 @@ func TestNoAbilityCanRewriteAWholeChartDrawingBoard(t *testing.T) {
 			arguments[parameter.Name] = `"filled"`
 		}
 
-		request, buildError := apiTool.BuildRequest(chartDrawingArguments(arguments))
+		request, buildError := apiTool.BuildRequest(filledInArguments(arguments))
 		require.NoError(t, buildError, apiTool.Name())
 		if !strings.HasPrefix(request.Path, "/users/me/chart-drawings/") {
 			continue

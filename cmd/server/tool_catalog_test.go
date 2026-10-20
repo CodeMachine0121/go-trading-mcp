@@ -247,6 +247,15 @@ func abilityNamed(t *testing.T, name string) dto.ToolDefinitionDto {
 	return dto.ToolDefinitionDto{}
 }
 
+func filledInArguments(values map[string]string) domains.ToolArgumentsDomain {
+	arguments := map[string]json.RawMessage{}
+	for name, value := range values {
+		arguments[name] = json.RawMessage(value)
+	}
+
+	return domains.NewToolArgumentsDomain(arguments)
+}
+
 // boxNamed is one declared box, and whether it was declared at all.
 func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParameterDto, bool) {
 	for _, parameter := range definitionDto.Parameters {
