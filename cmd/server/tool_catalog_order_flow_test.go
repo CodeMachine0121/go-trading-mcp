@@ -88,7 +88,8 @@ func TestTheOrderFlowReachIsExplainedWhereverItCanRefuse(t *testing.T) {
 			"讀取起點還會往前對齊到最粗那一種的格子起點",
 			"**機器人沒有暖機，而且每個信號來源各算各的**",
 			"縮短區間、減少回看根數（重演時沒宣告的就宣告一個小的）、換細一點的彙總刻度；價位太多就放寬 orderFlowPriceStep",
-			"**要的超過上述任何一個上限，機器人會被停下**",
+			"**要的超過上述任何一個上限，那個監聽標的會被停下**",
+			"（標的停擺，原因 orderFlowRefused，其他標的照常；只盯一個標的或全部標的都停擺時整台停擺）",
 		} {
 			assert.Contains(t, description, phrase, abilityName)
 		}

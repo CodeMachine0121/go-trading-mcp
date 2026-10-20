@@ -560,7 +560,7 @@ func TestWritingAStrategyBotStillAsksForEverythingItAlwaysDid(t *testing.T) {
 	create := abilityNamed(t, "trading_create_strategy_bot")
 
 	for _, boxName := range []string{
-		"name", "symbol", "tradingStrategyId", "triggerIntervalMinutes",
+		"name", "symbols", "tradingStrategyId", "triggerIntervalMinutes",
 	} {
 		box, isDeclared := boxNamed(create, boxName)
 

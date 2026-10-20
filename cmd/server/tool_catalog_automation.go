@@ -32,9 +32,15 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"contractKCandle（**合約機器人**，盯永續合約的合約行情格）。"+
 				"**建立時不給就是 kCandle**；**修改時不給就是保留原本的**，照抄原本的也可以。"+
 				"**建立後不得更換**——換成另一種會被拒絕，要另一種請另建一台", false),
-		bodyParameter("symbol", vo.ToolParameterKindString,
-			"它盯著哪一個交易標的。**合約機器人盯的合約標的必須已經在合約追蹤名單上**"+
-				"（不在會被拒絕，先用 trading_add_to_contract_watchlist 加進去）；現貨機器人照舊", true),
+		bodyParameter("symbols", vo.ToolParameterKindArray,
+			"它盯著哪幾個交易標的（**監聽標的**），字串陣列，例如 [\"BTCUSDT\", \"ETHUSDT\"]：**1 到 10 個、不得重複**"+
+				"（大小寫不同視為同一個，例如 BTCUSDT 與 btcusdt 會被拒絕說重複了）。不給、給空的、超過 10 個都會被拒絕。"+
+				"同一份交易策略每一輪分別套在每一個監聽標的上，各自判斷、各自送訊息、各自記執行紀錄。"+
+				"**合約機器人的每一個標的都必須已經在合約追蹤名單上**（不在的會被點名拒絕，先用 trading_add_to_contract_watchlist 加進去），"+
+				"positionPlan 的槓桿也不得超過**任何一個**標的的上限（會點名哪一個最高幾倍）。"+
+				"\n\n**修改時給的是修改後的完整清單**：留下來的標的保留它的狀態（上一次送出的信號、機器人持倉…），"+
+				"新加的從空白開始，**沒列進去的就是要移除**（它過去的執行紀錄仍保留）。"+
+				"**只想改別的設定時也要把原本的標的照抄回去**，先用 trading_get_strategy_bot 讀 watchedSymbols——漏列一個就是把它移除", true),
 		bodyParameter("tradingStrategyId", vo.ToolParameterKindInteger,
 			"它照哪一份交易策略做決定。**交易策略吃的行情必須與這台機器人相同**："+
 				"現貨機器人只能引用吃 K 線的交易策略，合約機器人只能引用吃合約行情的交易策略，"+
@@ -102,10 +108,24 @@ const contractStrategyBotRunDetailsNote = "\n\n**合約機器人的執行紀錄�
 // contract's newest one-minute candle is more than five minutes old, and books it as hold
 // — the same word a round that ran and concluded nothing leaves — so without this an
 // assistant reads a bot that has gone blind as a bot with no signal yet.
-const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 hold 不一定是沒有信號**：它的合約標的最新一根一分鐘合約 K 線" +
-	"比現在早超過 5 分鐘（或一根都沒有）時，那一輪會直接跳過、不送訊息，紀錄上一樣是 hold。" +
+const contractStrategyBotSkippedRoundNote = "\n\n**合約機器人一連串的 hold 不一定是沒有信號**：某個監聽標的最新一根一分鐘合約 K 線" +
+	"比現在早超過 5 分鐘（或一根都沒有）時，**只有那個標的**那一輪會直接跳過、不送訊息，紀錄上一樣是 hold（看那一筆的 symbol），其他標的照常。" +
 	"把它讀成「沒有信號」之前，先用 trading_list_contract_k_candles 看那個合約標的最新的 K 線是不是還在進來；" +
 	"停了的話多半是它已不在合約追蹤名單上（trading_add_to_contract_watchlist 加回去）"
+
+const strategyBotWatchedSymbolsNote = "\n\n**每個監聽標的的狀態在 watchedSymbols 裡**（依加入的先後順序），每一個帶著：" +
+	"symbol 標的、lastSentSignal 上一次送出的信號（沒送過就沒有）、conflicting 衝突記號、haltReason 標的停擺原因（沒停擺就沒有），" +
+	"合約機器人另帶 autoOrderPosition（那個標的的機器人持倉：direction 為 long／short，空字串即空手；quantity 數量）。" +
+	"機器人本身**不再**有單一的 symbol、lastSentSignal、conflicting、autoOrderPosition——都在各監聽標的上。" +
+	"\n\n**兩種停擺分開讀**：機器人上的 haltReason 是**整台停擺**（交易策略或策略腳本找不到、Telegram 出問題，或全部標的都停擺），整台不再跑；" +
+	"某個監聽標的上的 haltReason（scriptFailed 策略腳本在它身上算不出來、orderFlowRefused 訂單流超過範圍）是**標的停擺**——" +
+	"只有那個標的不跑，**其他標的照常、機器人仍在跑**，不要說成整台停了。只盯一個標的時，它停擺就是整台停擺。" +
+	"\n\n**停止再啟動**會清掉每個標的的停擺、上一次送出的信號與衝突記號，機器人持倉不動；這是讓停擺的標的恢復的辦法。" +
+	"對已停止的機器人用 trading_run_strategy_bot_now 立刻跑一輪時，每一個標的都跑（含停擺中的），跑出結論的標的就不再停擺"
+
+const strategyBotPerSymbolExposureNote = "\n\n**部位規劃是整台機器人的設定，每個監聽標的各自照整份算**：" +
+	"盯 N 個標的時，同時最多可能有 N 份部位——**總曝險最多是部位規劃的 N 倍**，沒有同時持倉上限。建立或加標的時要讓使用者知道。" +
+	"**合約機器人開著自動下單時，每一個監聽標的都會真的在使用者的幣安帳戶上各自開倉平倉**——加一個標的就是多一個會真的下單的標的"
 
 const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEnabled（自動下單：true 開、false 關）**，現貨與合約機器人都有。" +
 	autoOrderReallyTradesNote + "關著的機器人每一輪只判信號、只送 Telegram 通知。" +
@@ -133,7 +153,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
 			"trading_create_strategy_bot",
-			"建立一台策略機器人：讓一份交易策略在一個交易標的上定時自己跑。"+
+			"建立一台策略機器人：讓一份交易策略在 1 到 10 個交易標的（監聽標的）上定時自己跑。"+
 				"\n\n**機器人分兩種，建立當下就定了**：現貨機器人（marketDataKind 不給或 kCandle）引用吃 K 線的交易策略、盯現貨標的；"+
 				"合約機器人（marketDataKind 為 contractKCandle）引用吃合約行情的交易策略、盯合約追蹤名單上的合約標的，"+
 				"每一輪照那份交易策略的交易模式說出做多、做空、平多或平空，並可以在 positionPlan 設槓桿。"+
@@ -147,6 +167,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"的 stopLossPercentage 與 takeProfitPercentage 再重演一次。"+
 				"在那之前，不要拿那個 25% 替這組停損背書。"+
 				"\n\n**新建的機器人自動下單一律是關的**，這裡沒有自動下單這一格。"+
+				strategyBotPerSymbolExposureNote+strategyBotWatchedSymbolsNote+
 				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote+orderFlowReachNote,
 			vo.RequestVerbSubmit, "/strategy-bots",
 			strategyBotWriteParameters()...,
@@ -155,7 +176,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_list_strategy_bots",
 			"列出你的每一台策略機器人，含它現在是不是在跑。"+
 				"每一台都帶著 marketDataKind，看得出它是現貨機器人（kCandle）還是合約機器人（contractKCandle）。"+
-				strategyBotAutoOrderNote,
+				strategyBotWatchedSymbolsNote+strategyBotAutoOrderNote,
 			vo.RequestVerbRead, "/strategy-bots",
 			queryParameter("marketDataKind", vo.ToolParameterKindString,
 				"只列其中一種：kCandle（現貨機器人）或 contractKCandle（合約機器人）。不給就全部列出；其他值會被拒絕", false),
@@ -164,7 +185,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_get_strategy_bot",
 			"讀一台策略機器人的設定與目前狀態，含它吃哪一種行情（marketDataKind）；"+
 				"合約機器人的 positionPlan 另帶著它的槓桿倍數（leverage）。"+
-				strategyBotAutoOrderNote,
+				strategyBotWatchedSymbolsNote+strategyBotAutoOrderNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}",
 			pathParameter("id", "策略機器人識別碼"),
 		),
@@ -176,6 +197,11 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
 				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
 				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
+				"\n\n**symbols 是修改後的完整清單**：只改名字、間隔或部位規劃時也要把原本的標的照抄回去，漏列一個就是把它移除。"+
+				"**移除一個標的被拒時整次修改什麼都不改**：reason 為 watchedSymbolHoldsPosition 是那個標的還有機器人持倉，要先讓它空手才能移除；"+
+				"reason 為 watchedSymbolAutoOrderOutstanding 是那個標的還有沒做完的自動下單，要等它做完才能移除。"+
+				"遇到時照原話告訴使用者，**不要重送同一份**；要改別的設定就把那個標的留在清單裡再送。"+
+				strategyBotPerSymbolExposureNote+strategyBotWatchedSymbolsNote+
 				strategyBotAutoOrderNote+binanceAutoOrderWebOnlyNote+orderFlowReachNote,
 			vo.RequestVerbReplace, "/strategy-bots/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一台")},
@@ -194,15 +220,15 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_start_strategy_bot",
-			"啟動一台策略機器人，它開始按自己的間隔一輪一輪跑。"+
-				strategyBotAutoOrderNote,
+			"啟動一台策略機器人，它開始按自己的間隔一輪一輪跑，每一輪把交易策略套在每一個監聽標的上。"+
+				strategyBotWatchedSymbolsNote+strategyBotAutoOrderNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/power",
 			pathParameter("id", "要啟動哪一台"),
 		),
 		domains.NewApiToolDomain(
 			"trading_stop_strategy_bot",
 			"停掉一台策略機器人。已經跑過的那些輪次紀錄一筆都不刪。停掉不會關掉它的自動下單。"+
-				strategyBotAutoOrderNote,
+				strategyBotWatchedSymbolsNote+strategyBotAutoOrderNote,
 			vo.RequestVerbRemove, "/strategy-bots/{id}/power",
 			pathParameter("id", "要停哪一台"),
 		),
@@ -210,16 +236,21 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_list_strategy_bot_runs",
 			"看一台策略機器人跑過哪幾輪，以及每一輪做了什麼決定。"+
 				"這是它有沒有在做事的唯一證據——只看它「在跑」不代表它有在做決定。"+
+				"\n\n**每一筆紀錄帶著 symbol，說明它是哪一個監聽標的的那一輪**；每一輪每個參與的標的各記一筆。"+
+				"輪次編號（runNumber）在同一台機器人的各標的之間不重複，所以記到交易日誌的「機器人＋第幾輪」照舊指得到唯一一筆。"+
+				"每個標的各記得最近 50 輪；被移除的標的過去的紀錄仍在。使用者只問某一個標的時給 symbol 篩選。"+
 				contractStrategyBotRunDetailsNote+contractAutoOrderResultNote+contractStrategyBotSkippedRoundNote,
 			vo.RequestVerbRead, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要看哪一台"),
+			queryParameter("symbol", vo.ToolParameterKindString,
+				"只看這一個監聽標的的紀錄（大小寫不拘），由新到舊。不給就是全部標的；格式不對會被拒絕", false),
 		),
 		domains.NewApiToolDomain(
 			"trading_run_strategy_bot_now",
 			"叫一台策略機器人立刻跑一輪，不等它的間隔到。"+
 				"\n\n用來在改完交易策略之後馬上看一眼它現在會做什麼決定，而不必等下一輪。"+
 				"回應是這台機器人跑完之後的樣子，不是這一輪的紀錄——跑完用 trading_list_strategy_bot_runs 讀這一輪的紀錄。"+
-				contractStrategyBotSkippedRoundNote+contractAutoOrderResultNote+strategyBotAutoOrderNote,
+				contractStrategyBotSkippedRoundNote+contractAutoOrderResultNote+strategyBotWatchedSymbolsNote+strategyBotAutoOrderNote,
 			vo.RequestVerbSubmit, "/strategy-bots/{id}/runs",
 			pathParameter("id", "要叫哪一台立刻跑"),
 		),

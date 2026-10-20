@@ -14,7 +14,7 @@ func aBotWriteForm(extraBoxes map[string]json.RawMessage) domains.ToolArgumentsD
 	boxes := map[string]json.RawMessage{
 		"id":                     json.RawMessage(`"7"`),
 		"name":                   json.RawMessage(`"BTC 永續五倍"`),
-		"symbol":                 json.RawMessage(`"BTCUSDT"`),
+		"symbols":                json.RawMessage(`["BTCUSDT"]`),
 		"tradingStrategyId":      json.RawMessage(`3`),
 		"triggerIntervalMinutes": json.RawMessage(`15`),
 	}
@@ -50,9 +50,9 @@ func TestWritingAStrategyBotSaysWhichKindItIs(t *testing.T) {
 			assert.NotContains(t, tradingStrategyID.Description, "只能是吃 K 線的交易策略")
 			assert.NotContains(t, tradingStrategyID.Description, "目前只跑 K 線")
 
-			symbol, _ := boxNamed(ability, "symbol")
-			assert.Contains(t, symbol.Description, "必須已經在合約追蹤名單上")
-			assert.Contains(t, symbol.Description, "trading_add_to_contract_watchlist")
+			symbols, _ := boxNamed(ability, "symbols")
+			assert.Contains(t, symbols.Description, "必須已經在合約追蹤名單上")
+			assert.Contains(t, symbols.Description, "trading_add_to_contract_watchlist")
 		})
 	}
 }
@@ -169,7 +169,7 @@ func TestReadingABotsRoundsSaysAContractBotsHoldsMayBeSkippedRounds(t *testing.T
 func TestRemovingAContractFromTheWatchlistWarnsOfTheBotsWatchingIt(t *testing.T) {
 	description := abilityNamed(t, "trading_remove_from_contract_watchlist").Description
 
-	for _, phrase := range []string{"合約機器人會就此失明", "每一輪都會跳過", "trading_list_strategy_bots", "contractKCandle"} {
+	for _, phrase := range []string{"在這個標的上失明", "每一輪都會跳過", "trading_list_strategy_bots", "contractKCandle"} {
 		assert.Contains(t, description, phrase)
 	}
 }
