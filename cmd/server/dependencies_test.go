@@ -152,6 +152,21 @@ func TestTheConnectorInstructionsKeepBinanceTradingKeysAndAutoOrderOnTheWeb(t *t
 	assert.NotContains(t, instructions, "還不會下單")
 }
 
+func TestTheConnectorInstructionsSayItDrawsOnlyAssistantLines(t *testing.T) {
+	assistantSession := assistantSessionOn(t, assembledConnector(t))
+
+	instructions := assistantSession.InitializeResult().Instructions
+	for _, phrase := range []string{
+		"在使用者的 K 線圖上畫線",
+		"畫線只能動助手畫的",
+		"使用者手畫的動不了",
+		"優先用吸附",
+		"回到網頁的看盤工作區（或重新聚焦那一頁）才看得到",
+	} {
+		assert.Contains(t, instructions, phrase)
+	}
+}
+
 func TestTheAssembledConnectorAnswersACallThatCarriesNoSession(t *testing.T) {
 	connectorStandIn := assembledConnector(t)
 	callWithoutSession := func(body string) *http.Response {
