@@ -101,7 +101,7 @@ claude mcp add --scope user --transport http go-trading http://localhost:8090/mc
 
 > 「BTCUSDT 最近一天每小時的形狀？」
 > 「把我那支布林通道在台積電上用 1 小時刻度回測 2026 年，起始資金 100 萬。」
-> 「幫我開一台機器人，每 15 分鐘跑一次那份交易策略。」
+> 「幫我開一台機器人，每 15 分鐘在 BTC、ETH、SOL 上跑一次那份交易策略。」
 > 「同一段再跑一次，這次停損放 2%，差很多嗎？」
 > 「BTCUSDT 永續這兩天的資金費率是正還是負？大戶偏多還是偏空？」
 
@@ -237,7 +237,7 @@ curl localhost:8090/health   # {"status":"Healthy"}
 策略機器人也多了一格 **`marketDataKind`**：`kCandle`（**現貨機器人**，建立時不給就是它）或 `contractKCandle`（**合約機器人**）。
 與策略腳本、交易策略同一條規則：**修改時不給就是保留原本的、建立後不得更換**，外掛不給就不送。
 
-- 現貨機器人只引用吃 K 線的交易策略；合約機器人只引用吃合約行情的交易策略，盯的合約標的**必須已在合約追蹤名單上**。
+- 現貨機器人只引用吃 K 線的交易策略；合約機器人只引用吃合約行情的交易策略，盯的每一個合約標的**都必須已在合約追蹤名單上**。
 - 合約機器人的 `positionPlan` 多收 **`leverage`**（不給即一倍）；現貨機器人給大於一倍照舊被拒絕。
   說明裡的形狀範例刻意不含 `leverage`——助理會照抄範例，現貨機器人抄到它就會被拒絕。
 - `trading_list_strategy_bots` 可帶 `marketDataKind` 只列一種。
@@ -246,6 +246,19 @@ curl localhost:8090/health   # {"status":"Healthy"}
   說明照交易服務的規則寫，外掛不算任何一個數字。
 - 合約機器人的執行紀錄多帶 `suggestedDirection`、`suggestedLeverage`、`suggestedNotional`（只在有建議的那一輪；現貨沒有），
   外掛原樣轉交，讀輪次的兩個能力說明裡寫出它們的意思。
+
+### 一台機器人盯多個交易標的
+
+一台策略機器人把同一份交易策略同時套在 1–10 個**監聽標的**上，每個標的各自判斷、各自送訊息、各自自動下單、各自記執行紀錄。
+
+- 建立與修改機器人宣告 **`symbols`**（字串陣列、必填），不再宣告單一的 `symbol`——助理填了舊的那一格也不會送出。
+  數量、重複（大小寫不拘）、追蹤名單、槓桿上限一律由交易服務判斷，外掛原樣轉送。
+- **修改時 `symbols` 是完整清單**：留下的保留狀態、新加的空白、沒列的移除；說明要助理只改別的設定時也照抄原本的標的。
+  移除還有機器人持倉或沒做完自動下單的標的時，交易服務以 409、`reason` 為 `watchedSymbolHoldsPosition`／`watchedSymbolAutoOrderOutstanding` 整次拒絕，原樣轉交。
+- 回覆機器人的七件能力說明 **`watchedSymbols`**（每個標的的 `lastSentSignal`、`conflicting`、`haltReason`，合約另有 `autoOrderPosition`），
+  以及機器人上的 `haltReason` 是**整台停擺**、標的上的是**標的停擺**（其他標的照常）。
+- 建立與修改的說明講清楚**每個標的各自照整份部位規劃算**（總曝險最多 N 倍）、合約機器人開著自動下單時每個標的都會真的下單。
+- **`trading_list_strategy_bot_runs`** 多一格可選的查詢 `symbol` 只看一個標的；每一筆紀錄帶 `symbol`，輪次編號跨標的不重複。
 
 ### 合約重演與合約交易策略
 
