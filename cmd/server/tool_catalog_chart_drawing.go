@@ -28,7 +28,7 @@ func chartDrawingApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_get_chart_drawings",
 			"看使用者在一個市場、一個交易標的上的**繪圖板**：回覆 market、symbol、revision（版本，每改一次前進一格）與 drawings。"+
-				"每一個繪圖帶 id（編號）、kind、anchors（openTime 是那一根 K 線的起始時間、price 是十進位字串）、color、lineWidth、lineStyle、locked、visible，"+
+				"每一個繪圖帶 id（編號）、kind、anchors（openTime 是那一根 K 線的起始時間——奇異筆例外，見下方；price 是十進位字串）、color、lineWidth、lineStyle、locked、visible，"+
 				"以及 source：manual（使用者手畫）或 assistant（助手畫的）。**從沒畫過的繪圖板回 revision 0、drawings 是空的**，不是錯誤。"+
 				"\n\n**畫線之前先讀一次**，別重複畫已經有的線；要移除助手畫的線時，從這裡找出 source 是 assistant 的編號。"+
 				chartDrawingBrushNote+
