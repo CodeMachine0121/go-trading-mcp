@@ -100,6 +100,9 @@ func TestAddingDrawingsHandsTheIntervalAndEveryDrawingOverUntouched(t *testing.T
 		{name: "twenty drawings at once", interval: `"1h"`, drawings: "[" + strings.Join(twentyDrawings, ",") + "]"},
 		{name: "an anchor off the candle start the trading service will refuse", interval: `"1h"`,
 			drawings: `[{"kind":"horizontalLine","anchors":[{"openTime":"2026-10-19T08:30:00Z","snapTo":"low"}]}]`},
+		{name: "a brush the trading service will refuse", interval: `"1h"`,
+			drawings: `[{"kind":"brush","anchors":[{"openTime":"2026-10-19T08:37:12Z","price":"61200.5"},` +
+				`{"openTime":"2026-10-19T08:41:05Z","price":"61250"}]}]`},
 		{name: "a trend line priced by number", interval: `"4h"`,
 			drawings: `[{"kind":"trendLine","anchors":[{"openTime":"2026-10-18T00:00:00Z","price":60000},` +
 				`{"openTime":"2026-10-19T04:00:00Z","price":"63000"}]}]`},
@@ -181,6 +184,7 @@ func TestChartDrawingAbilitiesTeachTheAssistantToDrawOnlyItsOwnLines(t *testing.
 	}{
 		{"trading_get_chart_drawings", []string{
 			"revision 0", "manual", "assistant", "畫線之前先讀一次", "手畫的（source 是 manual）動不了", "不要改用別的辦法去刪",
+			"kind 是 brush", "一連串點", "openTime 不一定是 K 線的起始時間",
 		}},
 		{"trading_add_chart_drawings", []string{
 			"trading_get_k_candle_series", "trading_get_contract_k_candle_series", "interval 給與這次相同的刻度", "不要用 displayableCandleCount",
@@ -188,6 +192,7 @@ func TestChartDrawingAbilitiesTeachTheAssistantToDrawOnlyItsOwnLines(t *testing.
 			"最多 200 個、一次最多 20 個", "還剩幾個空位", "照它說的改一改再送，不要原樣重送",
 			"不必先問使用者確認", "回到網頁的看盤工作區（或重新聚焦那一頁）", "手畫的（source 是 manual）動不了",
 			"沒有任何能力可以移動、改色、鎖定",
+			"奇異筆（brush）不能畫", "只能由使用者手畫，助手不能新增", "整批拒絕", "請他自己在網頁上畫",
 		}},
 		{"trading_remove_chart_drawings", []string{
 			"不給 ids 即移除這份繪圖板上助手畫的全部", "整次拒絕、一個都不刪", "這份繪圖板上沒有的編號也整次拒絕", "移除了 0 個",
@@ -228,6 +233,7 @@ func TestAddingDrawingsSpellsOutEveryAllowedValue(t *testing.T) {
 		"snapTo", "open／high／low／close", "price",
 		"red", "orange", "yellow", "green", "teal", "cyan", "blue", "indigo", "purple", "pink", "gray", "silver",
 		"1 到 4", "solid", "dashed", "dotted", "省略即照那一種繪圖的預設樣式", "1 到 20 個",
+		"brush（奇異筆）只能由使用者手畫，不能新增",
 	} {
 		assert.Contains(t, drawingsBox.Description, allowed)
 	}

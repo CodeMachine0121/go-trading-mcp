@@ -9,6 +9,10 @@ const chartDrawingAssistantOnlyNote = "\n\n**只能動助手畫的**：這個外
 	"**使用者手畫的（source 是 manual）動不了**，也沒有任何能力可以移動、改色、鎖定任何一個繪圖——包括助手自己畫的，要改就移除再畫。" +
 	"使用者要改或刪他手畫的線時，請他自己在網頁的看盤工作區上動，**不要改用別的辦法去刪**。"
 
+const chartDrawingBrushNote = "\n\n**奇異筆（kind 是 brush）**：使用者按住拖曳畫的自由曲線，只會是手畫的。" +
+	"它的 anchors 是沿筆跡的一連串點（2 到 200 個），**openTime 不一定是 K 線的起始時間**（可能落在兩根 K 線之間），" +
+	"不要把它的點當成 K 線起始時間拿去畫線。"
+
 const chartDrawingSeeItOnTheWebNote = "\n\n**畫完要告訴使用者**：回到網頁的看盤工作區（或重新聚焦那一頁）才看得到新畫的線，畫面不會自己跳出來。"
 
 func chartDrawingBoardParameters() []vo.ToolParameterVo {
@@ -27,6 +31,7 @@ func chartDrawingApiTools() []domains.ApiToolDomain {
 				"每一個繪圖帶 id（編號）、kind、anchors（openTime 是那一根 K 線的起始時間、price 是十進位字串）、color、lineWidth、lineStyle、locked、visible，"+
 				"以及 source：manual（使用者手畫）或 assistant（助手畫的）。**從沒畫過的繪圖板回 revision 0、drawings 是空的**，不是錯誤。"+
 				"\n\n**畫線之前先讀一次**，別重複畫已經有的線；要移除助手畫的線時，從這裡找出 source 是 assistant 的編號。"+
+				chartDrawingBrushNote+
 				chartDrawingAssistantOnlyNote,
 			vo.RequestVerbRead, "/users/me/chart-drawings/{market}/{symbol}",
 			chartDrawingBoardParameters()...,
@@ -43,6 +48,8 @@ func chartDrawingApiTools() []domains.ApiToolDomain {
 				"（一小時刻度 08:30 不是起始時間、還沒走到的未來沒有 K 線、台股週末沒有 K 線）。"+
 				"\n\n**價格優先用吸附**：錨點給 snapTo（open／high／low／close）就由交易服務取那一根的開高低收（現貨板取現貨 K 線、合約板取合約 K 線），"+
 				"免得畫在編造的價位；真的要畫在不是開高低收的價位才給 price。**price 與 snapTo 一定要給其中一個、不能兩個都給**。"+
+				"\n\n**奇異筆（brush）不能畫**：奇異筆只能由使用者手畫，助手不能新增；送了交易服務會整批拒絕。"+
+				"使用者要你用奇異筆圈出什麼時，改用可畫的種類（例如 rectangle 矩形），或請他自己在網頁上畫。"+
 				"\n\n**上限**：一份繪圖板最多 200 個、一次最多 20 個；超過整批拒絕，拒絕會說還剩幾個空位。"+
 				"\n\n被拒時拒絕會指出第幾個繪圖第幾個錨點、為什麼——**照它說的改一改再送，不要原樣重送**；整批被拒時一個都沒畫上去。"+
 				chartDrawingAssistantOnlyNote+
@@ -57,6 +64,7 @@ func chartDrawingApiTools() []domains.ApiToolDomain {
 						"\"color\":\"red\", \"lineWidth\":2, \"lineStyle\":\"dashed\"}。"+
 						"\n\nkind 與它要的錨點數：trendLine（趨勢線）、ray（射線）、fibonacciRetracement（斐波那契回撤）、rectangle（矩形）、"+
 						"dateAndPriceRange（日期與價格範圍）各 **2 個**；horizontalLine（水平線）、horizontalRay（水平射線）、verticalLine（垂直線）各 **1 個**。"+
+						"brush（奇異筆）只能由使用者手畫，不能新增。"+
 						"\n\n每一個錨點：openTime（RFC3339，那一根 K 線的起始時間）加上 snapTo（open／high／low／close，優先用）或 price（大於零，字串或數字）二選一。"+
 						"\n\n樣式都可以省略，省略即照那一種繪圖的預設樣式：color 十二選一——red、orange、yellow、green、teal、cyan、blue、indigo、purple、pink、gray、silver；"+
 						"lineWidth 是 1 到 4 的整數；lineStyle 三選一——solid（實線）、dashed（虛線）、dotted（點線）。"+
