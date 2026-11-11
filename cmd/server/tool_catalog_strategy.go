@@ -20,9 +20,8 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				strategyScriptUsageNote+
 				contractKCandleScriptNote,
 			vo.RequestVerbSubmit, "/strategy-scripts",
-			append(strategyScriptWriteParameters(), strategyScriptUsageParameter(
-				"這支腳本的用途，二選一：chart（圖表用）或 calculation（計算用）。"+
-					"**不給就是 calculation**；其他值會被拒絕", false))...,
+			append(strategyScriptWriteParameters(),
+				strategyScriptUsageParameter("**不給就是 calculation**；", false))...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts",
@@ -100,7 +99,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				strategyScriptUsageNote,
 			vo.RequestVerbReplace, "/strategy-scripts/{id}/usage",
 			pathParameter("id", "要切換哪一支"),
-			strategyScriptUsageParameter("要切成哪一種用途，二選一：chart（圖表用）或 calculation（計算用）。其他值會被拒絕", true),
+			strategyScriptUsageParameter("", true),
 		),
 	}
 }

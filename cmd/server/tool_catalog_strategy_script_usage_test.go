@@ -201,3 +201,23 @@ func TestBothIndicatorCalculationsSayEitherUsageCalculates(t *testing.T) {
 		})
 	}
 }
+
+// Both boxes that take a usage spell the same two, and only the switch insists on one.
+func TestEveryUsageBoxSpellsTheSameTwoUsages(t *testing.T) {
+	for _, testCase := range []struct {
+		abilityName string
+		isRequired  bool
+	}{
+		{abilityName: "trading_create_strategy_script", isRequired: false},
+		{abilityName: "trading_switch_strategy_script_usage", isRequired: true},
+	} {
+		t.Run(testCase.abilityName, func(t *testing.T) {
+			usage, isDeclared := boxNamed(abilityNamed(t, testCase.abilityName), "usage")
+
+			require.True(t, isDeclared)
+			assert.Equal(t, testCase.isRequired, usage.IsRequired)
+			assert.Contains(t, usage.Description, "二選一：chart（圖表用）或 calculation（計算用）")
+			assert.Contains(t, usage.Description, "其他值會被拒絕")
+		})
+	}
+}
