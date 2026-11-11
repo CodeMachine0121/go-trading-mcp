@@ -181,7 +181,7 @@ func TestEveryStrategyScriptReadSaysItCarriesTheKind(t *testing.T) {
 		mustSay     string
 	}{
 		{abilityName: "trading_list_strategy_scripts", mustSay: "每一支都帶著 marketDataKind"},
-		{abilityName: "trading_get_strategy_script", mustSay: "以及它吃哪一種行情（marketDataKind）"},
+		{abilityName: "trading_get_strategy_script", mustSay: "它吃哪一種行情（marketDataKind）"},
 		{abilityName: "trading_browse_marketplace", mustSay: "每一支都帶著 marketDataKind"},
 	}
 

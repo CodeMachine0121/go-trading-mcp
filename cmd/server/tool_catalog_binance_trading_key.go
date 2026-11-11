@@ -15,6 +15,13 @@ const autoOrderReallyTradesNote = "提到自動下單時要說清楚：**合約�
 	"開倉掛一張有上限的限價進場單（價格不超過參考價 ± 那台機器人的進場滑價容忍度）、平倉立刻以市場價成交，並掛上止損止盈；" +
 	"現貨機器人開著目前仍不下單。"
 
+// tradingDirectionNeedsAutoOrderOffNote is said by the instructions and by rewriting a bot: the trading service refuses
+// a direction change while the bot's auto order is on, and turning it off is web-only, so this connector can never
+// change the direction of a bot trading real money.
+const tradingDirectionNeedsAutoOrderOffNote = "\n\n**自動下單開著的合約機器人，這個外掛改不了它的交易方向**：交易服務只在自動下單關著時才讓人改方向，" +
+	"而關掉自動下單只能由使用者自己在網頁上那台機器人的詳細頁做。被拒時告訴使用者先到網頁關掉自動下單、再回來改方向，**不要重送同一份**。" +
+	"結論通知不受這個限制，這個外掛改得動"
+
 // Deliberately only the status view: every other trading key route and the auto-order switch accept web sign-in only.
 func binanceTradingKeyApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{

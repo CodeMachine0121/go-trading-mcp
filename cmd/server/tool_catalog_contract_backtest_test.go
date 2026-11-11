@@ -77,42 +77,59 @@ func TestTheContractReplaysHoldBackAMissingSymbol(t *testing.T) {
 	}
 }
 
-// A contract trading strategy replay goes under the trading strategy it replays, and
-// has no trading mode to give: the trading strategy says its own.
-func TestTheContractTradingStrategyReplayTakesNoTradingMode(t *testing.T) {
+// A contract trading strategy replay goes under the trading strategy it replays, and is
+// told its trading mode by the run: a trading strategy no longer says its own direction.
+func TestTheContractTradingStrategyReplayIsToldItsTradingModeByTheRun(t *testing.T) {
 	ability := abilityNamed(t, "trading_backtest_contract_trading_strategy")
 	_, isDeclared := boxNamed(ability, "tradingMode")
-	assert.False(t, isDeclared)
-	assert.Contains(t, ability.Description, "都取自那份交易策略本身")
-	assert.Contains(t, ability.Description, "沒有 tradingMode 那一格")
-	assert.Contains(t, ability.Description, "trading_update_trading_strategy")
+	assert.True(t, isDeclared)
+	for _, phrase := range []string{
+		"交易方向不在交易策略身上，由這一次說", "**交易模式（tradingMode）由這一次說**",
+		"longShort（不給即是，多空反手）", "成績單記著這一次用的交易模式",
+	} {
+		assert.Contains(t, ability.Description, phrase)
+	}
+	assert.NotContains(t, ability.Description, "沒有 tradingMode 那一格")
+	assert.NotContains(t, ability.Description, "要換交易模式請用 trading_update_trading_strategy")
 
-	request, buildError := apiToolNamed(t, "trading_backtest_contract_trading_strategy").
-		BuildRequest(domains.NewToolArgumentsDomain(map[string]json.RawMessage{
-			"id":             json.RawMessage(`"11"`),
-			"symbol":         json.RawMessage(`"BTCUSDT"`),
-			"startTime":      json.RawMessage(`"2026-08-01T00:00:00Z"`),
-			"endTime":        json.RawMessage(`"2026-09-01T00:00:00Z"`),
-			"initialCapital": json.RawMessage(`"10000"`),
-			"leverage":       json.RawMessage(`"3"`),
-			"tradingMode":    json.RawMessage(`"shortOnly"`),
-		}))
+	form := map[string]json.RawMessage{
+		"id":             json.RawMessage(`"11"`),
+		"symbol":         json.RawMessage(`"BTCUSDT"`),
+		"startTime":      json.RawMessage(`"2026-08-01T00:00:00Z"`),
+		"endTime":        json.RawMessage(`"2026-09-01T00:00:00Z"`),
+		"initialCapital": json.RawMessage(`"10000"`),
+		"leverage":       json.RawMessage(`"3"`),
+	}
+	leftOutRequest, leftOutError := apiToolNamed(t, "trading_backtest_contract_trading_strategy").
+		BuildRequest(domains.NewToolArgumentsDomain(form))
+	require.NoError(t, leftOutError)
+	assert.Equal(t, "/trading-strategies/11/contract-backtests", leftOutRequest.Path)
+	assert.Contains(t, string(leftOutRequest.Body), `"leverage":"3"`)
+	// Left out, the trading service replays long and short; the connector fills nothing in.
+	assert.NotContains(t, string(leftOutRequest.Body), "tradingMode")
 
-	require.NoError(t, buildError)
-	assert.Equal(t, "/trading-strategies/11/contract-backtests", request.Path)
-	assert.Contains(t, string(request.Body), `"leverage":"3"`)
-	// A mode the assistant sends anyway is dropped rather than forwarded to be refused.
-	assert.NotContains(t, string(request.Body), "tradingMode")
+	form["tradingMode"] = json.RawMessage(`"shortOnly"`)
+	givenRequest, givenError := apiToolNamed(t, "trading_backtest_contract_trading_strategy").
+		BuildRequest(domains.NewToolArgumentsDomain(form))
+	require.NoError(t, givenError)
+	assert.Contains(t, string(givenRequest.Body), `"tradingMode":"shortOnly"`)
 }
 
-// The script replay's trading mode names all three spellings and says spot is not one.
-func TestTheContractScriptReplayOffersTheThreeTradingModes(t *testing.T) {
-	tradingMode, isDeclared := boxNamed(
-		abilityNamed(t, "trading_backtest_contract_strategy_script"), "tradingMode")
-	require.True(t, isDeclared)
+// Both contract replays' trading mode names all three spellings and says spot is not one.
+func TestBothContractReplaysOfferTheThreeTradingModes(t *testing.T) {
+	for _, abilityName := range []string{
+		"trading_backtest_contract_strategy_script",
+		"trading_backtest_contract_trading_strategy",
+	} {
+		t.Run(abilityName, func(t *testing.T) {
+			tradingMode, isDeclared := boxNamed(abilityNamed(t, abilityName), "tradingMode")
+			require.True(t, isDeclared)
+			assert.False(t, tradingMode.IsRequired)
 
-	for _, spelling := range []string{"longShort", "longOnly", "shortOnly", "spot"} {
-		assert.Contains(t, tradingMode.Description, spelling)
+			for _, spelling := range []string{"longShort", "longOnly", "shortOnly", "spot"} {
+				assert.Contains(t, tradingMode.Description, spelling)
+			}
+		})
 	}
 }
 
@@ -182,9 +199,10 @@ func TestTheSpotReplaysTakeNoneOfTheContractBoxes(t *testing.T) {
 	}
 }
 
-// Writing a trading strategy says which market it eats and, for a contract one, its
-// trading mode — and forwards only what was said.
-func TestWritingATradingStrategySaysItsKindAndTradingMode(t *testing.T) {
+// Writing a trading strategy says which market it eats and offers no trading mode: the
+// trading service refuses a whole write that carries one, so a mode the assistant sends
+// anyway is dropped rather than forwarded to be refused.
+func TestWritingATradingStrategySaysItsKindAndOffersNoTradingMode(t *testing.T) {
 	for _, abilityName := range []string{
 		"trading_create_trading_strategy",
 		"trading_update_trading_strategy",
@@ -198,11 +216,8 @@ func TestWritingATradingStrategySaysItsKindAndTradingMode(t *testing.T) {
 				assert.Contains(t, marketDataKind.Description, phrase)
 			}
 
-			tradingMode, isDeclared := boxNamed(ability, "tradingMode")
-			require.True(t, isDeclared)
-			for _, phrase := range []string{"只有吃合約行情的交易策略才有", "longShort", "longOnly", "shortOnly", "吃 K 線的交易策略沒有交易模式"} {
-				assert.Contains(t, tradingMode.Description, phrase)
-			}
+			_, isDeclared = boxNamed(ability, "tradingMode")
+			assert.False(t, isDeclared, "交易策略不再有交易模式，這一格在助理就會填")
 		})
 	}
 
@@ -216,7 +231,7 @@ func TestWritingATradingStrategySaysItsKindAndTradingMode(t *testing.T) {
 			"tradingMode":   json.RawMessage(`"longOnly"`),
 		}))
 	require.NoError(t, buildError)
-	assert.Contains(t, string(request.Body), `"tradingMode":"longOnly"`)
+	assert.NotContains(t, string(request.Body), "tradingMode")
 	assert.NotContains(t, string(request.Body), "marketDataKind")
 }
 
@@ -231,14 +246,14 @@ func TestTheContractReplaysSayWhatTheyRefuseAndWhereItGoes(t *testing.T) {
 	assert.Contains(t, strategyReplay, "吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy")
 }
 
-// A rewrite of a contract trading strategy that leaves the trading mode out keeps the
-// mode it was saved with, and the rewrite ability says so, so a rename does not carry
-// a mode the assistant had to go and read first.
-func TestRewritingATradingStrategySaysTheTradingModeIsKept(t *testing.T) {
+// A rewrite keeps only the market kind when it is left out; the trading mode is no longer
+// one of the exceptions, because it is no longer there at all.
+func TestRewritingATradingStrategySaysOnlyTheKindIsKept(t *testing.T) {
 	description := abilityNamed(t, "trading_update_trading_strategy").Description
 
-	assert.Contains(t, description, "例外是 marketDataKind 與 tradingMode**：不給就是保留原本的")
-	assert.NotContains(t, description, "不給就回到 longShort")
+	assert.Contains(t, description, "例外是 marketDataKind**：不給就是保留原本的")
+	assert.NotContains(t, description, "與 tradingMode")
+	assert.NotContains(t, description, "可以換交易模式")
 }
 
 // Sources may read different intervals, and an assistant reading the replay's interval or warm-up

@@ -83,7 +83,7 @@ func TestWritingAStrategyBotForwardsTheKindOnlyWhenGiven(t *testing.T) {
 func TestRewritingAStrategyBotSaysTheKindIsKept(t *testing.T) {
 	description := abilityNamed(t, "trading_update_strategy_bot").Description
 
-	assert.Contains(t, description, "例外有三樣，不給就是保留原本的**：marketDataKind")
+	assert.Contains(t, description, "例外有五樣，不給就是保留原本的**：marketDataKind")
 	assert.Contains(t, description, "換成另一種會被拒絕")
 }
 

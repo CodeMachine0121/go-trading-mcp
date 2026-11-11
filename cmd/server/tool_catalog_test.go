@@ -66,15 +66,16 @@ var everyAbilityTheTradingServiceOffers = map[string]bool{
 	"trading_calculate_indicator":          true,
 	"trading_calculate_contract_indicator": true,
 	// 策略腳本與市集
-	"trading_create_strategy_script":   true,
-	"trading_list_strategy_scripts":    true,
-	"trading_get_strategy_script":      true,
-	"trading_update_strategy_script":   true,
-	"trading_delete_strategy_script":   true,
-	"trading_publish_strategy_script":  true,
-	"trading_withdraw_strategy_script": true,
-	"trading_browse_marketplace":       true,
-	"trading_adopt_strategy_script":    true,
+	"trading_create_strategy_script":       true,
+	"trading_list_strategy_scripts":        true,
+	"trading_get_strategy_script":          true,
+	"trading_update_strategy_script":       true,
+	"trading_delete_strategy_script":       true,
+	"trading_publish_strategy_script":      true,
+	"trading_withdraw_strategy_script":     true,
+	"trading_browse_marketplace":           true,
+	"trading_adopt_strategy_script":        true,
+	"trading_switch_strategy_script_usage": true,
 	// 交易策略
 	"trading_create_trading_strategy": true,
 	"trading_list_trading_strategies": true,
@@ -268,8 +269,8 @@ func boxNamed(definitionDto dto.ToolDefinitionDto, name string) (dto.ToolParamet
 }
 
 // A spot replay has one set of rules, so neither spot replay offers a box for choosing
-// one. The trading mode lives with contract trading strategies and the contract script
-// replay, which are asserted in their own tests.
+// one. The trading mode lives with both contract replays (and a contract bot says its
+// trading directions instead), which are asserted in their own tests.
 //
 // Asserted as an absence, because a box an assistant can see is a box
 // it will fill in: it would pick a mode, watch the whole call be refused, and try
