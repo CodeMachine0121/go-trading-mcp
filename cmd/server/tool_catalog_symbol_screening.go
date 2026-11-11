@@ -28,7 +28,8 @@ func symbolScreeningProfileWriteParameters() []vo.ToolParameterVo {
 		bodyParameter("name", vo.ToolParameterKindString, "這份篩選設定叫什麼；同一位管理員的設定不可同名", true),
 		bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
 			"要用哪一支策略腳本：必須是**自己的**、吃合約行情（contractKCandle）、產出 signal、"+
-				"**不宣告訂單流價位寬度**（篩選用的行情沒有逐筆成交明細）", true),
+				"**不宣告訂單流價位寬度**（篩選用的行情沒有逐筆成交明細）、"+
+				"**是計算用（usage 為 calculation）**——圖表用的會被拒絕，要用就先以 trading_switch_strategy_script_usage 切成計算用", true),
 		bodyParameter("aggregationInterval", vo.ToolParameterKindString,
 			"看盤間隔，**只能是 4h 或 1d**", true),
 		bodyParameter("parameterValues", vo.ToolParameterKindArray,

@@ -93,6 +93,13 @@ func strategyScriptWriteParameters() []vo.ToolParameterVo {
 	}
 }
 
+// strategyScriptUsageParameter is the one box naming a strategy script's usage, taken by creating a script and by
+// switching one. Rewriting a script deliberately does not take it: the trading service refuses a rewrite carrying a
+// usage, so the box stays off the list the two writes share.
+func strategyScriptUsageParameter(description string, isRequired bool) vo.ToolParameterVo {
+	return bodyParameter("usage", vo.ToolParameterKindString, description, isRequired)
+}
+
 // backtestParameters are the account rules a replay trades by. Shared by replaying a
 // strategy script and replaying a trading strategy.
 //

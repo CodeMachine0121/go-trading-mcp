@@ -15,20 +15,28 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"\n\n**要多粗、要幾根、算到什麼時候都不記在策略腳本身上**——那是每一次執行的事。"+
 				"所以同一支「二十根均線」可以在一小時的刻度上看一次、再在一分鐘的刻度上看一次，不必存成兩支。"+
 				"\n\n**吃哪一種行情（marketDataKind）才是記在它身上的**，而且建立當下就定了、之後不能換。"+
+				"\n\n**它的用途（usage）也記在它身上**：畫在圖上看的建立成 chart，要拿去組交易策略、篩選或回測的建立成 calculation（不給即是）；"+
+				"之後要改用 trading_switch_strategy_script_usage。"+
+				strategyScriptUsageNote+
 				contractKCandleScriptNote,
 			vo.RequestVerbSubmit, "/strategy-scripts",
-			strategyScriptWriteParameters()...,
+			append(strategyScriptWriteParameters(), strategyScriptUsageParameter(
+				"這支腳本的用途，二選一：chart（圖表用）或 calculation（計算用）。"+
+					"**不給就是 calculation**；其他值會被拒絕", false))...,
 		),
 		domains.NewApiToolDomain(
 			"trading_list_strategy_scripts",
 			"列出你用得到的每一支策略腳本：你自己寫的，加上你從市集加入的副本（adopted，看不到算式）。"+
-				"每一支都帶著 marketDataKind——它吃 K 線還是合約行情，決定它能拿去哪一種指標計算。",
+				"每一支都帶著 marketDataKind——它吃 K 線還是合約行情，決定它能拿去哪一種指標計算——"+
+				"以及 usage（用途）。"+
+				strategyScriptUsageNote,
 			vo.RequestVerbRead, "/strategy-scripts",
 		),
 		domains.NewApiToolDomain(
 			"trading_get_strategy_script",
-			"讀一支策略腳本的完整內容，含算式本身、它宣告的旋鈕，以及它吃哪一種行情（marketDataKind）。"+
-				"\n\n讀得到的是你自己的。從市集加入的副本也是你的，但它的算式是作者的，所以讀回來沒有算式。",
+			"讀一支策略腳本的完整內容，含算式本身、它宣告的旋鈕、它吃哪一種行情（marketDataKind）與它的用途（usage）。"+
+				"\n\n讀得到的是你自己的。從市集加入的副本也是你的，但它的算式是作者的，所以讀回來沒有算式。"+
+				strategyScriptUsageNote,
 			vo.RequestVerbRead, "/strategy-scripts/{id}",
 			pathParameter("id", "策略腳本識別碼"),
 		),
@@ -38,6 +46,8 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 				"\n\n**唯一的例外是 marketDataKind**：不給就是保留原本的行情種類，照抄原本的也可以；"+
 				"要換成另一種會被拒絕（行情種類建立後不得更換），要吃另一種請另建一支。"+
 				"\n\n從市集加入的副本改不動——算式是作者的。"+
+				"\n\n**改寫不動它的用途（usage），這裡也沒有那一格**：交易服務在改寫時收到用途會整份拒絕。"+
+				"要改用途請用 trading_switch_strategy_script_usage。"+
 				contractKCandleScriptNote,
 			vo.RequestVerbReplace, "/strategy-scripts/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一支")},
@@ -65,7 +75,7 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 			"trading_browse_marketplace",
 			"瀏覽市集上每一支上架中的策略腳本。列表給的是名字與說明——"+
 				"說明是讀者唯一看得到的東西，算式除了作者，誰都看不到，加入之後也一樣。"+
-				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情。",
+				"每一支都帶著 marketDataKind，看得出它吃 K 線還是合約行情；也帶著 usage，看得出它是圖表用（chart）還是計算用（calculation）。",
 			vo.RequestVerbRead, "/marketplace/strategy-scripts",
 		),
 		domains.NewApiToolDomain(
@@ -73,9 +83,24 @@ func strategyScriptApiTools() []domains.ApiToolDomain {
 			"加入市集上的一支策略腳本：交易服務**複製一份給你**，出現在你用得到的清單裡（adopted），"+
 				"可以拿去計算、回測、組交易策略與機器人。"+
 				"\n\n副本是你的，但看不到算式、改不動、不能再上架；之後作者改寫、下架或刪除原本那一支都**不會影響它**。"+
-				"你已經有同名的策略腳本（包括再加入同一支）時會被拒絕。不要了就用 trading_delete_strategy_script 刪掉副本。",
+				"你已經有同名的策略腳本（包括再加入同一支）時會被拒絕。不要了就用 trading_delete_strategy_script 刪掉副本。"+
+				"\n\n**副本帶著加入當下那一支的用途（usage）**，之後作者切換用途不影響副本；副本的用途是你自己的分類，"+
+				"可以用 trading_switch_strategy_script_usage 切換（算式照樣看不到、改不動）。",
 			vo.RequestVerbSubmit, "/marketplace/strategy-scripts/{id}/adoption",
 			pathParameter("id", "要加入哪一支"),
+		),
+		domains.NewApiToolDomain(
+			"trading_switch_strategy_script_usage",
+			"切換一支**你自己的**策略腳本的用途：chart（圖表用）或 calculation（計算用）。**從市集加入的副本也能切**——"+
+				"副本的算式仍然看不到、改不動，但用途是你自己的分類。回覆是切換後的那一支策略腳本。"+
+				"\n\n**切成 chart 時，這一支正被任何一份交易策略或標的篩選設定用著就會被拒絕**（reason 為 strategyScriptUsageInUse），"+
+				"拒絕的話會說出是哪幾份在用——照原話告訴使用者，請他先把它從那些交易策略或篩選設定換掉，**不要重送同一個切換**。"+
+				"切成 calculation 沒有限制；切成它原本的用途不算失敗，什麼也不變。不是你的（或不存在的）回「找不到」。"+
+				"\n\n**改用途只能用這一件**：trading_update_strategy_script 改寫內容時不能順便改用途。"+
+				strategyScriptUsageNote,
+			vo.RequestVerbReplace, "/strategy-scripts/{id}/usage",
+			pathParameter("id", "要切換哪一支"),
+			strategyScriptUsageParameter("要切成哪一種用途，二選一：chart（圖表用）或 calculation（計算用）。其他值會被拒絕", true),
 		),
 	}
 }
@@ -127,7 +152,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 				"可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
 				"機器人吃的行情必須與交易策略相同，兩種不混用。"+
 				tradingStrategyHasNoDirectionNote+
-				ownStrategyScriptsOnlyNote,
+				ownStrategyScriptsOnlyNote+
+				calculationScriptsOnlyNote,
 			vo.RequestVerbSubmit, "/trading-strategies",
 			tradingStrategyWriteParameters()...,
 		),
@@ -148,7 +174,8 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"\n\n**例外是 marketDataKind**：不給就是保留原本的，換成另一種會被拒絕；只改名字或條件時不必重帶它。"+
 				tradingStrategyHasNoDirectionNote+
-				ownStrategyScriptsOnlyNote,
+				ownStrategyScriptsOnlyNote+
+				calculationScriptsOnlyNote,
 			vo.RequestVerbReplace, "/trading-strategies/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
 				tradingStrategyWriteParameters()...)...,
@@ -170,6 +197,23 @@ const tradingStrategyHasNoDirectionNote = "\n\n**交易策略沒有交易方向*
 	"合約交易策略的回測由那一次說**交易模式**（trading_backtest_contract_trading_strategy 的 tradingMode）。" +
 	"所以**同一份交易策略可以同時養一台做多的機器人和一台做空的機器人**，不必為了方向不同複製一份；" +
 	"使用者說「這份策略只做多」時，把方向設在機器人或回測上"
+
+// strategyScriptUsageNote is how to read a script's usage, said by every ability that answers with one or sets it.
+// It names the chart's indicator picker because that is the one place the usage shows and this connector cannot see:
+// an assistant asked "why is my indicator missing from the chart" would otherwise look at the script and find nothing wrong.
+const strategyScriptUsageNote = "\n\n**用途（usage）二選一**：chart（圖表用，只在網頁的 K 線圖表上呈現與套用）或 calculation（計算用）。" +
+	"**只有計算用的才能當交易策略的信號來源、標的篩選設定的腳本、直接回測指名的腳本**；網頁圖表的指標選單**只列圖表用的**；" +
+	"單純算一次指標兩種都可以。**升級前就有的每一支（含市集副本）一律是計算用**——使用者說「圖表上找不到我寫的指標」時，" +
+	"多半是它還是計算用：徵得同意後用 trading_switch_strategy_script_usage 切成 chart（還有交易策略或篩選設定在用時會被拒絕）"
+
+// calculationScriptsOnlyNote is said on both trading strategy writes, since a signal source naming a chart script is
+// refused on either.
+const calculationScriptsOnlyNote = "\n\n**信號來源只能指名計算用（usage 為 calculation）的策略腳本**；圖表用的會整份被拒絕。" +
+	"要用一支圖表用的腳本當信號來源，先徵得使用者同意、用 trading_switch_strategy_script_usage 切成計算用（它就不再出現在圖表的指標選單裡）"
+
+// calculationScriptToReplayNote is said on the named script of both script replays: only a calculation script replays.
+const calculationScriptToReplayNote = "**指名的必須是計算用（usage 為 calculation）**，圖表用的會被拒絕（要回測就先切成計算用）；" +
+	"自帶一段還沒存的算式不受用途影響"
 
 // ownStrategyScriptsOnlyNote is said on both trading strategy writes, since a signal source naming someone else's
 // script is refused on either.
@@ -334,7 +378,7 @@ func backtestApiTools() []domains.ApiToolDomain {
 			vo.RequestVerbSubmit, "/backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
-					"要重演哪一支既有的策略腳本。與 script 擇一", false),
+					"要重演哪一支既有的策略腳本。與 script 擇一。"+calculationScriptToReplayNote, false),
 			}, backtestParameters()...),
 				bodyParameter("aggregationInterval", vo.ToolParameterKindString,
 					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d", false),
@@ -427,7 +471,7 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 			vo.RequestVerbSubmit, "/contract-backtests",
 			append(append([]vo.ToolParameterVo{
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
-					"要重演哪一支既有的、吃合約行情的策略腳本。與 script 擇一", false),
+					"要重演哪一支既有的、吃合約行情的策略腳本。與 script 擇一。"+calculationScriptToReplayNote, false),
 			}, contractBacktestParameters()...),
 				bodyParameter("aggregationInterval", vo.ToolParameterKindString,
 					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d", false),

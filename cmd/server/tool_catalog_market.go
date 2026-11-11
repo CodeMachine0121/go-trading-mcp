@@ -170,7 +170,7 @@ func tradingSymbolApiTools() []domains.ApiToolDomain {
 func indicatorCalculationParameters() []vo.ToolParameterVo {
 	return []vo.ToolParameterVo{
 		bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
-			"要跑哪一支既有的策略腳本。與 script 擇一", false),
+			"要跑哪一支既有的策略腳本。與 script 擇一。**圖表用、計算用的都能算**——單純算一次指標不看用途", false),
 		bodyParameter("startTime", vo.ToolParameterKindString,
 			"觀察區間的起點（RFC3339 世界標準時間）。這是唯一沒有預設值的欄位", true),
 		bodyParameter("endTime", vo.ToolParameterKindString,
