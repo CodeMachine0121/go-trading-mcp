@@ -111,6 +111,7 @@ func TestWritingAStrategyBotSaysWhatItsDirectionMeansAndWhenItCannotChange(t *te
 				"同一個賣出結論在做多那台是平多、在做空那台是做空",
 				"reason 為 tradingDirectionAutoOrderOn 是**這台機器人的自動下單開著**",
 				"watchedSymbolHoldsPosition／watchedSymbolAutoOrderOutstanding",
+				"照原話說出是哪個標的，要先讓它空手或等它做完",
 				"**交易方向沒變時不受這兩道限制**",
 				"**自動下單開著的合約機器人，這個外掛改不了它的交易方向**",
 				"網頁上那台機器人的詳細頁", "**不要重送同一份**",
