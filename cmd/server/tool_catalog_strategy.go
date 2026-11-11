@@ -103,18 +103,17 @@ func tradingStrategyWriteParameters() []vo.ToolParameterVo {
 				"或群組節點 {\"operator\":\"and\", \"conditions\":[…]}（operator 為 and／or）", true),
 		bodyParameter("sellCondition", vo.ToolParameterKindObject,
 			"什麼時候賣。形狀與 buyCondition 完全相同", true),
-		// Both left blank are forwarded as nothing at all, for the reason the strategy
+		// Left blank it is forwarded as nothing at all, for the reason the strategy
 		// script's own kind is: a blank means the spot K candle on a create and "keep
 		// what is there" on a rewrite, and only the trading service knows which.
+		//
+		// There is no trading mode box: a trading strategy only says buy, sell or hold,
+		// and the trading service refuses the whole write when one arrives. A box here
+		// would be a box the assistant fills in.
 		bodyParameter("marketDataKind", vo.ToolParameterKindString,
 			"這份交易策略的信號吃哪一種行情，二選一：kCandle（現貨 K 線）或 contractKCandle（永續合約的合約行情格）。"+
 				"**建立時不給就是 kCandle**；**修改時不給就是保留原本的**。**建立後不得更換**。"+
 				"**每一個信號來源指名的策略腳本都要吃同一種行情**，混進另一種會整份被拒絕，並說出是哪一個來源", false),
-		bodyParameter("tradingMode", vo.ToolParameterKindString,
-			"**只有吃合約行情的交易策略才有**：它的買賣照哪一種規則讀，三選一——"+
-				"longShort（多空反手：賣出時持多倉就平掉並同一棒反手開空）、"+
-				"longOnly（只做多：賣出只平多倉）、shortOnly（只做空：買入只平空倉）。"+
-				"不給就是 longShort；修改時可以換。**吃 K 線的交易策略沒有交易模式，給了會被拒絕**", false),
 	}
 }
 
@@ -125,8 +124,9 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 			"建立一份交易策略：把幾支策略腳本當成信號來源，再用買賣條件把它們的信號組合成決定。"+
 				"\n\n**它吃哪一種行情（marketDataKind）建立當下就定了**：吃 K 線的拿去 trading_backtest_trading_strategy 重演、"+
 				"可以掛上策略機器人；吃合約行情的拿去 trading_backtest_contract_trading_strategy 重演，"+
-				"並且記著自己的交易模式（tradingMode），可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
+				"可以掛上**合約機器人**（marketDataKind 為 contractKCandle 的策略機器人）。"+
 				"機器人吃的行情必須與交易策略相同，兩種不混用。"+
+				tradingStrategyHasNoDirectionNote+
 				ownStrategyScriptsOnlyNote,
 			vo.RequestVerbSubmit, "/trading-strategies",
 			tradingStrategyWriteParameters()...,
@@ -138,17 +138,16 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 		),
 		domains.NewApiToolDomain(
 			"trading_get_trading_strategy",
-			"讀一份交易策略的完整內容，含信號來源、兩個條件樹、它吃哪一種行情（marketDataKind），"+
-				"吃合約行情的另外帶著它的交易模式（tradingMode）。",
+			"讀一份交易策略的完整內容，含信號來源、兩個條件樹與它吃哪一種行情（marketDataKind）。"+
+				tradingStrategyHasNoDirectionNote,
 			vo.RequestVerbRead, "/trading-strategies/{id}",
 			pathParameter("id", "交易策略識別碼"),
 		),
 		domains.NewApiToolDomain(
 			"trading_update_trading_strategy",
 			"改一份你自己的交易策略。這是整份改寫：沒帶到的欄位會變成空的。"+
-				"\n\n**例外是 marketDataKind 與 tradingMode**：不給就是保留原本的。"+
-				"marketDataKind 換成另一種會被拒絕；吃合約行情的那一種可以換交易模式（tradingMode），"+
-				"只改名字或條件時不必重帶它。"+
+				"\n\n**例外是 marketDataKind**：不給就是保留原本的，換成另一種會被拒絕；只改名字或條件時不必重帶它。"+
+				tradingStrategyHasNoDirectionNote+
 				ownStrategyScriptsOnlyNote,
 			vo.RequestVerbReplace, "/trading-strategies/{id}",
 			append([]vo.ToolParameterVo{pathParameter("id", "要改哪一份")},
@@ -162,6 +161,15 @@ func tradingStrategyApiTools() []domains.ApiToolDomain {
 		),
 	}
 }
+
+// tradingStrategyHasNoDirectionNote is said on every ability that writes or reads a trading strategy, since an
+// assistant remembering the old trading mode would otherwise put it back and have the whole write refused.
+const tradingStrategyHasNoDirectionNote = "\n\n**交易策略沒有交易方向**：它只回答每一棒是買入、賣出還是持有，不記著做多、做空或多空反手，讀回來也沒有交易模式。" +
+	"**建立或修改時送 tradingMode 會整份被拒絕**——方向改由用它的那一方決定：" +
+	"合約機器人在自己身上選**交易方向**（trading_create_strategy_bot／trading_update_strategy_bot 的 tradingDirections），" +
+	"合約交易策略的回測由那一次說**交易模式**（trading_backtest_contract_trading_strategy 的 tradingMode）。" +
+	"所以**同一份交易策略可以同時養一台做多的機器人和一台做空的機器人**，不必為了方向不同複製一份；" +
+	"使用者說「這份策略只做多」時，把方向設在機器人或回測上"
 
 // ownStrategyScriptsOnlyNote is said on both trading strategy writes, since a signal source naming someone else's
 // script is refused on either.
@@ -362,10 +370,13 @@ func backtestApiTools() []domains.ApiToolDomain {
 //
 // It is the spot list and two more boxes, not a copy of it: everything a spot replay is
 // told a contract replay is told in the same words, because the trading service reads
-// them by the same rules. The trading mode is not here — only the script replay has one
-// to give, since a contract trading strategy says its own.
+// them by the same rules. The trading mode is here too: a trading strategy no longer
+// says its own direction, so both contract replays are told it by the run.
 func contractBacktestParameters() []vo.ToolParameterVo {
 	return append(backtestParameters(),
+		bodyParameter("tradingMode", vo.ToolParameterKindString,
+			"這一次照哪一種規則交易：longShort（不給即是；買入開多或把空倉反手成多、賣出開空或把多倉反手成空）、"+
+				"longOnly（只做多，賣出只平倉）、shortOnly（只做空，買入只平倉）。其他值（含 spot）會被拒絕", false),
 		bodyParameter("leverage", vo.ToolParameterKindString,
 			"槓桿倍數（字串形式的精確小數）：名目 ＝ 押下去的保證金 × 這個倍數。"+
 				"**不給或 0 就是一倍**——合約帳戶上的一倍仍然是一筆合約部位，做空一倍一樣會在價格翻倍時被強制平倉。"+
@@ -393,6 +404,10 @@ const contractAccountReplayNote = "\n\n**這是在逐倉合約帳戶上重演**�
 	"\n\n**會被拒絕的情況**：這個合約標的還沒有交易規格（要先加入合約追蹤名單）；槓桿小於一或超過上限；滑點為負或超過 100；另外指定 maintenanceMarginRate（它由分級決定）；湊不出兩格。" +
 	"\n\n**多空反手一旦進場就一直在場內**，只有止損、止盈或強平能讓它回到空手——使用者想要「平掉但不反手」時，請他改用 longOnly 或 shortOnly。"
 
+// contractTradingModeNote is what both contract replays say about the trading mode the run is told.
+const contractTradingModeNote = "\n\n**交易模式（tradingMode）由這一次說**，三選一：longShort（不給即是，多空反手）、longOnly（只做多）、shortOnly（只做空）；" +
+	"成績單記著這一次用的交易模式。**沒有 spot 這一種**。"
+
 func contractBacktestApiTools() []domains.ApiToolDomain {
 	return []domains.ApiToolDomain{
 		domains.NewApiToolDomain(
@@ -401,8 +416,8 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				"\n\n**要嘛指名一支既有的策略腳本（strategyScriptId），要嘛自己帶一段算式（script），兩者只能挑一個。**"+
 				"指名的那一支必須吃合約行情（marketDataKind 為 contractKCandle），吃 K 線的會被拒絕，那一支要用 trading_backtest_strategy_script。"+
 				"重演一律以 signal 執行，算式收 []indicator.ContractKCandle、回 indicator.Signal。"+
-				"\n\n**交易模式（tradingMode）由這一次說**，三選一：longShort（預設，多空反手）、longOnly（只做多）、shortOnly（只做空）；"+
-				"**沒有 spot 這一種**——現貨的事用 trading_backtest_strategy_script。"+
+				contractTradingModeNote+
+				"現貨的事用 trading_backtest_strategy_script。"+
 				costedReportCardNote+
 				contractAccountReplayNote+
 				shortTermReplayNote+
@@ -414,9 +429,6 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 				bodyParameter("strategyScriptId", vo.ToolParameterKindInteger,
 					"要重演哪一支既有的、吃合約行情的策略腳本。與 script 擇一", false),
 			}, contractBacktestParameters()...),
-				bodyParameter("tradingMode", vo.ToolParameterKindString,
-					"這一次照哪一種規則交易：longShort（不給即是；買入開多或把空倉反手成多、賣出開空或把多倉反手成空）、"+
-						"longOnly（只做多，賣出只平倉）、shortOnly（只做空，買入只平倉）。其他值（含 spot）會被拒絕", false),
 				bodyParameter("aggregationInterval", vo.ToolParameterKindString,
 					"彙總刻度，六選一：1m／5m／15m／1h／4h／1d", false),
 				bodyParameter("script", vo.ToolParameterKindString,
@@ -430,8 +442,8 @@ func contractBacktestApiTools() []domains.ApiToolDomain {
 		domains.NewApiToolDomain(
 			"trading_backtest_contract_trading_strategy",
 			"拿**一份吃合約行情的交易策略**在**合約帳戶**上重演一段已經發生過的永續合約行情。"+
-				"\n\n信號來源、買賣兩個條件、**交易模式**都取自那份交易策略本身，這裡不必也不能再說一次——"+
-				"這一件**沒有 tradingMode 那一格**，要換交易模式請用 trading_update_trading_strategy 改那份交易策略。"+
+				"\n\n信號來源與買賣兩個條件取自那份交易策略本身，這裡不必也不能再說一次；**交易方向不在交易策略身上，由這一次說**。"+
+				contractTradingModeNote+
 				"吃 K 線的交易策略會被拒絕，那一份要用 trading_backtest_trading_strategy。"+
 				"\n\n成績單多一個 conflictedCandleCount：買賣條件同時成立、當作持平的格數。"+
 				costedReportCardNote+

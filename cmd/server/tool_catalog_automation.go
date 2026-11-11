@@ -97,6 +97,19 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 				"**平倉一律立刻以市場價成交，不受它影響**。"+
 				"現貨機器人也帶著這一格、也改得動，但現貨機器人目前不下單，所以沒有作用。"+
 				"跟其他設定一樣，**只有已停止的機器人改得動**", false),
+		// Both arrive as given and are forwarded only when filled in: a blank means the
+		// trading service's default on a create and "keep what is stored" on a rewrite,
+		// so filling a default in on the assistant's behalf would change a bot nobody
+		// asked to change — and, for the direction, get a rename refused while the bot's
+		// auto order is on.
+		bodyParameter("tradingDirections", vo.ToolParameterKindArray,
+			"**只有合約機器人有**：這台機器人的**交易方向**，字串陣列，long（做多）、short（做空）可以兩個都給，例如 [\"long\"]。"+
+				"**至少要一個**，給空陣列會被拒絕；**現貨機器人給了會被拒絕**（現貨只能做多）。"+
+				"**建立時不給就是兩個都選（多空反手）**；**修改時不給就是保留原本的**，只改別的設定時不要帶它", false),
+		bodyParameter("notifications", vo.ToolParameterKindObject,
+			"這台機器人三種結論各要不要寄 Telegram 輪次訊息，形狀 {\"buy\":true, \"sell\":true, \"hold\":false}，三個都可以不給。"+
+				"**建立時沒給的是買入開、賣出開、持有關**；**修改時沒給的維持原本的**——只想關買入通知就只送 {\"buy\":false}。"+
+				"現貨與合約機器人都有", false),
 	}
 }
 
@@ -151,9 +164,38 @@ const strategyBotAutoOrderNote = "\n\n**每一台機器人都帶著 autoOrderEna
 	"\n\n**每一台機器人也帶著 autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，百分點）**：" +
 	"自動下單開倉時，進場單的價格最多比參考價差這麼多（做多最多貴這麼多、做空最多便宜這麼多），一個觸發間隔內沒成交就撤單"
 
-const strategyBotReplyNote = strategyBotWatchedSymbolsNote + strategyBotAutoOrderNote
+// strategyBotDirectionAndNotificationReadNote is how every ability answering with a bot says to read its
+// direction and its three notification switches.
+const strategyBotDirectionAndNotificationReadNote = "\n\n**合約機器人帶著 tradingDirections（交易方向）**：[\"long\"] 只做多、[\"short\"] 只做空、[\"long\",\"short\"] 多空反手；現貨機器人沒有這一格。" +
+	"**每一台機器人都帶著 notifications**（buy 買入通知、sell 賣出通知、hold 持有通知，true 開、false 關）"
 
-const strategyBotWriteNote = strategyBotCapitalAllocationNote + strategyBotReplyNote +
+const strategyBotReplyNote = strategyBotWatchedSymbolsNote + strategyBotAutoOrderNote +
+	strategyBotDirectionAndNotificationReadNote
+
+// strategyBotTradingDirectionNote is what writing a bot says about its trading direction: what buy and sell then
+// mean, and the three things that refuse a change of it — one of which this connector cannot undo.
+const strategyBotTradingDirectionNote = "\n\n**交易方向決定買入、賣出代表什麼**（交易策略只說買入、賣出、持有）：" +
+	"只有做多 → 買入＝做多、賣出＝平多；只有做空 → 賣出＝做空、買入＝平空；兩個都選 → 多空反手（買入做多、手上有空單先平掉；賣出做空、手上有多單先平掉）。" +
+	"輪次訊息的動作詞與自動下單真正送出的委託都照**這台機器人的**交易方向——同一份交易策略可以同時掛一台做多、一台做空的機器人，" +
+	"同一個賣出結論在做多那台是平多、在做空那台是做空。" +
+	"\n\n**改交易方向**除了機器人須已停止，還有兩道限制，被拒時整次修改什麼都不改：" +
+	"reason 為 tradingDirectionAutoOrderOn 是**這台機器人的自動下單開著**；" +
+	"reason 為 watchedSymbolHoldsPosition／watchedSymbolAutoOrderOutstanding 是某個監聽標的還有機器人持倉／還有沒做完的自動下單（照原話說出是哪個標的，要先讓它空手或等它做完）。" +
+	"**交易方向沒變時不受這兩道限制**——只改名字或間隔時不帶 tradingDirections 就好。" +
+	tradingDirectionNeedsAutoOrderOffNote
+
+// strategyBotNotificationNote is what writing a bot says about its three notification switches, chiefly that a
+// switch only silences a message: an assistant reading "buy notification off" as "will not buy" would tell the owner
+// a bot trading real money is idle.
+const strategyBotNotificationNote = "\n\n**結論通知只管寄不寄那一則輪次訊息**：買入或賣出通知關掉時，那個結論**照樣算數**——照樣記成上一次送出的信號、照樣擋掉之後重複的結論、" +
+	"**開著自動下單時照樣下單**，執行紀錄照樣記下；只是不寄訊息。" +
+	"**持有通知**：一個監聽標的的結論回到持有（買入與賣出條件都不成立）、而它前一個結論不是持有時寄一則「回到持有」，接下來連續的持有不再寄；" +
+	"衝突不算持有、也不打斷連續的持有；剛啟動的第一個結論是持有也會寄。「回到持有」那一則**沒有建議部位、不觸發自動下單**，也不改變上一次送出的信號。" +
+	"三個都關也可以：機器人照跑，只是輪次訊息一則都不寄（已啟動、已停止這類機器人自己的動靜照寄）。" +
+	"改通知與改其他設定一樣，機器人須已停止"
+
+const strategyBotWriteNote = strategyBotTradingDirectionNote + strategyBotNotificationNote +
+	strategyBotCapitalAllocationNote + strategyBotReplyNote +
 	binanceAutoOrderWebOnlyNote + orderFlowReachNote
 
 // contractAutoOrderResultNote is what the two abilities that lead to a bot's rounds say about
@@ -179,7 +221,7 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"建立一台策略機器人：讓一份交易策略在 1 到 10 個交易標的（監聽標的）上定時自己跑。"+
 				"\n\n**機器人分兩種，建立當下就定了**：現貨機器人（marketDataKind 不給或 kCandle）引用吃 K 線的交易策略、盯現貨標的；"+
 				"合約機器人（marketDataKind 為 contractKCandle）引用吃合約行情的交易策略、盯合約追蹤名單上的合約標的，"+
-				"每一輪照那份交易策略的交易模式說出做多、做空、平多或平空，並可以在 positionPlan 設槓桿。"+
+				"每一輪照**這台機器人自己的交易方向**（tradingDirections）把買入、賣出說成做多、做空、平多或平空，並可以在 positionPlan 設槓桿。"+
 				"合約機器人的止損止盈要對帳就用 trading_backtest_contract_trading_strategy 重演。"+
 				"\n\n**建立不等於啟動。** 建好之後要用 trading_start_strategy_bot 才會開始跑。"+
 				"\n\n**填了 positionPlan 的機器人會在訊息裡建議止損與止盈價位，"+
@@ -215,8 +257,9 @@ func strategyBotApiTools() []domains.ApiToolDomain {
 			"trading_update_strategy_bot",
 			"改一台你自己的策略機器人。這是整份改寫：沒帶到的欄位會變成空的。"+
 				"**只有已停止的機器人改得動**：在跑的會被拒絕，先用 trading_stop_strategy_bot 停掉、改完再用 trading_start_strategy_bot 啟動。"+
-				"\n\n**例外有三樣，不給就是保留原本的**：marketDataKind（只改名字或間隔時不必重帶它，換成另一種會被拒絕）、"+
+				"\n\n**例外有五樣，不給就是保留原本的**：marketDataKind（只改名字或間隔時不必重帶它，換成另一種會被拒絕）、"+
 				"autoOrderEntrySlippageTolerancePercentage（進場滑價容忍度，不給不會變成 0，也不會回到 0.1）、"+
+				"tradingDirections（交易方向，不給不會回到多空反手）、notifications（結論通知，沒給的那幾個維持原本的）、"+
 				"以及自動下單（這裡沒有那一格，改完維持原本的開或關）。"+
 				"合約機器人的 positionPlan 是整組改寫，沒帶 leverage 就回到一倍。"+
 				"\n\n**positionPlan 整組改寫的唯一例外是 capitalAllocations——不給時不會變成空的**：監聽標的與原本完全相同（順序不論）就**保留原本的分配比例**，"+

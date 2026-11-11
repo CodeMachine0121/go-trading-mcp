@@ -70,7 +70,7 @@ func buildMcpServer(
 			"**幣安交易金鑰與自動下單，這個外掛只讀得到**：機器人回覆裡的 autoOrderEnabled，以及 trading_get_binance_trading_key_status 的有沒有設定與可交易市場。" +
 			autoOrderReallyTradesNote +
 			"機器人的進場滑價容忍度（autoOrderEntrySlippageTolerancePercentage）是機器人設定，這個外掛讀得到也改得動。" +
-			binanceAutoOrderWebOnlyNote + "\n\n" +
+			binanceAutoOrderWebOnlyNote + tradingDirectionNeedsAutoOrderOffNote + "\n\n" +
 			"**畫線只能動助手畫的**：trading_add_chart_drawings 新增、trading_remove_chart_drawings 移除的都只是助手繪圖，" +
 			"使用者手畫的動不了，也不能移動或改色任何一個繪圖。畫之前先讀 K 線找真正的起始時間與高低點、優先用吸附（snapTo）；" +
 			"畫完請使用者回到網頁的看盤工作區（或重新聚焦那一頁）才看得到。",

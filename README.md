@@ -275,14 +275,30 @@ curl localhost:8090/health   # {"status":"Healthy"}
 ### 合約重演與合約交易策略
 
 - **`trading_backtest_contract_strategy_script`**（`POST /contract-backtests`）在**逐倉合約帳戶**上重演一支吃合約行情的策略腳本；
-  條件是現貨重演那一份，加 `leverage`（留白即一倍）、`slippagePercentage`（留白即不計），以及只有這一件有的 `tradingMode`
+  條件是現貨重演那一份，加 `leverage`（留白即一倍）、`slippagePercentage`（留白即不計）與 `tradingMode`
   （`longShort`／`longOnly`／`shortOnly`，留白即多空反手）。
 - **`trading_backtest_contract_trading_strategy`**（`POST /trading-strategies/{id}/contract-backtests`）重演一份合約交易策略；
-  **沒有 `tradingMode` 那一格**——交易模式由那份交易策略自己說。
+  條件與合約腳本重演同一份，**`tradingMode` 也由這一次說**（交易策略不再帶交易模式，留白即多空反手）。
 - 兩件共用一份條件清單（現貨那一份的延伸）與一段合約帳戶說明（`contractAccountReplayNote`）：逐倉、強平看標記價格、
   資金費率一律計入、分級只有今天那一組，以及怎麼讀強平、資金費用、多空分開的勝率、被擋下的開倉。
-- 建立／修改交易策略多了 `marketDataKind`（建立後不得更換、修改不給即保留）與 `tradingMode`（只有合約交易策略有）。
+- 建立／修改交易策略多了 `marketDataKind`（建立後不得更換、修改不給即保留）。**交易策略沒有 `tradingMode`**——
+  交易服務送來即整份拒絕，所以兩件寫入都不宣告這一格（見〈交易方向與結論通知〉）。
 - 現貨重演兩件的說明從「這個服務只重演現貨」改成「這兩件只重演現貨，合約的事改用合約重演」。
+
+### 交易方向與結論通知
+
+交易服務讓交易策略只回答買入、賣出、持有；「買入、賣出代表什麼」改由用它的那一方決定。
+
+- 建立／修改交易策略**不再宣告 `tradingMode`**；三件交易策略能力共用一段說明（`tradingStrategyHasNoDirectionNote`）講方向搬到哪裡，
+  同一份交易策略可以同時養做多與做空的機器人。
+- 建立／修改機器人多兩格，都是**不給就不送**（建立時交易服務套預設、修改時保留）：
+  - **`tradingDirections`**（只有合約機器人）：`["long"]` 只做多（買入做多、賣出平多）、`["short"]` 只做空（賣出做空、買入平空）、兩者即多空反手；至少一個，現貨送來即拒。
+  - **`notifications`**（`{buy, sell, hold}`）：預設買入開、賣出開、持有關；修改時沒給的維持原本的。關掉只是不寄那一則輪次訊息，
+    信號、去重與自動下單照舊；持有通知在回到持有時寄一則「回到持有」。
+- **改交易方向**時自動下單開著即被拒（`tradingDirectionAutoOrderOn`），某個監聽標的還有持倉或沒做完的自動下單也被拒；
+  開關自動下單只能在網頁上，所以**外掛改不了真錢機器人的方向**——修改機器人的說明與伺服器總說明共用一句（`tradingDirectionNeedsAutoOrderOffNote`）。
+- 回覆機器人的七件能力說明 `tradingDirections` 與 `notifications` 的讀法。
+- 標的篩選設定照舊自己帶 `tradingMode`。
 
 ### 短線重演
 
