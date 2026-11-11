@@ -102,12 +102,18 @@ func strategyBotWriteParameters() []vo.ToolParameterVo {
 		// so filling a default in on the assistant's behalf would change a bot nobody
 		// asked to change — and, for the direction, get a rename refused while the bot's
 		// auto order is on.
+		//
+		// Neither box shows a filled-in example, for the reason positionPlan leaves leverage
+		// out of its shape: an assistant copies examples. A copied direction makes a bot
+		// one-sided nobody asked for (or gets a spot bot refused), and a copied complete
+		// notification object resets switches the owner had changed.
 		bodyParameter("tradingDirections", vo.ToolParameterKindArray,
-			"**只有合約機器人有**：這台機器人的**交易方向**，字串陣列，long（做多）、short（做空）可以兩個都給，例如 [\"long\"]。"+
-				"**至少要一個**，給空陣列會被拒絕；**現貨機器人給了會被拒絕**（現貨只能做多）。"+
+			"**只有合約機器人有**：這台機器人的**交易方向**，字串陣列，元素是 long（做多）或 short（做空），可以兩個都給。"+
+				"**使用者說了方向才給**。**至少要一個**，給空陣列會被拒絕；**現貨機器人給了會被拒絕**（現貨只能做多）。"+
 				"**建立時不給就是兩個都選（多空反手）**；**修改時不給就是保留原本的**，只改別的設定時不要帶它", false),
 		bodyParameter("notifications", vo.ToolParameterKindObject,
-			"這台機器人三種結論各要不要寄 Telegram 輪次訊息，形狀 {\"buy\":true, \"sell\":true, \"hold\":false}，三個都可以不給。"+
+			"這台機器人三種結論各要不要寄 Telegram 輪次訊息：一個物件，鍵是 buy（買入）、sell（賣出）、hold（持有），值是 true 或 false，**每個鍵都可以不給**，"+
+				"**只放使用者要改的那幾個**。"+
 				"**建立時沒給的是買入開、賣出開、持有關**；**修改時沒給的維持原本的**——只想關買入通知就只送 {\"buy\":false}。"+
 				"現貨與合約機器人都有", false),
 	}

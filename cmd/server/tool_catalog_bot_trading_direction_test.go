@@ -81,21 +81,31 @@ func TestWritingAStrategyBotDeclaresItsDirectionAndNotifications(t *testing.T) {
 			require.True(t, isDeclared)
 			assert.False(t, tradingDirections.IsRequired)
 			for _, phrase := range []string{
-				"**只有合約機器人有**", "long（做多）、short（做空）", "**至少要一個**，給空陣列會被拒絕",
+				"**只有合約機器人有**", "long（做多）或 short（做空），可以兩個都給", "**至少要一個**，給空陣列會被拒絕",
 				"**現貨機器人給了會被拒絕**", "**建立時不給就是兩個都選（多空反手）**", "**修改時不給就是保留原本的**",
+				"**使用者說了方向才給**",
 			} {
 				assert.Contains(t, tradingDirections.Description, phrase)
 			}
+			// No filled-in direction to copy: copied onto a create it makes a one-sided bot
+			// nobody asked for, or gets a spot bot refused.
+			assert.NotContains(t, tradingDirections.Description, `["long"]`)
+			assert.NotContains(t, tradingDirections.Description, `["short"]`)
 
 			notifications, isDeclared := boxNamed(ability, "notifications")
 			require.True(t, isDeclared)
 			assert.False(t, notifications.IsRequired)
 			for _, phrase := range []string{
-				`{"buy":true, "sell":true, "hold":false}`, "**建立時沒給的是買入開、賣出開、持有關**",
+				"鍵是 buy（買入）、sell（賣出）、hold（持有）", "**只放使用者要改的那幾個**",
+				"**建立時沒給的是買入開、賣出開、持有關**",
 				"**修改時沒給的維持原本的**", `只想關買入通知就只送 {"buy":false}`,
 			} {
 				assert.Contains(t, notifications.Description, phrase)
 			}
+			// No complete filled-in object to copy: copied on a rewrite it would reset
+			// switches the owner had changed.
+			assert.NotContains(t, notifications.Description, `"sell":true`)
+			assert.NotContains(t, notifications.Description, `"hold":false`)
 		})
 	}
 }
